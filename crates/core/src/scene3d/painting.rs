@@ -276,7 +276,7 @@ impl Scene {
 
 /// `set`'s document made to have `structure`'s layers (their ids, order and settings, with its
 /// own pixels): layers new to it start empty, and its undo history goes if the layers changed.
-pub(super) fn follow_layers(set: &mut TextureSet, structure: &Document) {
+pub(crate) fn follow_layers(set: &mut TextureSet, structure: &Document) {
     let ids = |d: &Document| d.layers().iter().map(|l| (l.id, l.kind, l.parent)).collect::<Vec<_>>();
     let changed = ids(&set.doc) != ids(structure);
     let had: Vec<LayerId> = set.doc.layers().iter().map(|l| l.id).collect();
