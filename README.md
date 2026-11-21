@@ -1,177 +1,151 @@
 <p align="center">
-  <img src="assets/app-icon/procraft-1024.png" alt="ProCraft's app icon: a paintbrush in a warm-to-cool blend on a black tile" width="128">
+  <img src="assets/app-icon/procraft-1024.png" alt="ProCraft app icon" width="128">
 </p>
 
-<h1 align="center">ProCraft</h1>
+<h1 align="center">ProCraft (Android Smartphone Edition)</h1>
 
 <p align="center">
-  <b>An open-source painting app for Android smartphones, powered by its own Rust engine and wgpu renderer with a modular Kotlin/Jetpack Compose UI.</b><br>
-  Pressure-sensitive brushes, layers with blend modes, adjustments, selection and transform, animation and 3D painting, written from scratch.
-</p>
-
-<p align="center">
-  <a href="https://github.com/artcraft-android/procraft/releases"><img src="https://raw.githubusercontent.com/Kunzisoft/Github-badge/main/get-it-on-github.png" alt="Get it on GitHub" height="60"></a>
-  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/artcraft-android/procraft"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="60"></a>
-  <a href="https://discord.gg/gypGes3Uca"><img src="docs/images/discord-badge.svg" alt="Join us on Discord" height="60"></a>
+  <b>A dedicated fork of ProCraft engineered specifically for Android smartphones (inspired by Procreate Pocket), powered by a Rust painting engine, a wgpu GPU renderer, and a clean, modular Kotlin / Jetpack Compose UI.</b><br>
+  Pressure-sensitive brushes, layers with blend modes, live adjustments, selection and transform, animation assist, and 3D painting, adapted to run comfortably on every Android phone screen.
 </p>
 
 <p align="center">
-  <a href="https://discord.gg/gypGes3Uca"><img alt="Discord: join the community" src="https://img.shields.io/badge/Discord-join%20the%20community-5865F2?style=flat&logo=discord&logoColor=white"></a>
+  <a href="https://github.com/ogibinedi/procraft/releases"><img src="https://raw.githubusercontent.com/Kunzisoft/Github-badge/main/get-it-on-github.png" alt="Get it on GitHub" height="60"></a>
+  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/ogibinedi/procraft"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="60"></a>
+</p>
+
+<p align="center">
+  <img alt="Platform: Android Smartphones" src="https://img.shields.io/badge/platform-Android%20Smartphones-3DDC84?style=flat&logo=android&logoColor=white">
   <img alt="Rust engine" src="https://img.shields.io/badge/engine-Rust-lightblue?style=flat&logo=rust&logoColor=white">
   <img alt="GPU renderer: wgpu" src="https://img.shields.io/badge/renderer-wgpu-lightblue?style=flat">
   <img alt="Kotlin and Jetpack Compose" src="https://img.shields.io/badge/UI-Kotlin%20%C2%B7%20Jetpack%20Compose-blue?style=flat">
   <img alt="Minimum: Android 8 (API 26)" src="https://img.shields.io/badge/min-Android%208%20%28API%2026%29-blue?style=flat">
   <img alt="Target: Android 16 (API 36)" src="https://img.shields.io/badge/target-Android%2016%20%28API%2036%29-blue?style=flat">
   <img alt="License: MIT OR Apache-2.0" src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue?style=flat">
-  <img alt="Status: beta" src="https://img.shields.io/badge/status-beta-lightblue?style=flat">
 </p>
 
 <p align="center">
-  <sub>Android smartphones take the <code>arm64.apk</code> (the <code>legacy-armeabi-v7a.apk</code> is for older 32-bit devices).</sub>
+  <a href="#about-this-fork">About This Fork</a> ·
+  <a href="#smartphone-ui--architecture">Smartphone UI &amp; Architecture</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#project-structure">Project Structure</a> ·
+  <a href="#building-instructions">Building</a> ·
+  <a href="PROGRESS.md">Progress</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
 </p>
 
-<p align="center">
-  <a href="#painting">Painting</a> ·
-  <a href="#layers-and-colour">Layers &amp; colour</a> ·
-  <a href="#adjustments-and-transform">Adjustments &amp; transform</a> ·
-  <a href="#actions">Actions</a> ·
-  <a href="#planned-features">Planned features</a> ·
-  <a href="#building-instructions">Building</a>
-</p>
+---
 
-<br>
+## About This Fork
 
-<p align="center">
-  <img src="docs/images/demo.webp" alt="Dusk painted in ProCraft from a blank canvas, at a person's pace: the Soft Airbrush picked in the brush library and its size set; colours picked on the Classic square; the sky filled indigo by dragging the colour onto the canvas and airbrushed in bands of purple, magenta, orange and gold; a new layer for a glow and one for the sun, a circle that snaps round and is filled; two ranges of hills outlined and filled; pines and birds inked; stars airbrushed and made to glow with Bloom; the Layers panel opened on its seven layers" width="100%">
-  <br>
-  <sub><b>Dusk</b>, painted from a blank canvas on a Lenovo Legion Tab: the brush library, the colour picker, the layers, a sun snapped round and filled, hills filled the same way, pines, stars with Bloom. About 1:20; the <a href="docs/images/demo.mp4">full video</a> (MP4, 2:21) shows every menu at close to real speed. Every stroke is a pen stroke with pressure, eased in and out, played by the <a href="tools/showcase">demo script</a>.</sub>
-</p>
+Upstream ProCraft was originally designed purely for large-screen tablets and desktop platforms. **This repository (`ogibinedi/procraft`) is a dedicated fork refactored and redesigned to focus 100% on Android smartphones**:
 
-<br>
+1. **Smartphone-First Navigation & Ergonomics (Procreate Pocket Style)**:
+   - **Draggable & Peekable Bottom Sheets**: Heavy tablet popovers (Brush Library, Layers, Color Picker, Actions, and Adjustments) automatically transform into responsive bottom sheets (`SmartphoneBottomSheet`) on smartphone screens (`width < 600dp` or landscape `height < 500dp`).
+   - **Collapsible SideBar**: The brush size/opacity and undo/redo sidebar can collapse to a subtle edge pull-tab so 100% of the phone viewport remains open for painting, and automatically hides while a bottom sheet is open.
+   - **Smartphone Brush Studio**: Full-width Drawing Pad on top, horizontally scrollable pill tabs (`>= 44dp` touch targets, including a dual-brush part switcher) in the middle, and full-width settings below, with smart left-opening numeric/curve keypads (`SliderKeypad`) that never clip off the right edge of the phone screen.
+   - **Compact Secondary Tools**: Picture-in-Picture (PiP) default sizing for the Reference Window (`210dp x 170dp`), responsive radial QuickMenu, responsive Shape/Grain Source Editor & Source Library, responsive 3D Lighting Studio, and responsive Canvas Info & Gesture Controls.
+2. **Android-Only Workspace**:
+   - Removed legacy `desktop/`, `ios/`, and desktop `packaging/` directories so build times, dependencies, and maintenance focus exclusively on Android + Rust.
+3. **Clean, Modular, DRY Codebase**:
+   - Split monolithic Kotlin God Files (`CanvasViewModel.kt` from 9,287 lines into 14 focused domain action files, plus 7 large Compose files into 16 modular UI files) and organized packages into clean domain folders.
+   - Split monolithic Rust modules (`crates/gpu/src/canvas.rs`, `crates/core/src/lib.rs`, `crates/engine/src/stroke.rs`, `crates/core/src/scene3d.rs`, and `crates/core/src/touch.rs`) into cohesive submodules.
 
-<p align="center">
-  <img src="docs/images/canvas.jpg" alt="The finished Dusk on the canvas: a sky from deep indigo through purple, magenta and orange to gold, a pale sun with a soft glow, birds, two ranges of purple hills with dark pines, and stars; the top bar with Gallery and the tools, and the sidebar with the size and opacity sliders, undo and redo" width="100%">
-  <br>
-  <sub>The canvas: the tools along the top, size and opacity in the sidebar, the whole screen for the painting.</sub>
-</p>
+See [PROGRESS.md](PROGRESS.md) and [CHANGELOG.md](CHANGELOG.md) for the complete milestone breakdown.
 
-<br>
+---
 
-## Painting
+## Smartphone UI & Architecture
 
-<table>
-<tr>
-<td width="50%"><img src="docs/images/brushes.jpg" alt="The Brush library over Dusk: the sets Sketching, Inking, Drawing, Painting (chosen), Watercolour, Calligraphy, Airbrushing, Spray Paint, Charcoals, Textures and Abstract, each with its icon, and the Painting set's brushes with a preview stroke each"><br><sub>The brush library: eleven sets of our own brushes, each previewed with a stroke.</sub></td>
-<td width="50%"><img src="docs/images/studio.jpg" alt="The Brush Studio on Round Brush: the tabs from Stroke path to About this brush, the Shape tab with its shape source and input style, and the Drawing Pad with a pressure scribble"><br><sub>The Brush Studio: stroke path, stabilization, taper, shape, grain, rendering, wet mix, colour dynamics and more, tried out on the drawing pad.</sub></td>
-</tr>
-</table>
-
-<br>
-
-## Layers and colour
-
-<table>
-<tr>
-<td width="50%"><img src="docs/images/layers.jpg" alt="The Layers panel over Dusk: seven layers, each with its thumbnail (stars, pines, the near and far hills, the sun, its glow and the sky), their blend mode letters and visibility boxes, and the background colour"><br><sub>Layers with blend modes, opacity, alpha lock, clipping masks, masks and groups. Layers past what the GPU holds are kept compressed, so artworks with hundreds of layers open and paint smoothly.</sub></td>
-<td width="50%"><img src="docs/images/colour.jpg" alt="The Colors panel on its Disc tab: a hue ring around a saturation and brightness disc, the current and previous colours, and the Classic, Harmony, Value and Palettes tabs"><br><sub>Colour: disc, classic, harmony, value (with hex) and palettes.</sub></td>
-</tr>
-</table>
-
-<br>
-
-## Adjustments and transform
-
-<table>
-<tr>
-<td width="50%"><img src="docs/images/adjust.jpg" alt="Hue, Saturation, Brightness on Dusk's sky: the hue moved to 40 percent turns the sky blue at the top and pink at the horizon, with the Hue, Saturation and Brightness sliders below"><br><sub>Hue, saturation, brightness on the sky layer, live. Also colour balance, curves, gradient map, blurs, noise, sharpen, bloom, glitch, halftone, chromatic aberration, liquify and clone, on the layer or painted on.</sub></td>
-<td width="50%"><img src="docs/images/transform.jpg" alt="Transform in Warp on the sun layer: a mesh with corner handles over the sun, and the toolbar with Freeform, Uniform, Distort and Warp, then Advanced Mesh, Flip Horizontal, Flip Vertical, Rotate 45, Fit to Canvas, Bilinear and Reset"><br><sub>Transform: freeform, uniform, distort and warp, with snapping. Selection: automatic, freehand, rectangle and ellipse, with feather.</sub></td>
-</tr>
-</table>
-
-<br>
-
-## Actions
-
-<p align="center">
-  <img src="docs/images/actions.jpg" alt="The Actions panel on its Canvas tab over Dusk: Crop and Resize, the Animation Assist, Page Assist, Drawing Guide and Reference switches, Edit Drawing Guide, Flip horizontal, Flip vertical and Canvas information, under the Add, Canvas, Share, Video, Prefs and Help tabs" width="100%">
-  <br>
-  <sub>Actions: add files, photos and text; the canvas, its guides and assists; share as PNG, JPEG, PSD, PDF, TIFF, GIF or MP4; a time-lapse of every artwork; preferences and gesture controls.</sub>
-</p>
-
-<br>
-
-## Planned features
-
-ProCraft is in beta, on Android tablets and on the desktop (Windows and Linux).
-
-| Area | Status |
+| Smartphone Adaptation | Implementation Details |
 |---|---|
-| Canvas: the top bar, the sidebar (size, opacity, modify, undo, redo), full screen, gestures (pinch, rotate, quick fit, two- and three-finger taps, scrub to clear) | ✅ |
-| Brush engine: shape and grain sources, stroke path, stabilization, taper, rendering and glazes, wet mix, colour dynamics, pen pressure and tilt; the library and the Brush Studio | ✅ |
-| Layers: blend modes, opacity, alpha lock, clipping masks, masks, groups, merge, the reference layer; large artworks kept compressed off the GPU | ✅ |
-| Colour: disc, classic, harmony, value and palettes; history; eyedropper; filling by dragging the colour onto the canvas | ✅ |
-| Adjustments, each with its toolbar, on the layer or painted on | ✅ |
-| Selection (automatic, freehand, shapes, feather) and transform (freeform, uniform, distort, warp, snapping) | ✅ |
-| Shapes that snap clean, drawing guides and drawing assist (2D, isometric, perspective, symmetry), text | ✅ |
-| Animation and page assists, the reference window | ✅ |
-| Gallery: stacks, new-canvas presets, import and share (PNG, JPEG, PSD, PDF, TIFF, GIF, MP4), time-lapse | 🚧 nearly done |
-| 3D painting: OBJ and USDZ models, texture sets, painting on the mesh, lights and environments | 🚧 |
-| Desktop: Windows and Linux, the same interface with a mouse, a pen tablet and keyboard shortcuts; an installer, an AppImage and a .deb | 🚧 beta |
-| Plugins: `.procraft-plugin` files you import in Prefs › Plugins, each off until you turn it on and gone without a trace when you turn it off. Filters (a few lines of WGSL, under Adjustments) and sandboxed WebAssembly that changes how the app behaves, such as Interface, Touch offset and ColorDrop tools. How to write one: [docs/plugins.md](docs/plugins.md) | ✅ |
-| More for plugins: buttons that change the artwork (asking permission first), panels of their own, the colour picker drawn their way, kinds of artwork and of layer of their own, such as Vector layers | ✅ |
-| Brush engines in plugins: brush files another app's engine draws, drawn by a plugin as that app draws them, with a brush studio of its own, such as Krita brushes (Krita's pixel brush) | 🚧 |
-| Phones: their own app, ProCraft Pocket (this one is for tablets) | ⬜ |
+| **Responsive Breakpoints** | `ResponsiveLayout.isSmartphoneLayout(maxWidth, maxHeight)` detects portrait phones (`320dp..599dp`), landscape phones (`height < 500dp`), and foldable cover screens. |
+| **Bottom Sheet Panels** | `SmartphoneBottomSheet` supports drag-to-expand, peek mode (keeping the canvas visible while tweaking colors or layers), and drag-down to dismiss. |
+| **Adaptive Pickers & Lists** | `ResponsiveLayout.brushSetsColumnWidth` and `ResponsiveLayout.colorPickerScale` scale the Brush Library sidebar and 364dp Color Disc/Classic square to fit `320dp..430dp` phones without horizontal clipping. |
+| **Gallery Grid** | Uses a 2-column grid on portrait smartphones (`< 600dp`) with readable artwork titles and dimensions, and a compact top bar on narrow screens (`< 430dp`). |
+| **Touch Target Hygiene** | Interactive buttons, tabs, and close targets adhere to a `>= 44dp` touch target budget. |
 
-<sub>✅ works today · 🚧 in progress · ⬜ not started · 🚫 not planned</sub>
+---
 
-<br>
+## Features
+
+| Area | Status on Android Smartphone |
+|---|---|
+| **Canvas & Gestures**: adaptive top bar, collapsible sidebar (size, opacity, modify, undo, redo), full-screen mode, multi-touch gestures (pinch, rotate, quick fit, two/three-finger taps, three-finger scrub to clear) | ✅ Ready |
+| **Brush Engine & Brush Studio**: shape and grain sources, stroke path, stabilization, taper, rendering and glazes, wet mix, colour dynamics, pressure and tilt; horizontal-tab smartphone Brush Studio and responsive Source Editor | ✅ Ready |
+| **Layers**: blend modes, opacity, alpha lock, clipping masks, layer masks, groups, merge, reference layer, cross-artwork drag & drop, and off-GPU LZ4 layer parking for large artworks | ✅ Ready |
+| **Colour**: responsive disc, classic, harmony, value sliders (with smart-positioned hex keypad), palettes, history, eyedropper loupe, and ColorDrop / Recolor fill | ✅ Ready |
+| **Adjustments**: HSB, colour balance, curves, gradient map, Gaussian/motion/perspective blurs, noise, sharpen, bloom, glitch, halftone, chromatic aberration, liquify, and clone | ✅ Ready |
+| **Selection & Transform**: automatic, freehand, rectangle, ellipse selection with feather; freeform, uniform, distort, and warp transform with snapping and numeric keypad | ✅ Ready |
+| **Guides, QuickShape, & Text**: shapes that snap clean, 2D/isometric/perspective/symmetry drawing guides withAssisted Drawing, and rich on-canvas text with responsive style sheet | ✅ Ready |
+| **Animation Assist, Page Assist, & PiP Reference**: frame timeline with onion skins, animated GIF/PNG/MP4/HEVC export, and compact Picture-in-Picture Reference Window | ✅ Ready |
+| **Gallery & Time-Lapse**: 2-column smartphone grid, stacks, custom canvas presets, import/share (ProCraft, Procreate, PSD, PDF, PNG, JPEG, TIFF, GIF, MP4), and 1080p/4K time-lapse replay/export | ✅ Ready |
+| **3D Painting**: OBJ and USDZ models, texture sets, mesh painting, responsive Lighting Studio, and animated turntable export | ✅ Ready |
+| **Plugins**: `.procraft-plugin` WGSL filters, sandboxed WebAssembly hooks, and custom brush engines ([docs/plugins.md](docs/plugins.md)) | ✅ Ready |
+
+---
+
+## Project Structure
+
+```text
+procraft/
+├── android/
+│   ├── bindgen/                  # UniFFI Kotlin bindings generator
+│   └── app/src/main/java/io/github/artcraftandroid/procraft/
+│       ├── canvas/
+│       │   ├── input/            # Pen/touch prediction and motion event bridging
+│       │   ├── media/            # Time-lapse encoder, stroke audio, and video export
+│       │   ├── surface/          # Vulkan/GLES canvas & drawing pad SurfaceViews
+│       │   ├── util/             # Async polling and color space utilities
+│       │   └── viewmodel/        # Modularized CanvasViewModel + 13 domain action files
+│       ├── gallery/              # ArtworkStore, presets, and palettes persistence
+│       └── ui/
+│           ├── chrome/           # AppRoot, TopBar, collapsible SideBar, QuickMenu, Companion
+│           ├── components/       # SmartphoneBottomSheet, Popover, ToolHeader, AlertUi
+│           ├── export/           # Animation timeline, animated export, time-lapse replay
+│           ├── gallery/          # Gallery grid, drag/share, custom canvas, canvas info, gestures
+│           ├── panels/           # Brushes, Layers, Color, Actions, and Adjustments panels
+│           ├── studio/           # BrushStudio, StudioWidgets, SourceEditor, LightingStudio
+│           ├── theme/            # ResponsiveLayout, Theme, Motion, Icons, Frost
+│           └── tools/            # Selection, Transform, Crop, Guides, Text, Reference, Eyedropper
+└── crates/
+    ├── engine/                   # Pure Rust painting engine: document, brushes, stroke/, view
+    ├── gpu/                      # wgpu GPU renderer: canvas/ (mod, ops, composite, readback, pipelines)
+    └── core/                     # Session state, scene3d/, touch/, project I/O, and UniFFI exports
+```
+
+---
 
 ## Building Instructions
+
+### Option 1: GitHub Actions CI/CD (Recommended)
+Every push to `main` (or manual trigger via **Actions > CI > Run workflow**) automatically compiles the Rust crates for Android, runs lint and unit tests, builds the release APK, verifies 16 KB page alignment, and uploads the **`procraft-android-apk`** artifact ready for download.
+
+### Option 2: Local Build
 *One Gradle command builds the whole app: it compiles the Rust engine with [cargo-ndk](https://github.com/bbqsrc/cargo-ndk) and generates the Kotlin bindings.*
 
-* Clone this repository
-* Make sure you have at least 6 GB of free disk space
-* enter `android` and run `./gradlew assembleRelease -Pprocraft.abis=arm64-v8a`, or open that folder in Android Studio and press Run.
+1. Clone this repository:
+   ```bash
+   git clone git@github.com:ogibinedi/procraft.git
+   cd procraft
+   ```
+2. Make sure you have at least 6 GB of free disk space and the required toolchain:
+   - `rustup` with targets `aarch64-linux-android` and `x86_64-linux-android`
+   - `cargo install cargo-ndk --version "^4" --locked`
+   - Android SDK (API 36/37) and NDK `29.0.14206865`
+   - JDK 17 or newer
+3. Build the release APK:
+   ```bash
+   cd android
+   ./gradlew assembleRelease -Pprocraft.abis=arm64-v8a
+   ```
 
-Build time dependencies:
+Run `cargo test --workspace` to execute the Rust unit test suites across `procraft-engine`, `procraft-gpu`, and `procraft-core`.
 
-<details>
-  <summary>required tools</summary>
-
-  ```
-      rustup, with the aarch64-linux-android and x86_64-linux-android targets
-      cargo install cargo-ndk --version "^4" --locked
-      Android SDK (API 37) and NDK 29.0.14206865
-      JDK 17 or newer
-  ```
-</details>
-
-`cargo test --workspace` runs the engine's, core's, and renderer's tests.
-
-| Path | What |
-|---|---|
-| `crates/engine` | document, brushes, stroke geometry, canvas view (no GPU) |
-| `crates/gpu` | wgpu renderer: layers, strokes, compositing, display |
-| `crates/core` | the canvas session, touch and gesture handling, tools' state (adjustments, transform, selection, crop, Recolor), gallery, presets, gradients, time-lapse, brush library files, layer operations, exports, and UniFFI bindings |
-| `android/bindgen` | UniFFI Kotlin bindings generator |
-| `android` | the Android smartphone app (Gradle, Jetpack Compose, modularized `canvas/` and `ui/` packages) |
-
-<br>
+---
 
 ## License
 
 [MIT](LICENSE-MIT) OR [Apache-2.0](LICENSE-APACHE), at your option.
 
-- **Third-party material:** the Inter font, Lucide icons and the light panoramas the app bundles,
-  and the libraries it's built with, are listed in [NOTICE](NOTICE).
-- **Every asset**, with its author, source and licence, is in [ATTRIBUTION.md](ATTRIBUTION.md).
-- **Icons** drawn using vector outlines ([`tools/icons/draw_icons.py`](tools/icons/draw_icons.py),
-  to the [style guide](docs/icons/STYLE_GUIDE.md)).
-- **The demo painting**, *Dusk*, is our own, made in the app.
-
-<br>
-
-## Misc info for myself
-
-Try to use [semantic commit](https://kapeli.com/cheat_sheets/Semantic_Commits.docset/Contents/Resources/Documents/index)
-messages. Use `feat:` / `fix:` / `chore:` / `docs:` / etc.
+- **Third-party material:** the Inter font, Lucide icons, and bundled lighting panoramas are listed in [NOTICE](NOTICE) and [ATTRIBUTION.md](ATTRIBUTION.md).

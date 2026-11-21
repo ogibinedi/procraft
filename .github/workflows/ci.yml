@@ -1,8 +1,6 @@
 name: CI
 
-# Run for pull requests and by hand (Actions > CI > Run workflow), not on every push to main. A
-# private copy pays for each minute, so there even a pull request's run skips every job.
-# contributors' pull requests, and by hand (Actions > CI > Run workflow); not every push to main
+# Runs automatically on every push to main, pull requests, and manual dispatch (Actions > CI > Run workflow).
 on:
   push:
     branches: [main]
@@ -24,7 +22,6 @@ env:
 jobs:
   rust:
     name: Rust (format, clippy, tests)
-    if: ${{ !github.event.repository.private || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -40,7 +37,6 @@ jobs:
 
   android:
     name: Android (clippy, lint, unit tests, release APK)
-    if: ${{ !github.event.repository.private || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4

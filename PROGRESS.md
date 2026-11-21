@@ -1,0 +1,48 @@
+# ProCraft Smartphone Transformation & Refactoring Progress
+
+Dokumen ini mencatat progres pengembangan fork **ProCraft (`ogibinedi/procraft`)** dari aplikasi khusus tablet/desktop menjadi aplikasi melukis khusus **Smartphone Android** dengan arsitektur yang bersih, modular, dan menerapkan prinsip DRY.
+
+---
+
+## Ringkasan Status Fase
+
+| Fase | Fokus Utama | Status | Commit |
+|---|---|---|---|
+| **Fase 1** | Pembersihan Platform Non-Android (`desktop/`, `ios/`, `packaging/`), Restrukturisasi Folder `canvas/` & `ui/`, dan Pemecahan God File `CanvasViewModel.kt` | ✅ Selesai | `58f1334` |
+| **Fase 2** | Desain Ulang Navigasi & Panel Utama Smartphone (*Procreate Pocket* Bottom Sheets, Collapsible SideBar, Responsive Pickers, Brush Studio Horizontal Tabs) + Pemecahan File UI & Crate `core`/`gpu` | ✅ Selesai | `a25d5ca`, `ef874b6` |
+| **Fase 3** | Adaptasi Secondary Tools & Editors untuk Semua Ukuran Smartphone, Modularisasi Crate Rust (`stroke/`, `scene3d/`, `touch/`), dan Pipeline Artifact APK di GitHub Actions CI/CD | ✅ Selesai | `e28d701`, `c2afb88` |
+
+---
+
+## Detail Pekerjaan yang Telah Diselesaikan
+
+### Fase 1: Clean Architecture & Pembersihan Workspace
+- [x] Menghapus direktori `desktop/`, `ios/`, `packaging/`, dead code `crates/core/src/layer.rs`, dan `tools/icons/rust_icons.py`.
+- [x] Memperbarui `Cargo.toml`, `crates/core/Cargo.toml`, workflow CI/Release, dan skrip lisensi agar 100% berfokus pada Android + Rust Engine.
+- [x] Mengorganisir paket Kotlin Android ke dalam subfolder berdasarkan domain:
+  - `canvas/surface/`, `canvas/input/`, `canvas/media/`, `canvas/util/`, `canvas/viewmodel/`
+  - `ui/theme/`, `ui/components/`, `ui/chrome/`, `ui/panels/`, `ui/studio/`, `ui/tools/`, `ui/gallery/`, `ui/export/`
+- [x] Memecah `CanvasViewModel.kt` (9.287 baris) menjadi 14 file modular di `canvas/viewmodel/`:
+  - `CanvasModels.kt`, `CanvasViewModel.kt`, `AdjustmentsActions.kt`, `AnimationLayerActions.kt`, `BrushLibraryActions.kt`, `BrushStudioActions.kt`, `ColorPaletteExportActions.kt`, `GalleryImportActions.kt`, `InputGuideQuickMenuActions.kt`, `MediaCropReferenceActions.kt`, `Scene3dActions.kt`, `SelectionTransformActions.kt`, `SettingsCursorActions.kt`, dan `TextBlockedActions.kt`.
+
+### Fase 2: UI/UX Smartphone Utama (Gaya Procreate Pocket) & Modularisasi UI/GPU
+- [x] Membuat `ResponsiveLayout.kt` dan `SmartphoneBottomSheet` (`BottomSheetPanel.kt`) dengan fitur *peek mode* dan *drag-to-expand/dismiss*.
+- [x] Mengintegrasikan `SmartphoneBottomSheet` ke `AppRoot.kt` dan `Popover.kt` untuk panel **Brushes**, **Layers**, **Color**, **Actions**, dan **Adjustments**.
+- [x] Menambahkan fitur *collapsible sidebar* dengan *pull-tab* di tepi layar pada `Chrome.kt`.
+- [x] Menyesuaikan lebar kolom kategori kuas di `BrushLibrary.kt`, skala *Color Disc* / *Classic Square* di `ColorPanel.kt` & `ColorDiscHarmony.kt`, serta grid 2 kolom di `GalleryScreen.kt`.
+- [x] Memecah 7 file Compose UI terbesar menjadi 16 file modular yang rapi.
+- [x] Menambahkan *Horizontal Scrollable Pill Tabs* (`StudioHorizontalTabs`) pada `BrushStudio.kt` untuk layar smartphone.
+- [x] Memecah `crates/core/src/lib.rs` (menjadi `session_strokes.rs`, `session_view.rs`, `session_controls.rs`) dan `crates/gpu/src/canvas.rs` (14.907 baris menjadi `mod.rs`, `ops.rs`, `composite.rs`, `readback.rs`, `pipelines.rs`, `tests.rs`).
+
+### Fase 3: Secondary Tools Smartphone, Modularisasi Rust Lanjutan, & CI/CD APK
+- [x] Menyesuaikan seluruh *secondary tools* dan dialog untuk semua ukuran layar smartphone (`320dp - 430dp`, portrait & landscape):
+  - `ToolHeader.kt`, `SourceEditorUi.kt`, `LightingStudioUi.kt`, `ModelPictureUi.kt`
+  - `ReferenceUi.kt` (mode *Picture-in-Picture* kompak di kanan atas kanvas)
+  - `CropUi.kt`, `GuideUi.kt`, `TextUi.kt`, `TransformUi.kt`
+  - `AdjustmentsUi.kt`, `AdjustmentsEffectsUi.kt`, `QuickMenuUi.kt`, `CompanionUi.kt`, `CopyPasteUi.kt`, `AlertUi.kt`
+  - `CanvasInfoUi.kt`, `GestureControlsUi.kt`, `GalleryPreviewNewCanvas.kt` (`AboutApp`), `AnimatedExportUi.kt`, `ColorValueHistory.kt` (`ValueRow` & `BesidePanel` HexPad), dan `BrushStudioWidgets.kt` (`SliderKeypad` otomatis membuka ke arah kiri di layar smartphone).
+- [x] Memecah 3 modul Rust besar yang tersisa menjadi submodul:
+  - `crates/engine/src/stroke/` (`mod.rs`, `builder.rs`, `tests.rs`)
+  - `crates/core/src/scene3d/` (`mod.rs`, `painting.rs`, `tests.rs`)
+  - `crates/core/src/touch/` (`mod.rs`, `modes.rs`, `tests.rs`, `box_pinch.rs`, `pen.rs`)
+- [x] Memperbarui `.github/workflows/ci.yml` agar berjalan otomatis pada setiap `push` ke branch `main` (baik di repo publik maupun privat) dan mengunggah artifact `procraft-android-apk`.
