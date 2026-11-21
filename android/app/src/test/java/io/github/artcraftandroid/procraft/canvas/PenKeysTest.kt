@@ -397,4 +397,44 @@ class PenKeysTest {
         strokes.began(11)
         assertEquals("the first pen stroke from device 11: no samples", strokes.lifted())
     }
+
+    @Test
+    fun external_drawing_tablets_of_any_brand_are_detected_by_capabilities_or_name() {
+        // Brand-agnostic hardware detection: stylus source or external pressure axis
+        assertEquals(true, isDrawingTabletDevice("Generic USB HID", InputDevice.SOURCE_MOUSE or InputDevice.SOURCE_STYLUS, hasPressureAxis = false, isExternal = true))
+        assertEquals(true, isDrawingTabletDevice("Unknown Brand Pad", InputDevice.SOURCE_MOUSE, hasPressureAxis = true, isExternal = true))
+        // Name fallback for kernels that expose tablets only in hid-generic mouse mode
+        for (name in listOf("XP-Pen Deco 01 V2", "UGTABLET 10 inch PenTablet", "HUION H640P", "Wacom Intuos S", "GAOMON S620", "VEIKK A15", "Parblo A610", "Xencelabs Pen Tablet")) {
+            assertEquals(name, true, isDrawingTabletDevice(name, InputDevice.SOURCE_MOUSE, hasPressureAxis = false, isExternal = true))
+        }
+        // Regular mouse without pressure axis or tablet name is not misclassified
+        assertEquals(false, isDrawingTabletDevice("Logitech G305", InputDevice.SOURCE_MOUSE, hasPressureAxis = false, isExternal = true))
+        assertEquals(false, isDrawingTabletDevice("Touchscreen", InputDevice.SOURCE_TOUCHSCREEN, hasPressureAxis = true, isExternal = false))
+    }
+
+    @Test
+    fun pen_pressure_calibration_handles_ranges_sensitivity_floor_and_fallbacks() {
+        // Default 1.0x sensitivity, 0.0 floor preserves 0..1 pressure cleanly
+        assertEquals(0.4f, calibratePenPressure(0.4f, 0f, 1f, hasPressureAxis = true, pressureEnabled = true, sensitivity = 1f, minFloor = 0f), 1e-5f)
+        // Normalizes non-0..1 HID ranges (e.g. 8192-level XP-Pen / Huion raw range)
+        assertEquals(0.5f, calibratePenPressure(4095.5f, 0f, 8191f, hasPressureAxis = true, pressureEnabled = true, sensitivity = 1f, minFloor = 0f), 1e-4f)
+        // Applies sensitivity multiplier and minimum floor
+        assertEquals(0.8f, calibratePenPressure(0.4f, 0f, 1f, hasPressureAxis = true, pressureEnabled = true, sensitivity = 2f, minFloor = 0f), 1e-5f)
+        assertEquals(0.28f, calibratePenPressure(0.1f, 0f, 1f, hasPressureAxis = true, pressureEnabled = true, sensitivity = 1f, minFloor = 0.2f), 1e-5f)
+        // Pressureless USB drawing tablet falls back to full pressure immediately on contact
+        assertEquals(1f, calibratePenPressure(0f, 0f, 0f, hasPressureAxis = false, pressureEnabled = true, sensitivity = 1f, minFloor = 0f, buttonPrimaryDown = true), 1e-5f)
+        assertEquals(0f, calibratePenPressure(0f, 0f, 0f, hasPressureAxis = false, pressureEnabled = true, sensitivity = 1f, minFloor = 0f, buttonPrimaryDown = false, isHovering = true), 1e-5f)
+        // External nib-click fallback when kernel advertises axis but never emits > 0 pressure
+        assertEquals(1f, calibratePenPressure(0f, 0f, 1f, hasPressureAxis = true, pressureEnabled = true, sensitivity = 1f, minFloor = 0f, buttonPrimaryDown = true, isHovering = false, fallbackFullWhenUnreported = true), 1e-5f)
+        // Pressure disabled gives uniform 1.0 while drawing and 0.0 while hovering
+        assertEquals(1f, calibratePenPressure(0.2f, 0f, 1f, hasPressureAxis = true, pressureEnabled = false, sensitivity = 1f, minFloor = 0f), 1e-5f)
+        assertEquals(0f, calibratePenPressure(0f, 0f, 1f, hasPressureAxis = true, pressureEnabled = false, sensitivity = 1f, minFloor = 0f, isHovering = true), 1e-5f)
+    }
+
+    @Test
+    fun drawing_tablet_mode_allows_external_pointer_to_paint_even_with_finger_painting_off() {
+        val off = shipped(fingerPaint = false, oneFingerPan = true, modelFingerPaint = false)
+        val tablet = tabletTouchSettings(off, pointerFollowsTouch = false)
+        assertEquals(false, tablet.pointerFollowsTouch)
+    }
 }

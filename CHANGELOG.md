@@ -2,6 +2,25 @@
 
 All notable changes in this Android Smartphone-focused fork (`ogibinedi/procraft`) are documented in this file.
 
+## [0.0.3] - 2026-11-21 - Universal Drawing Tablet Support, Pen Pressure Calibration & Icon-Only Layer Actions
+
+### Added
+- **Universal External Drawing Tablet Support (`PenKeys.kt`, `CanvasSurfaceView.kt`, `PadSurfaceView.kt`)**:
+  - Added brand-agnostic hardware detection (via `SOURCE_STYLUS`, external `AXIS_PRESSURE` motion range, and brand/firmware fallback covering XP-Pen, Huion, Wacom, Gaomon, Veikk, Ugee, Parblo, Xencelabs, Bosto, Artisul, Acepen, Hanvon, UC-Logic, etc.) plus a persistent **Drawing Tablet Mode** so external USB OTG and Bluetooth pen tablets always paint as pressure-sensitive styluses even when Android's HID driver reports mouse mode or when finger painting is off.
+  - Added a synthetic stroke bridge for Android kernels/tablets that report pen nib clicks via `ACTION_BUTTON_PRESS(BUTTON_PRIMARY)` + `ACTION_HOVER_MOVE` instead of `ACTION_DOWN`/`ACTION_MOVE`, plus `ACTION_SCROLL` dial/wheel canvas zooming.
+  - Added `onResolvePointerIcon` override on the canvas and Brush Studio pad to replace the system mouse arrow cursor with ProCraft's brush cursor or a precision crosshair while preserving the arrow over toolbars and menus.
+- **Drawing Tablet & Pen Pressure Calibration Settings (`Actions > Prefs > Drawing Tablet & Pen` & `Pressure & Smoothing`)**:
+  - Added `DrawingTabletPage` with a live connected device & real-time **Live Pen Pressure Test** bar (`0%..100%`), toggles for **Drawing tablet mode**, **Pen pressure sensitivity**, **Hide system arrow on canvas**, and **Pan & Zoom companion bar**.
+  - Added calibrated hardware pressure normalization (handles non-0..1 HID ranges such as 8192-level tablets and missing pressure-axis fallbacks) plus user-adjustable **Pressure sensitivity** (`25%..300%`), **Minimum pressure** (`0%..50%`), and **Pressure smoothing** (`0%..100%`) sliders in both `Drawing Tablet & Pen` and `Pressure & Smoothing`.
+- **Unit Tests (`PenKeysTest.kt`)**:
+  - Added unit tests covering universal drawing tablet detection, multi-range HID pressure normalization, sensitivity/floor calibration, pressureless fallback, and drawing tablet touch settings.
+
+### Changed
+- **Icon-Only Layer Swipe Actions (`LayersPanel.kt`, `LayerBlendOptions.kt`, `Icons.kt`)**:
+  - Replaced text labels (`Lock`/`Unlock`, `Duplicate`, `Clear`/`Delete`) on layer swipe-left buttons with compact `56dp` rounded icon buttons (`PcIcons.Lock`, new `PcIcons.Unlock`, `PcIcons.Duplicate`, `PcIcons.SwipeClear`, `PcIcons.Trash`), preserving full `contentDescription` labels and leaving more of the layer row visible on narrow smartphone screens.
+
+---
+
 ## [0.0.2] - 2026-11-21 - Cleanup & Smartphone Optimization
 
 ### Changed & Optimized

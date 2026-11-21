@@ -160,7 +160,7 @@ class MainActivity : ComponentActivity() {
      */
     override fun dispatchTouchEvent(e: android.view.MotionEvent): Boolean {
         // (a mouse or a touchpad moving the pointer is no finger, though a touchpad's says it is)
-        if (!vm.tapAssistance || pointerKindOf(e, 0) != io.github.artcraftandroid.procraft.core.PointerKind.FINGER) return super.dispatchTouchEvent(e)
+        if (!vm.tapAssistance || pointerKindOf(e, 0, vm.drawingTabletMode) != io.github.artcraftandroid.procraft.core.PointerKind.FINGER) return super.dispatchTouchEvent(e)
         when (e.actionMasked) {
             android.view.MotionEvent.ACTION_DOWN -> {
                 heldAt = android.graphics.PointF(e.x, e.y)

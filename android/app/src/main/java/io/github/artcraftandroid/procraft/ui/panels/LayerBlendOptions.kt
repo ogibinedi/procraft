@@ -592,7 +592,12 @@ internal fun SubmeshRow(vm: CanvasViewModel, index: Int, name: String, open: Boo
     Box(Modifier.clipToBounds()) {
     if (offset.value < 0f) {
         Row(Modifier.matchParentSize(), horizontalArrangement = Arrangement.End) {
-            SwipeAction(if (locked) "Unlock" else "Lock", SwipeFill, SwipeInk) {
+            SwipeAction(
+                icon = if (locked) PcIcons.Unlock else PcIcons.Lock,
+                contentDescription = if (locked) "Unlock" else "Lock",
+                fill = SwipeFill,
+                ink = SwipeInk,
+            ) {
                 vm.toggleSubmeshLocked(index)
                 opened = false
                 scope.launch { offset.animateTo(0f, Motion.swipeSettle()) }

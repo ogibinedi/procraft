@@ -67,19 +67,132 @@ internal fun pointerKind(toolType: Int, source: Int, classification: Int = 0): P
     else -> PointerKind.FINGER
 }
 
-/** What pointer [index] of [e] is to the canvas (see [pointerKind]). */
-internal fun pointerKindOf(e: MotionEvent, index: Int): PointerKind =
-    pointerKind(e.getToolType(index), e.source, if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) e.classification else 0)
+/** Known external drawing tablet / digitizer brand & firmware names (USB OTG & Bluetooth). */
+private val DRAWING_TABLET_NAME = Regex(
+    """\b(xp[- ]?pen|xppen|huion|wacom|gaomon|veikk|ugee|ugtablet|parblo|xencelabs|bosto|artisul|acepen|hanvon|hanwang|uclogic|turcom|monoprice|pentablet|digitizer|pen\s*tablet|drawing\s*tablet|graphics\s*tablet)\b""",
+    RegexOption.IGNORE_CASE,
+)
+
+/**
+ * Whether an input device is an external drawing tablet (XP-Pen, Huion, Wacom, Gaomon, Veikk,
+ * Ugee, Parblo, Xencelabs, or any other brand): detected primarily by hardware capabilities
+ * (stylus source or an external pressure axis), with a brand/driver name fallback for kernels
+ * that fall back to generic HID mouse mode.
+ */
+internal fun isDrawingTabletDevice(
+    deviceName: String?,
+    deviceSources: Int,
+    hasPressureAxis: Boolean,
+    isExternal: Boolean,
+): Boolean {
+    if (fromStylus(deviceSources)) return true
+    if (isExternal && hasPressureAxis) return true
+    if (deviceName != null && DRAWING_TABLET_NAME.containsMatchIn(deviceName)) return true
+    return false
+}
+
+/** Whether [e]'s input device advertises an `AXIS_PRESSURE` motion range with positive span. */
+internal fun pressureRangeOf(e: MotionEvent): ClosedFloatingPointRange<Float>? {
+    val dev = e.device ?: return null
+    val r = dev.getMotionRange(MotionEvent.AXIS_PRESSURE, e.source)
+        ?: dev.getMotionRange(MotionEvent.AXIS_PRESSURE)
+        ?: return null
+    return if (r.range > 0f) r.min..r.max else null
+}
+
+internal fun isExternalDevice(e: MotionEvent): Boolean {
+    val dev = e.device ?: return false
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) dev.isExternal else true
+}
+
+/**
+ * What pointer [index] of [e] is to the canvas (see [pointerKind]).
+ *
+ * When [drawingTabletMode] is enabled (or when hardware capabilities / brand identify an external
+ * drawing tablet), pointers that Android's HID driver reports as `TOOL_TYPE_MOUSE` or `SOURCE_MOUSE`
+ * are promoted to [PointerKind.STYLUS] so they paint with full pressure sensitivity and work even
+ * when finger painting is disabled.
+ */
+internal fun pointerKindOf(e: MotionEvent, index: Int, drawingTabletMode: Boolean = false): PointerKind {
+    val toolType = e.getToolType(index)
+    val classification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) e.classification else 0
+    val base = pointerKind(toolType, e.source, classification)
+    if (base == PointerKind.STYLUS || base == PointerKind.STYLUS_ERASER) return base
+    if (base == PointerKind.MOUSE || (toolType == MotionEvent.TOOL_TYPE_UNKNOWN && isExternalDevice(e))) {
+        val dev = e.device
+        val ext = isExternalDevice(e)
+        val hasPressure = pressureRangeOf(e) != null
+        val devSources = dev?.sources ?: e.source
+        if (isDrawingTabletDevice(dev?.name, devSources, hasPressure, ext)) return PointerKind.STYLUS
+        if (drawingTabletMode && ext && base == PointerKind.MOUSE) return PointerKind.STYLUS
+    }
+    return base
+}
+
+/**
+ * Normalizes and calibrates raw stylus/tablet pressure into `0f..1f`.
+ *
+ * Handles non-standard Android HID pressure ranges (e.g. `0..8191`, `0..2047`, `0..0.5`), missing
+ * kernel pressure axes on generic USB OTG drawing tablets, optional pressure disable, user
+ * sensitivity multiplier (`0.25x..3.0x`), and minimum pressure floor (`0..0.5`).
+ */
+internal fun calibratePenPressure(
+    rawPressure: Float,
+    axisMin: Float,
+    axisMax: Float,
+    hasPressureAxis: Boolean,
+    pressureEnabled: Boolean,
+    sensitivity: Float,
+    minFloor: Float,
+    buttonPrimaryDown: Boolean = false,
+    isHovering: Boolean = false,
+    fallbackFullWhenUnreported: Boolean = false,
+): Float {
+    val cleanRaw = when {
+        rawPressure.isNaN() -> 0f
+        rawPressure.isInfinite() -> if (rawPressure > 0f) 1f else 0f
+        else -> rawPressure
+    }
+    if (!pressureEnabled) {
+        return if (isHovering && !buttonPrimaryDown && cleanRaw <= 0f) 0f else 1f
+    }
+    if (!hasPressureAxis) {
+        if (cleanRaw > 0f) {
+            val scaled = (cleanRaw.coerceIn(0f, 1f) * sensitivity.coerceIn(0.25f, 3f)).coerceIn(0f, 1f)
+            val floor = minFloor.coerceIn(0f, 0.5f)
+            return (floor + scaled * (1f - floor)).coerceIn(0f, 1f)
+        }
+        return if (!isHovering || buttonPrimaryDown) 1f else 0f
+    }
+    val span = axisMax - axisMin
+    val norm = if (span > 0f && (axisMax > 1.5f || axisMax < 0.9f || axisMin != 0f)) {
+        ((cleanRaw - axisMin) / span).coerceIn(0f, 1f)
+    } else {
+        cleanRaw.coerceIn(0f, 1f)
+    }
+    if (norm <= 0f) {
+        if (fallbackFullWhenUnreported && buttonPrimaryDown && !isHovering) return 1f
+        return 0f
+    }
+    val sens = sensitivity.coerceIn(0.25f, 3f)
+    val floor = minFloor.coerceIn(0f, 0.5f)
+    val scaled = (norm * sens).coerceIn(0f, 1f)
+    return (floor + scaled * (1f - floor)).coerceIn(0f, 1f)
+}
 
 /**
  * [settings] as the tablet takes them: a mouse, or a touchpad moving the pointer, does what a finger
- * is set to do. With painting with a finger off it paints nothing (a drag does what a finger's
- * does), and on a model it turns the model; it still has no pressure and is never taken for a hand
- * resting by the pen. The pen's buttons do what Pen buttons set them to ([penButtons], the first
+ * is set to do when [pointerFollowsTouch] is true. With drawing tablet mode enabled, setting
+ * [pointerFollowsTouch] to false ensures external pointers always paint even when finger painting
+ * is turned off. The pen's buttons do what Pen buttons set them to ([penButtons], the first
  * and the second; null, what Gesture controls say).
  */
-internal fun tabletTouchSettings(settings: TouchSettings, penButtons: List<QuickAction?> = emptyList()): TouchSettings = settings.copy(
-    pointerFollowsTouch = true,
+internal fun tabletTouchSettings(
+    settings: TouchSettings,
+    penButtons: List<QuickAction?> = emptyList(),
+    pointerFollowsTouch: Boolean = true,
+): TouchSettings = settings.copy(
+    pointerFollowsTouch = pointerFollowsTouch,
     penButtonDoes = penButtons.getOrNull(0),
     penSecondButtonDoes = penButtons.getOrNull(1),
 )

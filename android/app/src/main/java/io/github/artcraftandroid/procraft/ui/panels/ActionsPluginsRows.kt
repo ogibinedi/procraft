@@ -544,8 +544,132 @@ internal fun Group(rows: List<ActionRow>) {
 }
 
 /**
+ * Drawing Tablet & Pen settings page: universal support for external USB OTG and Bluetooth
+ * drawing tablets (XP-Pen, Huion, Wacom, Gaomon, Veikk, Ugee, Parblo, Xencelabs, etc.) plus
+ * real-time pressure testing and calibration controls.
+ */
+@Composable
+internal fun DrawingTabletPage(
+    vm: CanvasViewModel,
+    onBack: () -> Unit,
+    onOpenPressure: () -> Unit,
+    onOpenPenButtons: () -> Unit,
+) {
+    BackHandler(onBack = onBack)
+    androidx.compose.runtime.DisposableEffect(vm) {
+        vm.setTabletMonitorActive(true)
+        onDispose { vm.setTabletMonitorActive(false) }
+    }
+    Row(Modifier.padding(start = 8.dp, top = 12.dp).height(44.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(44.dp, 34.dp).clickable(onClick = onBack), contentAlignment = Alignment.Center) {
+            Icon(PcIcons.ChevronLeft, contentDescription = "Back", tint = Pc.PanelTitle, modifier = Modifier.size(22.dp))
+        }
+        Text("Drawing Tablet & Pen", color = Pc.PanelTitle, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+    }
+    Column(Modifier.heightIn(max = 760.dp).verticalScroll(rememberScrollState()).padding(start = 12.dp, end = 12.dp, top = 16.dp, bottom = 13.dp)) {
+        // Live hardware detection & interactive pen pressure test bar
+        var localTestPressure by remember { mutableStateOf(0f) }
+        val livePressure = maxOf(vm.lastTabletPressure, localTestPressure).coerceIn(0f, 1f)
+        val deviceLabel = vm.lastTabletDeviceName.ifBlank { "Touch or press pen here to detect" }
+        val caps = buildList {
+            if (vm.lastTabletKind.isNotBlank()) add(vm.lastTabletKind)
+            if (vm.lastTabletHasPressureAxis) add("Pressure")
+            if (vm.lastTabletHasTiltAxis) add("Tilt")
+        }.joinToString(" · ").ifBlank { "Supports XP-Pen, Huion, Wacom, Gaomon, Veikk & all HID tablets" }
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(22.dp))
+                .background(Pc.ActionsGroup)
+                .pointerInput(vm.penPressureEnabled, vm.penPressureSensitivity, vm.penPressureMin) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val p0 = calibratePenPressure(
+                            rawPressure = down.pressure,
+                            axisMin = 0f,
+                            axisMax = 1f,
+                            hasPressureAxis = true,
+                            pressureEnabled = vm.penPressureEnabled,
+                            sensitivity = vm.penPressureSensitivity,
+                            minFloor = vm.penPressureMin,
+                            buttonPrimaryDown = true,
+                        )
+                        localTestPressure = p0
+                        while (true) {
+                            val ev = awaitPointerEvent()
+                            val c = ev.changes.firstOrNull { it.id == down.id }
+                            if (c == null || !c.pressed) {
+                                localTestPressure = 0f
+                                break
+                            }
+                            localTestPressure = calibratePenPressure(
+                                rawPressure = c.pressure,
+                                axisMin = 0f,
+                                axisMax = 1f,
+                                hasPressureAxis = true,
+                                pressureEnabled = vm.penPressureEnabled,
+                                sensitivity = vm.penPressureSensitivity,
+                                minFloor = vm.penPressureMin,
+                                buttonPrimaryDown = true,
+                            )
+                            c.consume()
+                        }
+                    }
+                }
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+        ) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Live Pen Pressure Test", color = Pc.PanelTitle, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Text("${(livePressure * 100f).roundToInt()}%", color = Pc.Accent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(deviceLabel, color = Pc.ActionsRow, fontSize = 13.sp, maxLines = 1)
+            Text(caps, color = Pc.SlideValue, fontSize = 12.sp, maxLines = 2)
+            Spacer(Modifier.height(10.dp))
+            Box(Modifier.fillMaxWidth().height(10.dp).clip(CircleShape).background(Pc.SlideTrack)) {
+                Box(Modifier.fillMaxWidth(livePressure).fillMaxHeight().clip(CircleShape).background(Pc.Accent))
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        Group(
+            listOf(
+                Toggle("Drawing tablet mode", vm.drawingTabletMode) { vm.changeDrawingTablet(tabletMode = it) },
+                Toggle("Pen pressure sensitivity", vm.penPressureEnabled) { vm.changeDrawingTablet(pressureEnabled = it) },
+                Toggle("Hide system arrow on canvas", vm.hideTabletArrowCursor) { vm.changeDrawingTablet(hideArrow = it) },
+                Toggle("Pan & Zoom companion bar", vm.singleTouchCompanion) { vm.changeSingleTouchCompanion(it) },
+            ),
+        )
+        Spacer(Modifier.height(16.dp))
+        val sensFrac = ((vm.penPressureSensitivity - 0.25f) / 2.75f).coerceIn(0f, 1f)
+        val minFrac = (vm.penPressureMin / 0.5f).coerceIn(0f, 1f)
+        Group(
+            listOf(
+                Slide("Pressure sensitivity", "${(vm.penPressureSensitivity * 100f).roundToInt()}%", sensFrac, 64.dp) {
+                    vm.changeDrawingTablet(sensitivity = 0.25f + it * 2.75f)
+                },
+                Slide("Minimum pressure", percent(vm.penPressureMin), minFrac, 64.dp) {
+                    vm.changeDrawingTablet(minPressure = it * 0.5f)
+                },
+                Slide("Pressure smoothing", percent(vm.inputPressureSmoothing), vm.inputPressureSmoothing, 64.dp) {
+                    vm.changeInput(smoothing = it)
+                },
+            ),
+        )
+        Spacer(Modifier.height(16.dp))
+        Group(
+            listOf(
+                Act("Pressure curve & stabilization") { onOpenPressure() },
+                Act("Pen buttons") { onOpenPenButtons() },
+                Act("Reset drawing tablet settings") { vm.resetDrawingTablet() },
+            ),
+        )
+    }
+}
+
+/**
  * Pressure and Smoothing, a page of the panel: the app's stabilization, motion filtering and its
- * expression, Tip Attachment, the pressure curve every stroke goes through, and Reset all.
+ * expression, Tip Attachment, pressure sensitivity/smoothing controls, the pressure curve every
+ * stroke goes through, and Reset all.
  */
 @Composable
 internal fun PressurePage(vm: CanvasViewModel, onBack: () -> Unit) {
@@ -567,7 +691,28 @@ internal fun PressurePage(vm: CanvasViewModel, onBack: () -> Unit) {
         Spacer(Modifier.height(16.dp))
         // with no filtering it has nothing to do
         val tipChange: ((Boolean) -> Unit)? = if (vm.inputMotionFiltering > 0f) ({ on -> vm.changeInput(tipAttached = on) }) else null
-        Group(listOf(Toggle("Tip Attachment", vm.inputTipAttached, onChange = tipChange)))
+        Group(
+            listOf(
+                Toggle("Tip Attachment", vm.inputTipAttached, onChange = tipChange),
+                Toggle("Pen pressure sensitivity", vm.penPressureEnabled) { vm.changeDrawingTablet(pressureEnabled = it) },
+            ),
+        )
+        Spacer(Modifier.height(16.dp))
+        val sensFrac = ((vm.penPressureSensitivity - 0.25f) / 2.75f).coerceIn(0f, 1f)
+        val minFrac = (vm.penPressureMin / 0.5f).coerceIn(0f, 1f)
+        Group(
+            listOf(
+                Slide("Pressure sensitivity", "${(vm.penPressureSensitivity * 100f).roundToInt()}%", sensFrac, 64.dp) {
+                    vm.changeDrawingTablet(sensitivity = 0.25f + it * 2.75f)
+                },
+                Slide("Minimum pressure", percent(vm.penPressureMin), minFrac, 64.dp) {
+                    vm.changeDrawingTablet(minPressure = it * 0.5f)
+                },
+                Slide("Pressure smoothing", percent(vm.inputPressureSmoothing), vm.inputPressureSmoothing, 64.dp) {
+                    vm.changeInput(smoothing = it)
+                },
+            ),
+        )
         Spacer(Modifier.height(24.dp))
         Text("App Pressure Sensitivity", color = Pc.SlideLabel, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 13.dp).height(19.dp))
         Box(Modifier.padding(horizontal = 7.dp).fillMaxWidth().aspectRatio(1f).background(CurveFill)) {

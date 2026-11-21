@@ -392,6 +392,42 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
     )
         internal set
 
+    // external drawing tablet (XP-Pen, Huion, Wacom, Gaomon, Veikk, etc.) & pen pressure calibration
+
+    /** Treats external USB/Bluetooth drawing tablets & pointers as pressure-sensitive pens even when Android reports mouse mode. */
+    var drawingTabletMode by mutableStateOf(interfacePrefs.getBoolean(DRAWING_TABLET_MODE, true))
+        internal set
+
+    /** Whether stylus/tablet pressure varies brush size & opacity (turn off for uniform strokes on pressureless devices). */
+    var penPressureEnabled by mutableStateOf(interfacePrefs.getBoolean(PEN_PRESSURE_ENABLED, true))
+        internal set
+
+    /** Multiplier applied to raw hardware stylus pressure before the pressure curve (0.25x..3.0x). */
+    var penPressureSensitivity by mutableStateOf(interfacePrefs.getFloat(PEN_PRESSURE_SENSITIVITY, 1f).coerceIn(0.25f, 3f))
+        internal set
+
+    /** Minimum pressure floor applied to active pen contact (0..0.5) so feather-light tablet strokes stay visible. */
+    var penPressureMin by mutableStateOf(interfacePrefs.getFloat(PEN_PRESSURE_MIN, 0f).coerceIn(0f, 0.5f))
+        internal set
+
+    /** Replaces the Android system arrow pointer over the canvas with the brush outline or a precision crosshair. */
+    var hideTabletArrowCursor by mutableStateOf(interfacePrefs.getBoolean(HIDE_TABLET_ARROW, true))
+        internal set
+
+    /** Live drawing tablet diagnostics (only updated at frame rate while the Drawing Tablet settings page is open). */
+    var tabletMonitorActive by mutableStateOf(false)
+        internal set
+    var lastTabletDeviceName by mutableStateOf("")
+        internal set
+    var lastTabletKind by mutableStateOf("")
+        internal set
+    var lastTabletPressure by mutableStateOf(0f)
+        internal set
+    var lastTabletHasPressureAxis by mutableStateOf(false)
+        internal set
+    var lastTabletHasTiltAxis by mutableStateOf(false)
+        internal set
+
     /** The actions panel's open tab, kept from one session to the next. */
     internal var actionsTabState by mutableStateOf(interfacePrefs.getInt(ACTIONS_TAB, 0))
     var actionsTab: Int
@@ -2149,6 +2185,11 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
         const val INPUT_PRESSURE_SMOOTHING = "input_pressure_smoothing"
         const val INPUT_CURVE = "input_pressure_curve"
         const val INPUT_TIP_ATTACHED = "input_tip_attached"
+        const val DRAWING_TABLET_MODE = "drawing_tablet_mode"
+        const val PEN_PRESSURE_ENABLED = "pen_pressure_enabled"
+        const val PEN_PRESSURE_SENSITIVITY = "pen_pressure_sensitivity"
+        const val PEN_PRESSURE_MIN = "pen_pressure_min"
+        const val HIDE_TABLET_ARROW = "hide_tablet_arrow"
         /** Frames a second an animation plays at (Animation Assist's own when it is on). */
         const val ANIMATION_FPS = 15
         /** The timeline's frame pictures' longest side, pixels; a frame's longest hold. */

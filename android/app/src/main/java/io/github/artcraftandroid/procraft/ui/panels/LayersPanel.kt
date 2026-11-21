@@ -103,8 +103,9 @@ private val ListWidth = 360.dp
 internal val HeldOutline = Color.White
 private val MaskOwnerRow = Color(0xFF2C5281)
 /** Swiping a row left shows these buttons, each this wide, this far apart. */
-internal val SwipeButton = 82.dp
-private val SwipeGap = 2.dp
+/** Compact icon-only swipe action button width (>= 44.dp touch target for smartphones). */
+internal val SwipeButton = 56.dp
+private val SwipeGap = 4.dp
 internal val SwipeFill = Color(0xFF3F3F3F)
 internal val SwipeInk = Color(0xFFC1C1C1)
 private val SwipeDelete = Color(0xFFFF473D)
@@ -648,17 +649,34 @@ private fun SwipeRow(
     Box(Modifier.clipToBounds()) {
         if (offset.value < 0f) {
             Row(Modifier.matchParentSize(), horizontalArrangement = Arrangement.spacedBy(SwipeGap, Alignment.End)) {
-                SwipeAction(if (l.locked) "Unlock" else "Lock", SwipeFill, SwipeInk) {
+                SwipeAction(
+                    icon = if (l.locked) PcIcons.Unlock else PcIcons.Lock,
+                    contentDescription = if (l.locked) "Unlock" else "Lock",
+                    fill = SwipeFill,
+                    ink = SwipeInk,
+                ) {
                     vm.toggleLocked(l)
                     onOpen(false)
                 }
-                if (l.kind != LayerType.MASK) SwipeAction("Duplicate", SwipeFill, SwipeInk) {
-                    vm.duplicate(l)
-                    onOpen(false)
+                if (l.kind != LayerType.MASK) {
+                    SwipeAction(
+                        icon = PcIcons.Duplicate,
+                        contentDescription = "Duplicate",
+                        fill = SwipeFill,
+                        ink = SwipeInk,
+                    ) {
+                        vm.duplicate(l)
+                        onOpen(false)
+                    }
                 }
                 // the only layer can't go: it is cleared instead
                 val alone = vm.layers.count { it.kind != LayerType.MASK } == 1
-                SwipeAction(if (alone) "Clear" else "Delete", SwipeDelete, Color.White) {
+                SwipeAction(
+                    icon = if (alone) PcIcons.SwipeClear else PcIcons.Trash,
+                    contentDescription = if (alone) "Clear" else "Delete",
+                    fill = SwipeDelete,
+                    ink = Color.White,
+                ) {
                     if (alone) vm.clear(l) else vm.deleteAsking(l)
                     onOpen(false)
                 }
@@ -690,12 +708,18 @@ private fun SwipeRow(
 }
 
 @Composable
-internal fun SwipeAction(label: String, fill: Color, ink: Color, onClick: () -> Unit) {
+internal fun SwipeAction(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    fill: Color,
+    ink: Color,
+    onClick: () -> Unit,
+) {
     Box(
         Modifier.width(SwipeButton).fillMaxHeight().clip(RoundedCornerShape(8.dp)).background(fill).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = ink, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+        Icon(icon, contentDescription = contentDescription, tint = ink, modifier = Modifier.size(22.dp))
     }
 }
 

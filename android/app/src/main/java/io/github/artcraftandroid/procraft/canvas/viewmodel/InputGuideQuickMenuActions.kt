@@ -105,7 +105,11 @@ fun CanvasViewModel.modifyReleased(cancelled: Boolean) {
 
 /** The gesture settings as the canvas's touches (in the shared core) take them. */
 fun CanvasViewModel.touchSettings(): io.github.artcraftandroid.procraft.core.TouchSettings =
-    tabletTouchSettings(gestures.touchSettings(rapidUndoDelay * 1000.0), penButtonActions)
+    tabletTouchSettings(
+        gestures.touchSettings(rapidUndoDelay * 1000.0),
+        penButtonActions,
+        pointerFollowsTouch = !drawingTabletMode,
+    )
 
 /** The artwork's facts, its time counted up to now. */
 fun CanvasViewModel.artworkInfo(): io.github.artcraftandroid.procraft.core.ArtworkInfo? {

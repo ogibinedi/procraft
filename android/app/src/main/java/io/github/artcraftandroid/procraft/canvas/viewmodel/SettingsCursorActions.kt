@@ -35,6 +35,8 @@ import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.CURSO
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.CURSOR_REREAD_MS
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.CURSOR_SHOWS
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.CURSOR_STYLE
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.DRAWING_TABLET_MODE
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.HIDE_TABLET_ARROW
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.INPUT_CURVE
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.INPUT_EXPRESSION
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.INPUT_MOTION
@@ -49,12 +51,16 @@ import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.KEPT_
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.KEPT_SATURATION
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.LIGHT_INTERFACE
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.PALETTE_CARDS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.PEN_PRESSURE_ENABLED
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.PEN_PRESSURE_MIN
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.PEN_PRESSURE_SENSITIVITY
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.PROJECT_CANVAS
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.RAPID_UNDO_DELAY
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.RAPID_UNDO_MAX_S
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.RAPID_UNDO_MIN_S
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.RIGHT_HANDED
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.SELECTION_VISIBILITY
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.SINGLE_TOUCH_COMPANION
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.WRONG_BUILD_SAID
 
 /**
@@ -540,7 +546,76 @@ fun CanvasViewModel.changeInput(
     applyInput()
 }
 
-fun CanvasViewModel.resetInput() = changeInput(0f, 0f, 0f, 0f, listOf(Offset(0f, 0f), Offset(1f, 1f)), true)
+fun CanvasViewModel.resetInput() {
+    changeInput(0f, 0f, 0f, 0f, listOf(Offset(0f, 0f), Offset(1f, 1f)), true)
+    changeDrawingTablet(pressureEnabled = true, sensitivity = 1f, minPressure = 0f)
+}
+
+fun CanvasViewModel.changeDrawingTablet(
+    tabletMode: Boolean = drawingTabletMode,
+    pressureEnabled: Boolean = penPressureEnabled,
+    sensitivity: Float = penPressureSensitivity,
+    minPressure: Float = penPressureMin,
+    hideArrow: Boolean = hideTabletArrowCursor,
+) {
+    drawingTabletMode = tabletMode
+    penPressureEnabled = pressureEnabled
+    penPressureSensitivity = sensitivity.coerceIn(0.25f, 3f)
+    penPressureMin = minPressure.coerceIn(0f, 0.5f)
+    hideTabletArrowCursor = hideArrow
+    interfacePrefs.edit()
+        .putBoolean(DRAWING_TABLET_MODE, drawingTabletMode)
+        .putBoolean(PEN_PRESSURE_ENABLED, penPressureEnabled)
+        .putFloat(PEN_PRESSURE_SENSITIVITY, penPressureSensitivity)
+        .putFloat(PEN_PRESSURE_MIN, penPressureMin)
+        .putBoolean(HIDE_TABLET_ARROW, hideTabletArrowCursor)
+        .apply()
+}
+
+fun CanvasViewModel.resetDrawingTablet() {
+    changeDrawingTablet(
+        tabletMode = true,
+        pressureEnabled = true,
+        sensitivity = 1f,
+        minPressure = 0f,
+        hideArrow = true,
+    )
+    changeInput(smoothing = 0f)
+}
+
+fun CanvasViewModel.changeSingleTouchCompanion(on: Boolean) {
+    singleTouchCompanion = on
+    if (!on) companionMode = CompanionMode.NONE
+    interfacePrefs.edit().putBoolean(SINGLE_TOUCH_COMPANION, on).apply()
+}
+
+fun CanvasViewModel.setTabletMonitorActive(active: Boolean) {
+    tabletMonitorActive = active
+    if (!active) lastTabletPressure = 0f
+}
+
+/** Updates live tablet telemetry when a new device appears or while the Drawing Tablet settings page is open. */
+fun CanvasViewModel.recordTabletInput(
+    deviceName: String,
+    kindLabel: String,
+    pressure: Float,
+    hasPressureAxis: Boolean,
+    hasTiltAxis: Boolean,
+) {
+    if (deviceName.isNotEmpty() && deviceName != lastTabletDeviceName) {
+        lastTabletDeviceName = deviceName
+        lastTabletKind = kindLabel
+        lastTabletHasPressureAxis = hasPressureAxis
+        lastTabletHasTiltAxis = hasTiltAxis
+    }
+    if (tabletMonitorActive) {
+        if (deviceName.isNotEmpty()) lastTabletDeviceName = deviceName
+        lastTabletKind = kindLabel
+        lastTabletPressure = pressure.coerceIn(0f, 1f)
+        lastTabletHasPressureAxis = hasPressureAxis
+        lastTabletHasTiltAxis = hasTiltAxis
+    }
+}
 
 internal fun CanvasViewModel.applyInput() {
     session?.setInputSettings(inputStabilization, inputMotionFiltering, inputMotionExpression, inputPressureSmoothing, inputTipAttached, inputCurve.flatMap { listOf(it.x, it.y) })

@@ -472,6 +472,7 @@ object PcIcons {
     val MenuTick by lazy { outline("menu-tick", 2.1f, "M5.5 12.5l4 4 9-9") }
     val BrushSet by lazy { solid("brush-set", "M3.5 18.5c3.4-6.6 8.6-10.4 17-11.5-4.4 2.2-7.6 6-9.6 11.2-2.4-.6-4.8-.4-7.4.3z") }
     val Lock by lazy { outline("lock", 1.7f, "M6 11h12v9H6z", "M8.5 11V8a3.5 3.5 0 0 1 7 0v3") }
+    val Unlock by lazy { outline("unlock", 1.7f, "M6 11h12v9H6z", "M8.5 11V8a3.5 3.5 0 0 1 6.7-1.4") }
     // the slider panel's button: save the value as a notch, or take the notch away
     val NotchAdd by lazy { outline("notch-add", 1.8f, "M12 5v14", "M5 12h14") }
     val NotchRemove by lazy { outline("notch-remove", 1.8f, "M5 12h14") }

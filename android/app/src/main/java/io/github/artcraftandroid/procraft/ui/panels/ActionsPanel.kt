@@ -78,7 +78,7 @@ internal class Heading(val label: String) : ActionRow
 internal class Slide(val label: String, val value: String, val fraction: Float, val tall: Dp = 63.dp, val onDone: () -> Unit = {}, val onChange: (Float) -> Unit) : ActionRow
 
 /** The pages the panel shows: its tabs, or a page of settings reached from one of them. */
-private enum class ActionsPage { TABS, PRESSURE, CURSOR, PLUGINS, PEN_BUTTONS }
+private enum class ActionsPage { TABS, TABLET, PRESSURE, CURSOR, PLUGINS, PEN_BUTTONS }
 
 internal val CurveFill get() = if (Pc.light) Color(0xFFE7E7E9) else Color(0xFF262626)
 
@@ -285,6 +285,7 @@ fun ActionsPanel(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier)
                 Act("Advanced cursor settings") { page = ActionsPage.CURSOR },
             ),
             listOf(
+                Act("Drawing Tablet & Pen", value = if (vm.drawingTabletMode) "On" else "Off") { page = ActionsPage.TABLET },
                 Act("Pen buttons") { page = ActionsPage.PEN_BUTTONS },
                 Act("Pressure and Smoothing") { page = ActionsPage.PRESSURE },
                 Act("Gesture controls") { vm.gestureControlsOpen = true },
@@ -336,6 +337,15 @@ fun ActionsPanel(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier)
             label = "page",
         ) { shown ->
             Column {
+                if (shown == ActionsPage.TABLET) {
+                    DrawingTabletPage(
+                        vm = vm,
+                        onBack = { page = ActionsPage.TABS },
+                        onOpenPressure = { page = ActionsPage.PRESSURE },
+                        onOpenPenButtons = { page = ActionsPage.PEN_BUTTONS },
+                    )
+                    return@Column
+                }
                 if (shown == ActionsPage.PRESSURE) {
                     PressurePage(vm) { page = ActionsPage.TABS }
                     return@Column
