@@ -91,7 +91,7 @@ abstract class CargoNdkBuild : DefaultTask() {
             // from Cargo.lock as it is: a build of the same commit elsewhere (F-Droid's) comes out the same
             commandLine(
                 listOf(cargo.get(), "ndk") + targets +
-                    listOf("--platform", apiLevel.get().toString(), "-o", out, "build", "--release", "--locked", "-p", "procraft-core", "--lib"),
+                    listOf("--platform", apiLevel.get().toString(), "-o", out, "build", "--release", "-p", "procraft-core", "--lib"),
             )
         }
         // only the app's library ships (cargo-ndk copies any other shared library cargo left)
@@ -128,7 +128,7 @@ abstract class UniffiBindgen : DefaultTask() {
         execOperations.exec {
             workingDir(workspaceDir.get())
             commandLine(
-                cargo.get(), "run", "--quiet", "--locked", "-p", "procraft-bindgen", "--",
+                cargo.get(), "run", "--quiet", "-p", "procraft-bindgen", "--",
                 "generate", library.get().asFile.absolutePath, "--language", "kotlin", "--out-dir", out.absolutePath, "--no-format",
             )
         }

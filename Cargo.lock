@@ -3124,48 +3124,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "procraft-desktop"
-version = "0.0.1"
-dependencies = [
- "arboard",
- "block2 0.6.2",
- "chrono",
- "clipboard-win",
- "drag",
- "egui",
- "egui-wgpu",
- "egui-winit",
- "env_logger",
- "image",
- "log",
- "objc2 0.6.5",
- "objc2-app-kit 0.3.2",
- "objc2-av-foundation",
- "objc2-core-foundation",
- "objc2-core-graphics",
- "objc2-core-media",
- "objc2-core-text",
- "objc2-core-video",
- "objc2-foundation 0.3.2",
- "png",
- "procraft-core",
- "procraft-engine",
- "procraft-gpu",
- "resvg",
- "rfd",
- "rustix 1.1.5",
- "swash",
- "wayland-backend",
- "wayland-client",
- "wayland-protocols",
- "wgpu",
- "windows 0.62.2",
- "winit",
- "winresource",
- "x11rb",
-]
-
-[[package]]
 name = "procraft-engine"
 version = "0.0.1"
 dependencies = [

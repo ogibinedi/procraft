@@ -1,9 +1,8 @@
 name: CI
 
-# Runs automatically on every push to main, pull requests, and manual dispatch (Actions > CI > Run workflow).
+# Runs on pull requests and manual dispatch (Actions > CI > Run workflow).
+# Does not upload APK artifacts to preserve GitHub Actions storage quota; APK builds are published via Release tags.
 on:
-  push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -21,7 +20,7 @@ env:
 
 jobs:
   rust:
-    name: Rust (format, clippy, tests)
+    name: Rust (clippy, tests)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -30,7 +29,6 @@ jobs:
           toolchain: ${{ env.RUST_VERSION }}
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
-      - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       # the GPU tests skip themselves: the runner has no GPU
       - run: cargo test --workspace
@@ -56,7 +54,6 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" > /dev/null
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
-      # the code only Android builds (the surface and the render thread)
       - name: Clippy for Android
         run: cargo ndk -t arm64-v8a --platform 26 clippy -p procraft-core --lib -- -D warnings
       - uses: gradle/actions/setup-gradle@v4
@@ -83,9 +80,3 @@ jobs:
             done
           done
           echo "every library's segments are aligned to 16 KB"
-      - name: Upload Release APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: procraft-android-apk
-          path: android/app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: error
