@@ -588,7 +588,7 @@ private fun ModeTab(icon: ImageVector, label: String, selected: Boolean, modifie
 }
 
 /** Calls [onMove] with the touch position as 0..1 fractions of the area while it is held. */
-private suspend fun PointerInputScope.track(onMove: (Float, Float) -> Unit) {
+internal suspend fun PointerInputScope.track(onMove: (Float, Float) -> Unit) {
     awaitEachGesture {
         val down = awaitFirstDown()
         down.consume()

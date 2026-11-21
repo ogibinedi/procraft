@@ -80,7 +80,7 @@ impl Canvas {
     }
 
     /// `rect` of a layer box-filtered to fit `max_side` pixels (never enlarged), read back.
-    fn sample_layer(&self, gpu: &Gpu, id: LayerId, rect: IRect, max_side: u32) -> Result<Thumbnail, GpuError> {
+    pub(super) fn sample_layer(&self, gpu: &Gpu, id: LayerId, rect: IRect, max_side: u32) -> Result<Thumbnail, GpuError> {
         let layer = self.layers.get(&id).ok_or_else(|| GpuError::Readback(format!("no layer {id:?}")))?;
         self.sample_view(gpu, &layer.view, rect, max_side)
     }
@@ -253,7 +253,7 @@ impl Canvas {
     }
 
     /// [`Canvas::sample_view`] started: the copy back queued, the pixels waited for later.
-    fn start_sample_view(&self, gpu: &Gpu, source: &wgpu::TextureView, rect: IRect, max_side: u32) -> PendingThumbnail {
+    pub(super) fn start_sample_view(&self, gpu: &Gpu, source: &wgpu::TextureView, rect: IRect, max_side: u32) -> PendingThumbnail {
         let side = max_side.clamp(1, 2048) as f32;
         let (rw, rh) = (rect.width().max(1) as f32, rect.height().max(1) as f32);
         let scale = (side / rw).min(side / rh).min(1.0);
@@ -405,7 +405,7 @@ impl Canvas {
     /// Writes `data` (from `offset`, rows `row` bytes apart) into layer `id` within `rect` (none:
     /// nothing written, the layer made if it wasn't), the layer made if it wasn't, its compressed
     /// copy and the caches let go.
-    fn put_layer_pixels(&mut self, gpu: &Gpu, id: LayerId, rect: Option<IRect>, data: &[u8], offset: u64, row: u32) {
+    pub(super) fn put_layer_pixels(&mut self, gpu: &Gpu, id: LayerId, rect: Option<IRect>, data: &[u8], offset: u64, row: u32) {
         if !self.layers.contains_key(&id) {
             let texture = texture(&gpu.device, "layer", self.width, self.height, LAYER_FORMAT);
             let view = texture.create_view(&wgpu::TextureViewDescriptor::default());

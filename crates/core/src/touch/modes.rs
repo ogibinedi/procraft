@@ -3,7 +3,7 @@ use super::*;
 impl CanvasSession {
     /// What a drag from window point `at` does to perspective blur's puck, if it takes it at all
     /// (`scale`: window pixels a point).
-    fn perspective_drag_at(&self, at: (f32, f32), scale: f32) -> Option<PuckDrag> {
+    pub(super) fn perspective_drag_at(&self, at: (f32, f32), scale: f32) -> Option<PuckDrag> {
         let (kind, puck, arrow) = self.perspective_puck_at()?;
         let (dx, dy) = (at.0 - puck.0, at.1 - puck.1);
         let far = dx.hypot(dy) / scale.max(1e-6);
@@ -24,7 +24,7 @@ impl CanvasSession {
     }
 
     /// Layer Opacity's touch lifted (or another came down): what it dragged is one undo step.
-    fn opacity_lifted(&self, t: &mut Touches) {
+    pub(super) fn opacity_lifted(&self, t: &mut Touches) {
         if let Some((layer, opacity)) = t.layer_opacity.filter(|_| std::mem::take(&mut t.opacity_moved)) {
             self.set_layer_opacity(layer, opacity, true);
         }
@@ -339,7 +339,7 @@ impl CanvasSession {
     }
 
     /// Whether a touch of `kind` on the screen turns a shown model.
-    fn finger_turns_model(&self, kind: PointerKind, t: &Touches) -> bool {
+    pub(super) fn finger_turns_model(&self, kind: PointerKind, t: &Touches) -> bool {
         as_finger(kind, &t.settings) && !t.settings.model_finger_paint && self.shared.lock().scene_shown()
     }
 
@@ -743,7 +743,7 @@ impl CanvasSession {
         self.end_shape_with(&mut t, out);
     }
 
-    fn end_shape_with(&self, t: &mut Touches, out: &mut Vec<TouchCommand>) {
+    pub(super) fn end_shape_with(&self, t: &mut Touches, out: &mut Vec<TouchCommand>) {
         if self.shared.lock().shape.is_some() {
             self.quickshape_done();
             t.shape_editing = false;
@@ -793,7 +793,7 @@ impl CanvasSession {
 
     /// Paints with `tool` for a stroke; returns the tool chosen before, to put back after (as for
     /// the stroke only, neither counts as the tool chosen last).
-    fn swap_tool(&self, tool: ToolKind) -> ToolKind {
+    pub(super) fn swap_tool(&self, tool: ToolKind) -> ToolKind {
         let before = self.shared.lock().tool;
         self.put_tool(tool);
         before
@@ -936,7 +936,7 @@ impl CanvasSession {
 
     /// What a transform's touch at `at` takes: a warp's shown control point, or the box's nearest
     /// node, else the content.
-    fn transform_handle_at(&self, at: (f32, f32), how: TransformTouch) -> crate::TransformHandle {
+    pub(super) fn transform_handle_at(&self, at: (f32, f32), how: TransformTouch) -> crate::TransformHandle {
         let (shown, view, density, warping) = {
             let st = self.shared.lock();
             let warping = st.transform_mode == procraft_engine::transform::TransformMode::Warp;
@@ -954,7 +954,7 @@ impl CanvasSession {
     }
 
     /// Typing a tapped node's numbers beside it: where the node is, and which side of the box.
-    fn numeric_at(&self, handle: crate::TransformHandle) -> Option<TouchCommand> {
+    pub(super) fn numeric_at(&self, handle: crate::TransformHandle) -> Option<TouchCommand> {
         let (b, m, density) = {
             let st = self.shared.lock();
             (st.transform_box()?, st.view?.to_screen(), st.interface_scale())
@@ -977,7 +977,7 @@ impl CanvasSession {
     }
 
     /// Whether the current layer is a text layer (it takes no paint until rasterized).
-    fn current_is_text(&self) -> bool {
+    pub(super) fn current_is_text(&self) -> bool {
         let st = self.shared.lock();
         st.doc.layer(st.doc.current()).is_some_and(|l| l.text.is_some())
     }
@@ -1007,14 +1007,14 @@ impl CanvasSession {
     /// Whether fingers lifting at `now` (the first of them) were a tap: down together for no
     /// longer than a tap takes, none gone away, and not held until they repeated. It goes by the
     /// first lift: a finger left down after it counts for nothing, as measured.
-    fn fingers_tapped(t: &Touches, now: f64) -> bool {
+    pub(super) fn fingers_tapped(t: &Touches, now: f64) -> bool {
         let lifted = t.tap_lifted.unwrap_or(now);
         lifted - t.tap_start <= TAP_MS && t.tap_moved < FINGERS_TAP_SLOP * t.scale && !t.tap_done
     }
 
     /// The fingers were a tap: two undo, three redo, four do what Four-finger tap is set to (none
     /// of them in the guide editor). Those left down do nothing more until all are up.
-    fn fingers_did_tap(&self, t: &mut Touches, out: &mut Vec<TouchCommand>) {
+    pub(super) fn fingers_did_tap(&self, t: &mut Touches, out: &mut Vec<TouchCommand>) {
         let undo_taps = self.undo_taps_allowed(t);
         match t.tap_pointers {
             _ if t.guide_editing => {}
@@ -1045,7 +1045,7 @@ impl CanvasSession {
             || self.shared.lock().adjust.open().is_some_and(|(open, _)| open == Adjustment::Liquify)
     }
 
-    fn follow_fingers(t: &mut Touches) {
+    pub(super) fn follow_fingers(t: &mut Touches) {
         match t.down.as_slice() {
             [a, b, ..] => {
                 t.gesture_pair = Some((a.id, b.id));
@@ -1057,7 +1057,7 @@ impl CanvasSession {
 
     /// How fast two fingers' spread changed (a part of where it started, a second) over the
     /// [`QUICK_PINCH_WINDOW_MS`] before `now`: nothing heard meanwhile counts as still.
-    fn pinch_speed(t: &Touches, now: f64) -> f32 {
+    pub(super) fn pinch_speed(t: &Touches, now: f64) -> f32 {
         let Some(&(_, scale)) = t.pinch.last() else { return 0.0 };
         let from = now - QUICK_PINCH_WINDOW_MS;
         let before = t.pinch.iter().rev().find(|(ms, _)| *ms <= from).or(t.pinch.first());
@@ -1068,7 +1068,7 @@ impl CanvasSession {
     }
 
     /// The canvas as pinched is smaller on the screen than it is fitted.
-    fn pinched_smaller_than_fit(&self) -> bool {
+    pub(super) fn pinched_smaller_than_fit(&self) -> bool {
         let st = self.shared.lock();
         st.view.is_some_and(|v| v.zoom() < st.fitted_view().zoom())
     }

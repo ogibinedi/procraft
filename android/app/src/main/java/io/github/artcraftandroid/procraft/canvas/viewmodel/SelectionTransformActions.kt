@@ -667,7 +667,7 @@ fun CanvasViewModel.changeGuides(g: GuideSettings) {
         .apply()
 }
 
-private inline fun <reified E : Enum<E>> enumPref(key: String, default: E): E =
+internal inline fun <reified E : Enum<E>> CanvasViewModel.enumPref(key: String, default: E): E =
     transformPrefs.getString(key, null)?.let { name -> enumValues<E>().firstOrNull { it.name == name } } ?: default
 
 fun CanvasViewModel.transformAction(action: TransformAction) {

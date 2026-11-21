@@ -99,7 +99,7 @@ import java.nio.ByteBuffer
 
 
 /** Which panel is open over the canvas. */
-private const val TAG = "ProCraft"
+internal const val TAG = "ProCraft"
 
 /** [CanvasViewModel.shownSet] while the library shows the Recent set. */
 const val RECENT_SET = -1
@@ -183,6 +183,6 @@ internal fun pendingBrushFileName(stamp: Long, name: String): String {
 }
 
 /** A clip of a picture: one of the kinds of thing it says it holds is an image. */
-private fun isPicture(kinds: android.content.ClipDescription) = (0 until kinds.mimeTypeCount).any { kinds.getMimeType(it).startsWith("image/") }
+internal fun isPicture(kinds: android.content.ClipDescription) = (0 until kinds.mimeTypeCount).any { kinds.getMimeType(it).startsWith("image/") }
 
 /** The gallery, the open artwork and the state of the controls around it; outlives configuration changes. */

@@ -4071,7 +4071,7 @@ impl Canvas {
     }
 
     /// Applies an undo or redo step and returns its inverse: the pixels and document it replaced.
-    fn apply_step(&mut self, gpu: &Gpu, encoder: &mut wgpu::CommandEncoder, doc: &mut Document, step: Step) -> Step {
+    pub(super) fn apply_step(&mut self, gpu: &Gpu, encoder: &mut wgpu::CommandEncoder, doc: &mut Document, step: Step) -> Step {
         let device = &gpu.device;
         let made = step.made;
         let name = step.name.clone();
@@ -4142,7 +4142,7 @@ impl Canvas {
     }
 
     /// Draws layer `id` inverted within `rect`, from its copy there in the scratch texture.
-    fn encode_invert(&self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder, id: LayerId, rect: IRect) {
+    pub(super) fn encode_invert(&self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder, id: LayerId, rect: IRect) {
         let Some(layer) = self.layers.get(&id) else { return };
         let (scratch, scratch_view) = self.scratch.get(device);
         encoder.copy_texture_to_texture(
@@ -4473,7 +4473,7 @@ impl Canvas {
 
     /// `view` bound as an adjustment's source, with where it shows when `masked`: what is painted
     /// on, or else the selection.
-    fn adjustment_bind(&self, device: &wgpu::Device, view: &wgpu::TextureView, masked: bool) -> wgpu::BindGroup {
+    pub(super) fn adjustment_bind(&self, device: &wgpu::Device, view: &wgpu::TextureView, masked: bool) -> wgpu::BindGroup {
         let painted = self.pencil.as_ref().map(|p| &p.view);
         let chosen =
             painted.or(self.selection.as_ref().map(|s| &s.view)).filter(|_| masked).unwrap_or(&self.everything);
@@ -4567,7 +4567,7 @@ impl Canvas {
 
     /// A blur's working texture `width` x `height` for `part` (0 a halving, 1 across, 2 down),
     /// made the first time and kept until the adjustment ends.
-    fn blur_texture(&self, device: &wgpu::Device, label: &str, width: u32, height: u32, part: u8) -> wgpu::TextureView {
+    pub(super) fn blur_texture(&self, device: &wgpu::Device, label: &str, width: u32, height: u32, part: u8) -> wgpu::TextureView {
         let mut kept = self.blur_textures.lock().unwrap_or_else(PoisonError::into_inner);
         kept.entry((width, height, part))
             .or_insert_with(|| {

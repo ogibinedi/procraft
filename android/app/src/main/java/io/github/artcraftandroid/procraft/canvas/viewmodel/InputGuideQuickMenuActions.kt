@@ -681,7 +681,7 @@ internal fun CanvasViewModel.keepQuickMenus() {
 fun CanvasViewModel.setPenButtonAction(second: Boolean, a: QuickAction?) {
     val i = if (second) 1 else 0
     penButtonActions = penButtonActions.toMutableList().also { if (i in it.indices) it[i] = a }
-    interfacePrefs.edit().putString(PEN_BUTTONS, io.github.artcraftandroid.procraft.core.penButtonActionsSaved(penButtonActions)).apply()
+    interfacePrefs.edit().putString(CanvasViewModel.PEN_BUTTONS, io.github.artcraftandroid.procraft.core.penButtonActionsSaved(penButtonActions)).apply()
 }
 
 /**

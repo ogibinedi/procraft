@@ -129,7 +129,7 @@ internal fun SwipeBrush(
     LaunchedEffect(open, width) { offset.animateTo(if (open) -width.toFloat() else 0f, Motion.swipeSettle()) }
     Box(Modifier.fillMaxWidth().onSizeChanged { width = it.width }.clipToBounds()) {
         if (offset.value < 0f) {
-            Row(Modifier.matchParentSize(), horizontalArrangement = Arrangement.spacedBy(SwipeGap)) {
+            Row(Modifier.matchParentSize(), horizontalArrangement = Arrangement.spacedBy(BrushSwipeGap)) {
                 for (a in actions) {
                     SwipeButton(a.icon, a.label, a.fill, a.ink, Modifier.weight(1f)) {
                         onOpen(false)
@@ -216,8 +216,8 @@ internal fun MenuDivider(gap: Dp = 10.dp) {
 /** Places a menu from its anchor's bounds and its own size, kept in the window below [top]. */
 /** The set icon picker: its columns, how far left of the set it starts, and the room it keeps below. */
 internal const val PICKER_COLUMNS = 5
-internal val PickerInset = 11.dp
-internal val PickerMargin = 25.dp
+internal val LibraryPickerInset = 11.dp
+internal val LibraryPickerMargin = 25.dp
 
 internal class MenuPlace(private val top: Int = 0, private val place: (IntRect, IntSize) -> IntOffset) : PopupPositionProvider {
     override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize): IntOffset {
@@ -269,7 +269,7 @@ internal const val PINCH_SHOWN_MOST = 1.05f
  * touches go no further (the lists under them stay, and nothing is tapped or held); a lone
  * finger's go on as ever.
  */
-private suspend fun PointerInputScope.awaitLibraryPinch(
+internal suspend fun PointerInputScope.awaitLibraryPinch(
     origin: () -> Offset,
     onPinch: (Float, Offset) -> Unit,
     onLet: (Float, Offset) -> Unit,

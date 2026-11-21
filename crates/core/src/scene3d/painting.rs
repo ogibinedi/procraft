@@ -142,11 +142,11 @@ pub(crate) fn write_model(saved: &mut SavedSets, dir: &Path, model: &ModelSnapsh
 
 /// The names of a part's normal and occlusion maps' files in the artwork's `maps` folder
 /// (`<part>-<name>.png`).
-const MAP_FILES: [&str; 2] = ["normal", "occlusion"];
+pub(super) const MAP_FILES: [&str; 2] = ["normal", "occlusion"];
 
 /// The layers of `doc` saved in `folder` (each `<id>.png`, `side` square); a layer with no file is
 /// empty.
-fn read_set_layers(folder: &Path, doc: &Document, side: u32) -> Pixels {
+pub(super) fn read_set_layers(folder: &Path, doc: &Document, side: u32) -> Pixels {
     let mut pending = Vec::new();
     for layer in doc.layers() {
         let path = folder.join(format!("{}.png", layer.id.0));
@@ -242,7 +242,7 @@ pub(crate) fn open_saved_model(dir: &Path, saved: &SavedModel) -> Result<Scene, 
 impl Scene {
     /// What part `part`'s `channel` (1 roughness, 2 metalness) starts as, where the model's
     /// material brings no image for it: the material's value, else the plain one.
-    fn channel_value(&self, part: usize, channel: usize) -> f32 {
+    pub(super) fn channel_value(&self, part: usize, channel: usize) -> f32 {
         let (_, roughness, metallic) = self.mesh.surface(part);
         if channel == 1 { roughness } else { metallic }
     }
@@ -519,7 +519,7 @@ impl State {
     }
 
     /// Carries the picture being placed onto the model, if it has moved or the model has.
-    fn carry_picture(&mut self) {
+    pub(super) fn carry_picture(&mut self) {
         let size = self.window_size;
         let (Some(gpu), Some(scene), Some(canvas)) = (self.gpu.as_ref(), self.scene.as_mut(), self.canvas.as_mut())
         else {
@@ -807,7 +807,7 @@ impl State {
     /// A stroke on a part's colour paints its roughness and metalness too, on the same layer and
     /// with the same coverage: the brush's amount of each through its source (an eraser takes
     /// all three away). A stroke on one of those channels paints only it.
-    fn begin_material_strokes(&mut self, brush: &procraft_engine::brush::Brush, style: StrokeStyle, layer: LayerId) {
+    pub(super) fn begin_material_strokes(&mut self, brush: &procraft_engine::brush::Brush, style: StrokeStyle, layer: LayerId) {
         let structure = self.doc.clone();
         let (Some(gpu), Some(scene)) = (self.gpu.as_ref(), self.scene.as_mut()) else { return };
         scene.material_paint = None;
@@ -938,7 +938,7 @@ impl State {
 
     /// Carries the stroke drawn on the screen so far onto the current texture set; once the pen
     /// has lifted, the stroke ends there. Not before the model has been drawn once.
-    fn carry_stroke(&mut self) {
+    pub(super) fn carry_stroke(&mut self) {
         let size = self.window_size;
         let (Some(gpu), Some(scene)) = (self.gpu.as_ref(), self.scene.as_mut()) else { return };
         if !scene.stroking {
@@ -1236,7 +1236,7 @@ impl State {
 /// A stroke's grain fixed to the canvas read along the model's three axes into the current
 /// part's texture space, one tile every `tile` canvas pixels, if the brush has one and the model
 /// has been drawn: for [`Canvas::set_stroke_grain`].
-fn stroke_grain(
+pub(super) fn stroke_grain(
     gpu: &Gpu,
     scene: &mut Scene,
     brush: &procraft_engine::brush::Brush,
@@ -1266,7 +1266,7 @@ fn stroke_grain(
 }
 
 /// Input as window pixels (3D strokes are built on the screen).
-fn window_samples(samples: &[PenSample]) -> Vec<Sample> {
+pub(super) fn window_samples(samples: &[PenSample]) -> Vec<Sample> {
     samples
         .iter()
         .map(|s| Sample {
@@ -1281,6 +1281,6 @@ fn window_samples(samples: &[PenSample]) -> Vec<Sample> {
 }
 
 /// The pixels stamps can touch.
-fn bounds_of(stamps: &[procraft_engine::stroke::Stamp]) -> IRect {
+pub(super) fn bounds_of(stamps: &[procraft_engine::stroke::Stamp]) -> IRect {
     stamps.iter().fold(IRect::EMPTY, |r, s| r.union(IRect::around(s.center, s.radius * std::f32::consts::SQRT_2)))
 }

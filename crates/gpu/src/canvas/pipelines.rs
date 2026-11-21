@@ -1721,7 +1721,7 @@ pub(crate) fn write_image_levels(gpu: &Gpu, texture: &wgpu::Texture, layer: u32,
 }
 
 /// [`write_image_levels`] for an image of `channels` bytes a pixel.
-fn write_image_levels_of(gpu: &Gpu, texture: &wgpu::Texture, layer: u32, n: u32, pixels: &[u8], channels: u32) {
+pub(super) fn write_image_levels_of(gpu: &Gpu, texture: &wgpu::Texture, layer: u32, n: u32, pixels: &[u8], channels: u32) {
     let mut level = pixels.to_vec();
     let mut size = n;
     for mip in 0..n.ilog2() + 1 {

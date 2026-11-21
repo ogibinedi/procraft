@@ -118,7 +118,7 @@ internal val MenuRule = Color(0xFF3F4347)
 /** Menus stay below the top bar. */
 private val MenuTop = 57.dp
 /** A brush swiped left shows three buttons filling its place, this far apart. */
-internal val SwipeGap = 5.5.dp
+internal val BrushSwipeGap = 5.5.dp
 internal val BrushSwipeFill = Color(0xFF3F3F3F)
 internal val BrushSwipeInk = Color(0xFFC5C5C5)
 private val SwipeDelete = Color(0xFFFF3A46)
@@ -596,11 +596,11 @@ fun BrushLibrary(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier,
                             PcPopup(
                                 popupPositionProvider = remember(customizeRow, setScreenTop, density) {
                                     MenuPlace(below) { a, size ->
-                                        val x = a.left - with(density) { PickerInset.roundToPx() }
+                                        val x = a.left - with(density) { LibraryPickerInset.roundToPx() }
                                         val row = customizeRow ?: return@MenuPlace IntOffset(x, a.top)
                                         val top = a.top + (row.first - setScreenTop).roundToInt()
                                         val bottom = a.top + (row.second - setScreenTop).roundToInt()
-                                        val room = (vm.windowSize.y - with(density) { PickerMargin.toPx() }).roundToInt()
+                                        val room = (vm.windowSize.y - with(density) { LibraryPickerMargin.toPx() }).roundToInt()
                                         IntOffset(x, if (bottom + size.height <= room) bottom else top - size.height)
                                     }
                                 },

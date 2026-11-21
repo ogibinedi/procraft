@@ -947,7 +947,7 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
         internal set
 
     /** The lighting as the studio found it, put back by Cancel. */
-    private class StudioKept(val environment: String, val exposure: Float, val shown: Boolean, val lights: List<io.github.artcraftandroid.procraft.core.ModelLight>)
+    internal class StudioKept(val environment: String, val exposure: Float, val shown: Boolean, val lights: List<io.github.artcraftandroid.procraft.core.ModelLight>)
 
     internal var studioKept: StudioKept? = null
 
