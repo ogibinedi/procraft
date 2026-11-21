@@ -1,5 +1,7 @@
 package io.github.artcraftandroid.procraft
 
+import io.github.artcraftandroid.procraft.canvas.*
+
 import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity

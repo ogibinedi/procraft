@@ -5,7 +5,7 @@
 <h1 align="center">ProCraft</h1>
 
 <p align="center">
-  <b>An open-source painting app for Android tablets, Windows and Linux, with its own Rust engine and GPU renderer: a Kotlin/Jetpack Compose UI on Android, the same interface in egui on the desktop.</b><br>
+  <b>An open-source painting app for Android smartphones, powered by its own Rust engine and wgpu renderer with a modular Kotlin/Jetpack Compose UI.</b><br>
   Pressure-sensitive brushes, layers with blend modes, adjustments, selection and transform, animation and 3D painting, written from scratch.
 </p>
 
@@ -23,12 +23,11 @@
   <img alt="Minimum: Android 8 (API 26)" src="https://img.shields.io/badge/min-Android%208%20%28API%2026%29-blue?style=flat">
   <img alt="Target: Android 16 (API 36)" src="https://img.shields.io/badge/target-Android%2016%20%28API%2036%29-blue?style=flat">
   <img alt="License: MIT OR Apache-2.0" src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue?style=flat">
-  <img alt="Desktop: Windows and Linux" src="https://img.shields.io/badge/desktop-Windows%20%C2%B7%20Linux-blue?style=flat">
   <img alt="Status: beta" src="https://img.shields.io/badge/status-beta-lightblue?style=flat">
 </p>
 
 <p align="center">
-  <sub>From <a href="https://github.com/artcraft-android/procraft/releases">Releases</a>: Android tablets take the <code>arm64.apk</code> (the <code>legacy-armeabi-v7a.apk</code> is only for older 32-bit tablets), or Obtainium, for updates; Windows the <code>.msi</code> installer or the portable <code>.zip</code>; Linux the <code>.AppImage</code>, the <code>.deb</code> or the <code>.tar.gz</code> (videos and PDFs there use the system's <code>ffmpeg</code> and <code>poppler-utils</code>).</sub>
+  <sub>Android smartphones take the <code>arm64.apk</code> (the <code>legacy-armeabi-v7a.apk</code> is for older 32-bit devices).</sub>
 </p>
 
 <p align="center">
@@ -133,7 +132,6 @@ ProCraft is in beta, on Android tablets and on the desktop (Windows and Linux).
 * Clone this repository
 * Make sure you have at least 6 GB of free disk space
 * enter `android` and run `./gradlew assembleRelease -Pprocraft.abis=arm64-v8a`, or open that folder in Android Studio and press Run.
-* the desktop app: `cargo run --release -p procraft-desktop` from the repository's root; its installer and packages with `packaging/windows/package.ps1` (WiX v5) and `packaging/linux/package.sh` (nfpm, appimagetool).
 
 Build time dependencies:
 
@@ -148,18 +146,15 @@ Build time dependencies:
   ```
 </details>
 
-`cargo test --workspace` runs the engine's and the renderer's tests on the desktop.
+`cargo test --workspace` runs the engine's, core's, and renderer's tests.
 
 | Path | What |
 |---|---|
 | `crates/engine` | document, brushes, stroke geometry, canvas view (no GPU) |
 | `crates/gpu` | wgpu renderer: layers, strokes, compositing, display |
-| `crates/core` | what both apps share above the renderer: the canvas session, every touch and gesture, the tools' state (adjustments, transform, selection, crop, Recolor) and which of them a button ends, the gallery, presets, gradients, time-lapse, the brush library's files, the layer menu, exports and their file names, and keyboard shortcuts; with the Android app's UniFFI bindings |
-| `android` | the Android app (Gradle) |
-| `desktop` | the desktop app (egui) for Windows and Linux |
-| `packaging` | the desktop app's Windows installer and Linux packages, as the release workflow builds them |
-
-*Builds are only tested on Windows 11.*
+| `crates/core` | the canvas session, touch and gesture handling, tools' state (adjustments, transform, selection, crop, Recolor), gallery, presets, gradients, time-lapse, brush library files, layer operations, exports, and UniFFI bindings |
+| `android/bindgen` | UniFFI Kotlin bindings generator |
+| `android` | the Android smartphone app (Gradle, Jetpack Compose, modularized `canvas/` and `ui/` packages) |
 
 <br>
 

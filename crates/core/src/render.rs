@@ -10,11 +10,8 @@ use crate::Shared;
 use crate::frame::{configure, configure_with, screen_profile};
 use crate::frame_loop::Acquired;
 
-/// The window drawn into: Android's native window, or the iPad app's `CAMetalLayer`.
-#[cfg(target_os = "android")]
+/// The window drawn into: Android's native window.
 type Window = ndk::native_window::NativeWindow;
-#[cfg(target_os = "ios")]
-type Window = crate::layer::Layer;
 
 pub(crate) fn run(shared: Arc<Shared>, window: Window) {
     let own = shared.lock().gpu.as_ref().map(|g| g.instance.clone());

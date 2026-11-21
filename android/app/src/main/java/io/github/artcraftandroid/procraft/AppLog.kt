@@ -1,5 +1,7 @@
 package io.github.artcraftandroid.procraft
 
+import io.github.artcraftandroid.procraft.canvas.*
+
 import android.app.ActivityManager
 import android.app.ApplicationExitInfo
 import android.content.Context

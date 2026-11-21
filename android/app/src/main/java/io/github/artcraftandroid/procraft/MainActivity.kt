@@ -1,5 +1,7 @@
 package io.github.artcraftandroid.procraft
 
+import io.github.artcraftandroid.procraft.canvas.*
+
 import android.graphics.Color
 import android.hardware.display.DisplayManager
 import android.os.Build

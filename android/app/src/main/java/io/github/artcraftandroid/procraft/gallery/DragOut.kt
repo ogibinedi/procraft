@@ -1,5 +1,7 @@
 package io.github.artcraftandroid.procraft.gallery
 
+import io.github.artcraftandroid.procraft.canvas.*
+
 import android.content.ClipData
 import android.content.ClipDescription
 import android.content.ContentProvider

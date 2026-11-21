@@ -19,8 +19,6 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'android', 'app', 'src', 'main', 'assets', 'licenses.txt')
 TARGET = 'aarch64-linux-android'
-DESKTOP_OUT = os.path.join(ROOT, 'desktop', 'licenses.txt')
-DESKTOP_TARGETS = ['x86_64-pc-windows-msvc', 'aarch64-apple-darwin', 'x86_64-unknown-linux-gnu']
 LICENCE_FILE = re.compile(r'^(licen[cs]e|copying|notice|unlicense)', re.IGNORECASE)
 
 # The Android side, from app/build.gradle.kts and what those pull in.
@@ -210,10 +208,6 @@ def main():
         lines += [f'{name}: Apache License 2.0', url, '']
     write(OUT, lines, shared)
     print(f'{len(crates)} crates, {len(ANDROID)} Android groups -> {os.path.relpath(OUT, ROOT)}')
-
-    crates, shared = linked('procraft-desktop', DESKTOP_TARGETS), {}
-    write(DESKTOP_OUT, head + crate_lines(crates, shared), shared)
-    print(f'{len(crates)} crates -> {os.path.relpath(DESKTOP_OUT, ROOT)}')
 
 
 if __name__ == '__main__':

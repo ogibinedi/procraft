@@ -1,5 +1,7 @@
 package io.github.artcraftandroid.procraft.ui
 
+import io.github.artcraftandroid.procraft.canvas.*
+
 import io.github.artcraftandroid.procraft.canvas.ColorMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

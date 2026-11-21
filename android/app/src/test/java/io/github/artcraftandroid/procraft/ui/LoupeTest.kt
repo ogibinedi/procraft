@@ -1,5 +1,7 @@
 package io.github.artcraftandroid.procraft.ui
 
+import io.github.artcraftandroid.procraft.canvas.*
+
 import androidx.compose.ui.unit.IntOffset
 import io.github.artcraftandroid.procraft.canvas.LOUPE_LIFT_DP
 import io.github.artcraftandroid.procraft.canvas.PickState

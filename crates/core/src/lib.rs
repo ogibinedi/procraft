@@ -1,14 +1,11 @@
-//! The session both ProCraft apps drive: a [`CanvasSession`] takes input from the interface, builds
-//! strokes with the engine and draws them with the GPU renderer. The Android app reaches it through
-//! UniFFI's Kotlin bindings, and it draws on its own render thread straight into the app's
-//! `SurfaceView`; the desktop app calls it directly and draws each frame into its window
-//! (`host.rs`).
+//! The session the ProCraft Android app drives: a [`CanvasSession`] takes input from the interface,
+//! builds strokes with the engine and draws them with the GPU renderer. The Android app reaches it
+//! through UniFFI's Kotlin bindings, and it draws on its own render thread straight into the app's
+//! `SurfaceView`.
 //!
 //! On Android the window crosses over through two small JNI functions (`window.rs`, the crate's
-//! only unsafe code with `layer.rs`): Kotlin hands its `Surface` to `NativeWindows.acquire` and
-//! passes the id it returns to [`CanvasSession::attach_window`]. The iPad app (UniFFI's Swift
-//! bindings) hands its canvas view's `CAMetalLayer` to `acquire_layer` (`layer.rs`) the same way,
-//! and the same render thread draws into it.
+//! only unsafe code): Kotlin hands its `Surface` to `NativeWindows.acquire` and passes the id it
+//! returns to [`CanvasSession::attach_window`].
 
 uniffi::setup_scaffolding!();
 
@@ -49,8 +46,6 @@ mod host;
 mod hues;
 mod interface_size;
 mod keys;
-#[cfg(target_os = "ios")]
-mod layer;
 mod layer_bundle;
 mod layer_ops;
 mod layer_store;
@@ -84,7 +79,7 @@ mod quickshape;
 mod recolor;
 mod reference_view;
 mod reference_window;
-#[cfg(any(target_os = "android", target_os = "ios"))]
+#[cfg(target_os = "android")]
 mod render;
 mod reveal;
 mod scene3d;
@@ -109,9 +104,6 @@ mod tween;
 mod view_look;
 #[cfg(target_os = "android")]
 mod window;
-// the iPad app's window is its layer: taken and drawn into as Android's is
-#[cfg(target_os = "ios")]
-use layer as window;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -638,7 +630,7 @@ pub(crate) struct State {
     pub(crate) frame_due: Option<std::time::Instant>,
     /// The least time between the beginnings of two frames: a little under the screen's refresh
     /// period, once the app has said what that is (see [`CanvasSession::set_refresh_rate`]).
-    #[cfg_attr(not(any(target_os = "android", target_os = "ios")), allow(dead_code))]
+    #[cfg_attr(not(target_os = "android"), allow(dead_code))]
     pub(crate) frame_spacing: Option<std::time::Duration>,
     /// Frames wait (the canvas is being redrawn a stroke at a time, as the brush studio's pad is
     /// when its brush changes), and one was asked for meanwhile.
@@ -1632,7 +1624,7 @@ impl Shared {
 
     /// The render thread has the lock back after waiting for a frame to be asked for (`wake`
     /// gives it back without [`Shared::lock`]): it holds it from here.
-    #[cfg_attr(not(any(target_os = "android", target_os = "ios")), allow(dead_code))]
+    #[cfg_attr(not(target_os = "android"), allow(dead_code))]
     #[track_caller]
     pub(crate) fn took_back(&self) {
         self.holder.took(std::panic::Location::caller());
@@ -2130,12 +2122,11 @@ impl CanvasSession {
 
 #[uniffi::export]
 impl CanvasSession {
-    /// Starts drawing into the window `window` (an id from `NativeWindows.acquire`, or on iPadOS
-    /// from `acquire_layer`), `width` × `height` pixels. The session owns the window from
-    /// here on.
+    /// Starts drawing into the window `window` (an id from `NativeWindows.acquire`),
+    /// `width` × `height` pixels. The session owns the window from here on.
     pub fn attach_window(&self, window: u64, width: u32, height: u32) -> Result<(), MobileError> {
         self.detach_window();
-        #[cfg(any(target_os = "android", target_os = "ios"))]
+        #[cfg(target_os = "android")]
         {
             let native =
                 window::take(window).ok_or_else(|| MobileError::Window { reason: format!("no window {window}") })?;
@@ -2166,10 +2157,10 @@ impl CanvasSession {
             *self.shared.thread.lock().unwrap_or_else(|e| e.into_inner()) = Some(handle);
             Ok(())
         }
-        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        #[cfg(not(target_os = "android"))]
         {
             let _ = (width, height);
-            Err(MobileError::Window { reason: format!("windows are the tablet apps' only (asked for {window})") })
+            Err(MobileError::Window { reason: format!("windows are Android's only (asked for {window})") })
         }
     }
 

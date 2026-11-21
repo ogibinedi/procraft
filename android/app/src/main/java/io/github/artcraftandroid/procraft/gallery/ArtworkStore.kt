@@ -1,5 +1,7 @@
 package io.github.artcraftandroid.procraft.gallery
 
+import io.github.artcraftandroid.procraft.canvas.*
+
 import io.github.artcraftandroid.procraft.canvas.TimeLapseSettings
 import io.github.artcraftandroid.procraft.core.GalleryArtwork
 import java.io.File

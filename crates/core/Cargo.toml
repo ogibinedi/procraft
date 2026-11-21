@@ -5,12 +5,11 @@ edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 license.workspace = true
-description = "The session the ProCraft apps drive: a canvas painted with the engine and drawn by the renderer, with the Android app's Kotlin bindings and the iPad app's Swift ones (UniFFI)"
+description = "The session the ProCraft Android app drives: a canvas painted with the engine and drawn by the renderer, with Kotlin bindings (UniFFI)"
 
 [lib]
 name = "procraft_core"
-# cdylib: the library the Android app loads; lib: the desktop app and the tests (the iPad app's
-# static library is built from it with `cargo rustc --crate-type staticlib`, ios/build-rust.sh)
+# cdylib: the library the Android app loads; lib: the workspace tests
 crate-type = ["cdylib", "lib"]
 
 [lints]
@@ -50,10 +49,6 @@ android_logger = { version = "0.15", default-features = false }
 ndk = { version = "0.9", default-features = false }
 jni-sys = "0.3"
 raw-window-handle = "0.6"
-
-# The iPad app's CAMetalLayer, handed over from Swift (layer.rs)
-[target.'cfg(target_os = "ios")'.dependencies]
-objc2 = "0.6"
 
 [dev-dependencies]
 # hostile modules, written out in the tests

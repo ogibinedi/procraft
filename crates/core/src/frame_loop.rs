@@ -2,8 +2,8 @@
 //! for (or one is due), draws it, and presents it. Nothing changing on screen, it draws nothing and
 //! doesn't wake; the app away, it draws nothing at all; a window that gives no image is asked again
 //! less and less often, never in a tight loop.
-// (the desktop draws from its own loop: only the tablet apps' render thread and the tests use it)
-#![cfg_attr(not(any(target_os = "android", target_os = "ios", test)), allow(dead_code))]
+// (only the Android render thread and the tests use it)
+#![cfg_attr(not(any(target_os = "android", test)), allow(dead_code))]
 
 use std::time::{Duration, Instant};
 

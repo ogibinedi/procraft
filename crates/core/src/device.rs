@@ -72,7 +72,7 @@ static RECORD_FOLDER: Mutex<Option<(PathBuf, String)>> = Mutex::new(None);
 pub(crate) const RECORD: &str = "gpu-start.txt";
 
 /// Whether a canvas has shown in this run (so nothing is at risk any more).
-#[cfg_attr(not(any(target_os = "android", target_os = "ios")), allow(dead_code))]
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
 static SHOWN: AtomicBool = AtomicBool::new(false);
 
 /// The app's device, held while one is made so that two aren't made at once.
@@ -165,10 +165,10 @@ pub(crate) fn made_on(backend: usize) {
 /// A canvas is about to show on the app's device: until it has ([`Showing::shown`]), a crash
 /// counts against the device's backend. The try ends when this is dropped (unless panicking,
 /// which counts against it too).
-#[cfg_attr(not(any(target_os = "android", target_os = "ios")), allow(dead_code))]
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
 pub(crate) struct Showing(Option<usize>);
 
-#[cfg_attr(not(any(target_os = "android", target_os = "ios")), allow(dead_code))]
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
 impl Showing {
     pub(crate) fn begin() -> Showing {
         let backend = BACKEND.load(Ordering::Relaxed);

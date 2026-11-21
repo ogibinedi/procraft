@@ -1,32 +1,12 @@
-# Release pipeline: pushing a version tag (v0.0.1-beta, v0.2.0, v1.0.0-rc.1, …) builds, and makes a
-# draft GitHub release named after the tag (with an empty "What's Changed" section: fill it in on
-# GitHub and publish the draft) of:
+# Release pipeline: pushing a version tag (v0.0.1-beta, v0.2.0, v1.0.0-rc.1, ...) builds, and makes a
+# draft GitHub release named after the tag of:
 #
-#   procraft-<version>-android-arm64.apk          64-bit ARM tablets, signed with the release key
-#   procraft-<version>-android-legacy-armeabi-v7a.apk   older 32-bit ARM tablets, signed likewise (named to list after arm64)
-#   procraft-<version>-windows-x64.msi            the desktop app's installer (packaging/windows)
-#   procraft-<version>-windows-x64-portable.zip   the desktop app to run from anywhere
-#   procraft-<version>-windows-arm64.msi          the same for Windows on ARM (Snapdragon PCs)
-#   procraft-<version>-windows-arm64-portable.zip
-#   procraft-<version>-linux-x86_64.AppImage      any distro (packaging/linux)
-#   procraft-<version>-linux-x86_64.deb           Debian, Ubuntu and the like
-#   procraft-<version>-linux-x86_64.tar.gz        the plain tree
-#   procraft-<version>-linux-aarch64.AppImage     the same three for 64-bit ARM (Raspberry Pi 4 and 5,
-#   procraft-<version>-linux-aarch64.deb          ARM laptops and boards)
-#   procraft-<version>-linux-aarch64.tar.gz
-#   procraft-<version>-macos-universal.dmg        Apple silicon and Intel Macs (packaging/macos):
-#                                                 signed with a Developer ID and notarized when
-#                                                 the APPLE_* secrets exist, else ad hoc
-#   SHA256SUMS.txt                                each file's SHA-256
+#   procraft-<version>-android-arm64.apk                64-bit ARM Android smartphones, signed with the release key
+#   procraft-<version>-android-legacy-armeabi-v7a.apk   older 32-bit ARM devices, signed likewise
+#   SHA256SUMS.txt                                      each file's SHA-256
 #
-# The Mac file is built on the public repository alone (a private one pays for macOS runners'
-# minutes, ten times Linux's), and only once the repository's variable RELEASE_MAC is true. While
-# it is new, its failing leaves its file out rather than holding up the release; so do Windows
-# on ARM's and Linux on ARM's (also built on the public repository alone).
-#
-# A manual run (Actions › Release › Run workflow) is a dry run: it builds them at the version in
-# gradle.properties and keeps them as the run's artifacts, and releases nothing. It also builds
-# the iPad app's unsigned .ipa (ios/), which stays out of releases until that app is finished.
+# A manual run (Actions > Release > Run workflow) is a dry run: it builds them at the version in
+# gradle.properties and keeps them as the run's artifacts, and releases nothing.
 name: Release
 
 on:
@@ -39,7 +19,6 @@ permissions:
 
 concurrency:
   group: release-${{ github.ref }}
-  # never cancel a release halfway; a newer push waits its turn
   cancel-in-progress: false
 
 env:
@@ -64,7 +43,6 @@ jobs:
             echo "::error::'$v' is not a version like 1.2.3 or 1.2.3-beta"
             exit 1
           fi
-          # the tag must be the version gradle.properties names
           if [ "$v" != "$listed" ]; then
             echo "::error::the tag is v$v but gradle.properties says procraft.version=$listed: set it (and procraft.versionCode) before tagging"
             exit 1
@@ -88,7 +66,6 @@ jobs:
 
       - name: Install cargo-ndk and the Android NDK
         run: |
-          # the version F-Droid's build of the same tag installs, so its APKs come out the same as ours
           cargo install cargo-ndk --version 4.1.2 --locked
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" >/dev/null
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >>"$GITHUB_ENV"
@@ -149,281 +126,10 @@ jobs:
         if: always()
         run: rm -f "$RUNNER_TEMP/release.p12"
 
-  desktop:
-    name: Desktop (${{ matrix.name }})
-    strategy:
-      matrix:
-        include:
-          - name: windows-x64
-            os: windows-2025
-          # an older Ubuntu, so the binary runs on any distro with glibc 2.35 or newer
-          - name: linux-x86_64
-            os: ubuntu-22.04
-    runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        shell: bash
-    env:
-      DIST: ${{ github.workspace }}/dist
-    steps:
-      - uses: actions/checkout@v4
-
-      - id: v
-        name: Resolve version
-        run: |
-          listed="$(sed -n 's/^procraft\.version=//p' android/gradle.properties | tr -d '\r')"
-          if [ "$GITHUB_REF_TYPE" = tag ]; then v="${GITHUB_REF_NAME#v}"; else v="$listed"; fi
-          echo "version=$v" >>"$GITHUB_OUTPUT"
-
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.RUST_VERSION }}
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: release-desktop-${{ matrix.name }}
-
-      - name: Install WiX v5
-        if: runner.os == 'Windows'
-        run: |
-          dotnet tool install --global wix --version 5.0.2
-          echo "$USERPROFILE/.dotnet/tools" >>"$GITHUB_PATH"
-          "$USERPROFILE/.dotnet/tools/wix" extension add -g WixToolset.UI.wixext/5.0.2 WixToolset.Util.wixext/5.0.2
-
-      - name: Package for Windows
-        if: runner.os == 'Windows'
-        shell: pwsh
-        env:
-          VERSION: ${{ steps.v.outputs.version }}
-        run: ./packaging/windows/package.ps1
-
-      - name: Install nfpm
-        if: runner.os == 'Linux'
-        run: |
-          curl -fsSL https://github.com/goreleaser/nfpm/releases/download/v2.47.0/nfpm_2.47.0_Linux_x86_64.tar.gz | tar -xz -C "$RUNNER_TEMP" nfpm
-          sudo install -m755 "$RUNNER_TEMP/nfpm" /usr/local/bin/nfpm
-          sudo apt-get install -y --no-install-recommends desktop-file-utils >/dev/null
-
-      - name: Package for Linux
-        if: runner.os == 'Linux'
-        env:
-          VERSION: ${{ steps.v.outputs.version }}
-        run: bash packaging/linux/package.sh
-
-      - name: Files
-        run: ls -l dist >>"$GITHUB_STEP_SUMMARY"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: release-desktop-${{ matrix.name }}
-          path: dist/*
-          if-no-files-found: error
-
-  macos:
-    name: Desktop (macos-universal)
-    # only once the Mac app is to ship: the repository's variable RELEASE_MAC set to true
-    if: ${{ !github.event.repository.private && vars.RELEASE_MAC == 'true' }}
-    continue-on-error: true
-    runs-on: macos-15
-    env:
-      DIST: ${{ github.workspace }}/dist
-    steps:
-      - uses: actions/checkout@v4
-
-      - id: v
-        name: Resolve version
-        run: |
-          listed="$(sed -n 's/^procraft\.version=//p' android/gradle.properties | tr -d '\r')"
-          if [ "$GITHUB_REF_TYPE" = tag ]; then v="${GITHUB_REF_NAME#v}"; else v="$listed"; fi
-          echo "version=$v" >>"$GITHUB_OUTPUT"
-
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.RUST_VERSION }}
-          targets: aarch64-apple-darwin, x86_64-apple-darwin
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: release-desktop-macos-universal
-
-      - name: Set up Developer ID signing and notarization
-        # without the secrets (forks, dry runs) the app stays signed ad hoc, not notarized
-        env:
-          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-        run: bash packaging/macos/signing.sh --setup
-
-      - name: Package for macOS
-        env:
-          VERSION: ${{ steps.v.outputs.version }}
-        run: bash packaging/macos/package.sh
-
-      - name: Remove the signing keychain and key
-        if: always()
-        run: bash packaging/macos/signing.sh --cleanup
-
-      - name: Files
-        run: ls -l dist >>"$GITHUB_STEP_SUMMARY"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: release-desktop-macos-universal
-          path: dist/*
-          if-no-files-found: error
-
-  # the iPad app is unfinished: built on manual runs only, never released
-  ipados:
-    name: iPadOS (unsigned IPA)
-    if: ${{ !github.event.repository.private && github.event_name == 'workflow_dispatch' }}
-    continue-on-error: true
-    runs-on: macos-15
-    env:
-      DIST: ${{ github.workspace }}/dist
-    steps:
-      - uses: actions/checkout@v4
-
-      - id: v
-        name: Resolve version
-        run: |
-          listed="$(sed -n 's/^procraft\.version=//p' android/gradle.properties | tr -d '\r')"
-          if [ "$GITHUB_REF_TYPE" = tag ]; then v="${GITHUB_REF_NAME#v}"; else v="$listed"; fi
-          echo "version=$v" >>"$GITHUB_OUTPUT"
-
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.RUST_VERSION }}
-          targets: aarch64-apple-ios
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: release-ipados
-
-      - name: Install XcodeGen
-        run: brew install xcodegen
-
-      - name: Build the IPA
-        env:
-          VERSION: ${{ steps.v.outputs.version }}
-        run: bash ios/build-ipa.sh
-
-      - name: Files
-        run: ls -l dist >>"$GITHUB_STEP_SUMMARY"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ipados-unreleased
-          path: dist/*
-          if-no-files-found: error
-
-  # Windows on ARM: cross-built on the x64 runner, which has Visual Studio's ARM64 build tools
-  windows-arm64:
-    name: Desktop (windows-arm64)
-    runs-on: windows-2025
-    continue-on-error: true
-    defaults:
-      run:
-        shell: bash
-    env:
-      DIST: ${{ github.workspace }}/dist
-    steps:
-      - uses: actions/checkout@v4
-
-      - id: v
-        name: Resolve version
-        run: |
-          listed="$(sed -n 's/^procraft\.version=//p' android/gradle.properties | tr -d '\r')"
-          if [ "$GITHUB_REF_TYPE" = tag ]; then v="${GITHUB_REF_NAME#v}"; else v="$listed"; fi
-          echo "version=$v" >>"$GITHUB_OUTPUT"
-
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.RUST_VERSION }}
-          targets: aarch64-pc-windows-msvc
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: release-desktop-windows-arm64
-
-      - name: Install WiX v5
-        run: |
-          dotnet tool install --global wix --version 5.0.2
-          echo "$USERPROFILE/.dotnet/tools" >>"$GITHUB_PATH"
-          "$USERPROFILE/.dotnet/tools/wix" extension add -g WixToolset.UI.wixext/5.0.2 WixToolset.Util.wixext/5.0.2
-
-      - name: Package for Windows on ARM
-        shell: pwsh
-        env:
-          VERSION: ${{ steps.v.outputs.version }}
-          ARCH: arm64
-        run: ./packaging/windows/package.ps1
-
-      - name: Files
-        run: ls -l dist >>"$GITHUB_STEP_SUMMARY"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: release-desktop-windows-arm64
-          path: dist/*
-          if-no-files-found: error
-
-  # Linux on 64-bit ARM: built on GitHub's ARM runner, on the public repository alone (a private
-  # one has no ARM runners on its plan); an older Ubuntu, as for x86_64, for glibc 2.35 or newer
-  linux-aarch64:
-    name: Desktop (linux-aarch64)
-    if: ${{ !github.event.repository.private }}
-    runs-on: ubuntu-22.04-arm
-    continue-on-error: true
-    env:
-      DIST: ${{ github.workspace }}/dist
-    steps:
-      - uses: actions/checkout@v4
-
-      - id: v
-        name: Resolve version
-        run: |
-          listed="$(sed -n 's/^procraft\.version=//p' android/gradle.properties | tr -d '\r')"
-          if [ "$GITHUB_REF_TYPE" = tag ]; then v="${GITHUB_REF_NAME#v}"; else v="$listed"; fi
-          echo "version=$v" >>"$GITHUB_OUTPUT"
-
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.RUST_VERSION }}
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: release-desktop-linux-aarch64
-
-      - name: Install nfpm
-        run: |
-          curl -fsSL https://github.com/goreleaser/nfpm/releases/download/v2.47.0/nfpm_2.47.0_Linux_arm64.tar.gz | tar -xz -C "$RUNNER_TEMP" nfpm
-          sudo install -m755 "$RUNNER_TEMP/nfpm" /usr/local/bin/nfpm
-          sudo apt-get update >/dev/null
-          sudo apt-get install -y --no-install-recommends desktop-file-utils >/dev/null
-
-      # the AppImage, .deb and .tar.gz for aarch64 (package.sh builds for the machine it runs on)
-      - name: Package for Linux on ARM
-        env:
-          VERSION: ${{ steps.v.outputs.version }}
-        run: bash packaging/linux/package.sh
-
-      - name: Files
-        run: ls -l dist >>"$GITHUB_STEP_SUMMARY"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: release-desktop-linux-aarch64
-          path: dist/*
-          if-no-files-found: error
-
   release:
     name: GitHub Release
-    needs: [apk, desktop, windows-arm64, linux-aarch64, macos, ipados]
-    # the Mac, Windows on ARM and Linux on ARM jobs may have been skipped (a private repository)
-    # or left out their files; the iPad's is skipped
-    if: ${{ github.ref_type == 'tag' && !cancelled() && needs.apk.result == 'success' && needs.desktop.result == 'success' }}
+    needs: [apk]
+    if: ${{ github.ref_type == 'tag' && !cancelled() && needs.apk.result == 'success' }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
