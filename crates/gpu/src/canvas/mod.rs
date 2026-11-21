@@ -4482,3 +4482,124 @@ pub use self::pipelines::{
 };
 #[allow(unused_imports)]
 pub(crate) use self::pipelines::*;
+
+/// What `textures` take on the GPU, bytes: every level and layer of each, as its format packs
+/// them (before the driver's own rounding up).
+pub fn textures_bytes(textures: &[wgpu::Texture]) -> u64 {
+    textures
+        .iter()
+        .map(|t| {
+            let (bw, bh) = t.format().block_dimensions();
+            let block = u64::from(t.format().block_copy_size(None).unwrap_or(4));
+            let layers = u64::from(t.depth_or_array_layers()) * u64::from(t.sample_count());
+            (0..t.mip_level_count())
+                .map(|level| {
+                    let (w, h) = ((t.width() >> level).max(1), (t.height() >> level).max(1));
+                    u64::from(w.div_ceil(bw)) * u64::from(h.div_ceil(bh)) * block * layers
+                })
+                .sum::<u64>()
+        })
+        .sum()
+}
+
+/// How a remake of the caches went: over how many renders, and the most items one part took.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RemakeStats {
+    pub renders: u32,
+    pub largest_part: usize,
+}
+
+/// A layer's pixels made ready to park: compressed, with its small pictures. Made on any thread
+/// (the slow part of [`Canvas::park_pixels`]), then given to [`Canvas::park_ready`].
+pub struct ReadyToPark {
+    pub(crate) parked: Parked,
+    pub(crate) pictures: Pictures,
+}
+
+impl ReadyToPark {
+    /// Of a layer's pixels (premultiplied RGBA, `width` x `height`).
+    pub fn of(rgba: &[u8], width: u32, height: u32) -> ReadyToPark {
+        let pictures = Pictures::of(rgba, width, height);
+        ReadyToPark { parked: Parked::of(rgba, width, pictures.bounds), pictures }
+    }
+
+    /// How many bytes the compressed pixels take.
+    pub fn bytes(&self) -> usize {
+        self.parked.lz4.len()
+    }
+}
+
+/// The most shape images a stroke's own set holds (see [`Canvas::use_tip_set`]).
+pub const MOST_TIPS: u32 = 255;
+
+/// What a stroke's own shapes are, and how they colour its stamps.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum TipKind {
+    /// How much each pixel paints, in the stroke's colour.
+    #[default]
+    Mask = 0,
+    /// Pictures: each pixel paints its own colour, as far as it is opaque.
+    Picture = 1,
+    /// Each pixel's grey sets the colour's lightness (a middle grey keeping it as it is, as far as
+    /// the stamp's lightness strength goes), as far as it is opaque.
+    Lightness = 2,
+    /// Each pixel's grey picks a colour between the stroke's (black) and its secondary colour
+    /// (white), as far as it is opaque.
+    Gradient = 3,
+}
+
+impl TipKind {
+    /// Bytes a pixel of its images take.
+    pub fn channels(self) -> u32 {
+        if self == TipKind::Mask { 1 } else { 4 }
+    }
+}
+
+/// Reads a texture of 4-byte pixels back from the GPU, rows top to bottom without padding.
+pub fn read_texture(gpu: &Gpu, texture: &wgpu::Texture, width: u32, height: u32) -> Result<Vec<u8>, GpuError> {
+    start_reading(gpu, texture, width, height).pixels()
+}
+
+/// Pixels on their way back from the GPU: their copy is queued (under whatever lock guards what
+/// they are copied from), and waited for later, the lock let go ([`Readback::pixels`]).
+pub enum Readback {
+    /// Already here.
+    Ready(Vec<u8>),
+    /// The copy couldn't be made (why): nothing is coming.
+    Failed(String),
+    Copying {
+        device: wgpu::Device,
+        /// Whether the device has been lost (see [`Gpu::is_lost`]).
+        lost: Arc<AtomicBool>,
+        /// The buffer and how much of it the pixels take; kept for the next readback after.
+        buffer: wgpu::Buffer,
+        size: u64,
+        kept: Arc<Mutex<Vec<wgpu::Buffer>>>,
+        /// A row's bytes, and as the copy pads it.
+        row: usize,
+        padded: usize,
+        mapped: mpsc::Receiver<Result<(), wgpu::BufferAsyncError>>,
+    },
+}
+
+/// The layers' coverage at a point, as [`Canvas::start_alphas_at`] started reading it.
+#[derive(Default)]
+pub struct PendingAlphas {
+    /// The paint layers in the document's order, those read from the GPU, and the parked ones'.
+    pub(crate) paint: Vec<LayerId>,
+    pub(crate) ids: Vec<LayerId>,
+    pub(crate) parked: HashMap<LayerId, u8>,
+    pub(crate) read: Option<Readback>,
+}
+
+/// How many layers `width` x `height` a canvas keeps on the GPU at once with textures' budget
+/// `budget` bytes (0: no limit; one at least).
+pub fn most_resident(budget: u64, width: u32, height: u32) -> usize {
+    let per = u64::from(width) * u64::from(height) * 4;
+    if budget == 0 { usize::MAX } else { usize::try_from(budget / per.max(1)).unwrap_or(usize::MAX).max(1) }
+}
+
+/// Starts reading a texture of 4-byte pixels back from the GPU: its copy is queued now.
+pub fn start_reading(gpu: &Gpu, texture: &wgpu::Texture, width: u32, height: u32) -> Readback {
+    start_reading_part(gpu, texture, IRect::from_size(width, height))
+}

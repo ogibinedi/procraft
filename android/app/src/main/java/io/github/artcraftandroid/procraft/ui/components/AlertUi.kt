@@ -124,7 +124,9 @@ fun <T : Any> Alert(
                 val t = measurer.measure(title(kept), androidx.compose.ui.text.TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold)).size.width
                 maxOf(m.toDp(), t.toDp() + if (icon != null) 32.dp else 0.dp)
             }
-            val width = (words + AlertTextSide * 2).coerceIn(need, maxOf(AlertMostWidth, need))
+            val screenW = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
+            val maxAllowed = (screenW - 24.dp).coerceAtLeast(260.dp)
+            val width = minOf(maxAllowed, (words + AlertTextSide * 2).coerceIn(need, maxOf(AlertMostWidth, need)))
             Column(
                 Modifier.width(width).graphicsLayer {
                     alpha = shown
@@ -238,8 +240,10 @@ private fun ProgressCard(shown: CardShown?, title: String, glyph: ImageVector, o
                 .pointerInput(Unit) { awaitEachGesture { awaitFirstDown().consume() } },
             contentAlignment = Alignment.Center,
         ) {
+            val screenW = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
+            val cardW = minOf(ExportCardWidth, (screenW - 24.dp).coerceAtLeast(260.dp))
             Column(
-                Modifier.width(ExportCardWidth).graphicsLayer {
+                Modifier.width(cardW).graphicsLayer {
                     alpha = appear
                     val k = ALERT_START_SCALE + (1f - ALERT_START_SCALE) * appear
                     scaleX = k

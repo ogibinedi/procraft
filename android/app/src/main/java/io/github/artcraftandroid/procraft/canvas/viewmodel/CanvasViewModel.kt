@@ -1280,6 +1280,15 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
         private fun fitted(size: DpSize): DpSize {
             val room = room
             val (w, h) = if (room.isSpecified) room.width / density to room.height / density else Float.NaN to Float.NaN
+            if (room.isSpecified && minOf(w, h) < 600f) {
+                val unsized = size == DpSize(REFERENCE_WIDTH_DP.dp, REFERENCE_HEIGHT_DP.dp)
+                val targetW = if (unsized) 210f else size.width.value
+                val targetH = if (unsized) 170f else size.height.value
+                return DpSize(
+                    targetW.coerceIn(170f, (w - 16f).coerceAtLeast(170f)).dp,
+                    targetH.coerceIn(120f, (h - 140f).coerceAtLeast(120f)).dp,
+                )
+            }
             val s = io.github.artcraftandroid.procraft.core.referenceWindowSize(size.width.value, size.height.value, w, h)
             return DpSize(s.width.dp, s.height.dp)
         }
@@ -1398,7 +1407,15 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
             if (offset == Offset.Unspecified) {
                 val shown = shown
                 val tall = shown.height.value * density + bars
-                offset = Offset((width - shown.width.value * density) / 2f, (height - REFERENCE_BOTTOM_DP * density - tall).coerceAtLeast(0f))
+                val compact = minOf(width / density, height / density) < 600f
+                offset = if (compact) {
+                    Offset(
+                        (width - shown.width.value * density - 12f * density).coerceAtLeast(0f),
+                        (60f * density).coerceAtMost((height - tall).coerceAtLeast(0f)),
+                    )
+                } else {
+                    Offset((width - shown.width.value * density) / 2f, (height - REFERENCE_BOTTOM_DP * density - tall).coerceAtLeast(0f))
+                }
                 return
             }
             val at = onScreen(offset)

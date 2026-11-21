@@ -4,6 +4,8 @@ name: CI
 # private copy pays for each minute, so there even a pull request's run skips every job.
 # contributors' pull requests, and by hand (Actions > CI > Run workflow); not every push to main
 on:
+  push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -85,3 +87,9 @@ jobs:
             done
           done
           echo "every library's segments are aligned to 16 KB"
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: procraft-android-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error

@@ -188,18 +188,21 @@ private fun ReadoutRow(name: String, value: UInt, modifier: Modifier) {
 /** The settings popover: the size (aspect locked or not), DPI, resampling, snapping, the turn. */
 @Composable
 private fun CropSettings(vm: CanvasViewModel, modifier: Modifier) {
-    Popover(348.dp, 174.5.dp, modifier, fill = PopoverFill, corner = 24.dp) {
+    val screenW = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
+    val popW = minOf(348.dp, (screenW - 18.dp).coerceAtLeast(280.dp))
+    val fieldW = minOf(137.dp, (popW - 74.dp) / 2)
+    Popover(popW, popW * 0.5f, modifier, fill = PopoverFill, corner = 24.dp) {
         Column(Modifier.padding(10.dp)) {
             Box(Modifier.height(40.dp), contentAlignment = Alignment.CenterStart) {
                 Text("Settings", color = SettingsInk, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 14.dp))
             }
             val (w, h) = vm.cropSize
             Row(Modifier.padding(top = 10.dp).fillMaxWidth().height(44.dp).padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                NumberField(w.toString(), "px", Modifier.width(137.dp)) { it.toIntOrNull()?.let { v -> vm.changeCropSize(v, null) } }
+                NumberField(w.toString(), "px", Modifier.width(fieldW)) { it.toIntOrNull()?.let { v -> vm.changeCropSize(v, null) } }
                 Box(Modifier.padding(horizontal = 8.dp).size(34.dp, 40.dp).clickable { vm.changeCropAspectLocked(!vm.cropAspectLocked) }, contentAlignment = Alignment.Center) {
                     Icon(PcIcons.Link, contentDescription = "Aspect lock", tint = if (vm.cropAspectLocked) Pc.Accent else SettingsInk, modifier = Modifier.size(20.dp))
                 }
-                NumberField(h.toString(), "px", Modifier.width(137.dp)) { it.toIntOrNull()?.let { v -> vm.changeCropSize(null, v) } }
+                NumberField(h.toString(), "px", Modifier.width(fieldW)) { it.toIntOrNull()?.let { v -> vm.changeCropSize(null, v) } }
             }
             Column(Modifier.padding(top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(GroupFill)) {
                 Row(Modifier.fillMaxWidth().height(44.dp).padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {

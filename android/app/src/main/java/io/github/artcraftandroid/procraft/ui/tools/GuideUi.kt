@@ -335,9 +335,10 @@ private fun GuideType.icon() = when (this) {
 private fun GuideToolbar(vm: CanvasViewModel, modifier: Modifier, onChip: () -> Unit) {
     val g = vm.guide ?: return
     val screen = androidx.compose.ui.platform.LocalConfiguration.current
-    if (screen.screenWidthDp > screen.screenHeightDp) {
-        val slider = guideSlider(screen.screenWidthDp.dp)
-        OptionsPanel(screen.screenWidthDp.dp - 16.dp, 137.dp, modifier, 16.dp) {
+    val screenW = screen.screenWidthDp.dp
+    if (screen.screenWidthDp > screen.screenHeightDp && screen.screenWidthDp >= 820) {
+        val slider = guideSlider(screenW)
+        OptionsPanel(screenW - 16.dp, 137.dp, modifier, 16.dp) {
             KindsSwitch(546.dp, GUIDE_KINDS.map { (k, label, w) -> Kind(k.icon(), label, w) }, GUIDE_KINDS.indexOfFirst { it.first == g.kind }) {
                 vm.chooseGuideKind(GUIDE_KINDS[it].first)
             }
@@ -363,25 +364,29 @@ private fun GuideToolbar(vm: CanvasViewModel, modifier: Modifier, onChip: () -> 
         }
         return
     }
-    OptionsPanel(652.dp, 199.dp, modifier, 16.dp) {
+    val panelW = toolbarWidth(652.dp, screenW)
+    val rowW = (panelW - 32.dp).coerceAtLeast(240.dp)
+    val gap = if (panelW < 500.dp) 10.dp else 20.dp
+    val colW = (rowW - gap) / 2
+    OptionsPanel(panelW, 199.dp, modifier, 16.dp) {
         KindsSwitch(546.dp, GUIDE_KINDS.map { (k, label, w) -> Kind(k.icon(), label, w) }, GUIDE_KINDS.indexOfFirst { it.first == g.kind }) {
             vm.chooseGuideKind(GUIDE_KINDS[it].first)
         }
         Spacer(Modifier.height(14.dp))
-        Row(Modifier.width(620.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            OptionSlider("Opacity", g.opacity, shown(g.opacity, max = true), 300.dp) { vm.setGuideLook(opacity = it) }
-            OptionSlider("Thickness", g.thickness, shown(g.thickness, max = true), 300.dp) { vm.setGuideLook(thickness = it) }
+        Row(Modifier.width(rowW), horizontalArrangement = Arrangement.spacedBy(gap)) {
+            OptionSlider("Opacity", g.opacity, shown(g.opacity, max = true), colW) { vm.setGuideLook(opacity = it) }
+            OptionSlider("Thickness", g.thickness, shown(g.thickness, max = true), colW) { vm.setGuideLook(thickness = it) }
         }
         Spacer(Modifier.height(8.dp))
-        Row(Modifier.width(620.dp).height(54.dp), horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.width(rowW).height(54.dp), horizontalArrangement = Arrangement.spacedBy(gap), verticalAlignment = Alignment.CenterVertically) {
             when (g.kind) {
                 GuideType.GRID, GuideType.ISOMETRIC -> {
-                    OptionSlider("Grid size", sizeToSlider(g.size), g.sizeLabel, 300.dp, chip = true, onChip = onChip) { vm.setGuideLook(size = sliderToSize(it)) }
-                    AssistedSwitch(vm, g.assisted)
+                    OptionSlider("Grid size", sizeToSlider(g.size), g.sizeLabel, colW, chip = true, onChip = onChip) { vm.setGuideLook(size = sliderToSize(it)) }
+                    AssistedSwitch(vm, g.assisted, colW)
                 }
-                GuideType.PERSPECTIVE -> AssistedSwitch(vm, g.assisted)
+                GuideType.PERSPECTIVE -> AssistedSwitch(vm, g.assisted, rowW)
                 GuideType.SYMMETRY -> Box(
-                    Modifier.size(300.dp, 40.dp).clip(RoundedCornerShape(20.dp)).background(Color(0xFF303030)).tap { vm.symmetryOptionsOpen = !vm.symmetryOptionsOpen },
+                    Modifier.size(colW, 40.dp).clip(RoundedCornerShape(20.dp)).background(Color(0xFF303030)).tap { vm.symmetryOptionsOpen = !vm.symmetryOptionsOpen },
                     contentAlignment = Alignment.Center,
                 ) {
                     Text("Options", color = GuideLabel, fontSize = 15.sp, maxLines = 1)
@@ -395,8 +400,8 @@ private fun GuideToolbar(vm: CanvasViewModel, modifier: Modifier, onChip: () -> 
 private fun guideSlider(screenWidth: androidx.compose.ui.unit.Dp) = minOf(257.dp, (screenWidth - 328.dp) / 3)
 
 @Composable
-private fun AssistedSwitch(vm: CanvasViewModel, on: Boolean) {
-    Row(Modifier.width(300.dp).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun AssistedSwitch(vm: CanvasViewModel, on: Boolean, width: Dp = 300.dp) {
+    Row(Modifier.width(width).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Text("Assisted Drawing", color = GuideLabel, fontSize = 15.sp, maxLines = 1, modifier = Modifier.weight(1f))
         Box(Modifier.tap { vm.setGuideAssisted(!on) }) { Switch(on, enabled = true) }
     }
@@ -408,9 +413,11 @@ private fun SymmetryOptions(vm: CanvasViewModel, screenWidth: androidx.compose.u
     val g = vm.guide ?: return
     if (!vm.symmetryOptionsOpen || g.kind != GuideType.SYMMETRY) return
     // over the Options button, its arrow at the button's middle: the third of the row when wide
-    val wide = screenWidth > screenHeight
+    val wide = screenWidth > screenHeight && screenWidth >= 820.dp
     val slider = guideSlider(screenWidth)
-    val buttonMiddle = if (wide) 8.dp + 16.dp + (slider + 19.dp) * 2 + slider / 2 else (screenWidth - 652.dp) / 2 + 16.dp + 150.dp
+    val panelW = toolbarWidth(652.dp, screenWidth)
+    val colW = ((panelW - 32.dp).coerceAtLeast(240.dp) - (if (panelW < 500.dp) 10.dp else 20.dp)) / 2
+    val buttonMiddle = if (wide) 8.dp + 16.dp + (slider + 19.dp) * 2 + slider / 2 else (screenWidth - panelW) / 2 + 16.dp + colW / 2
     val left = (buttonMiddle - 150.dp).coerceIn(0.dp, screenWidth - 300.dp)
     MenuPopover(buttonMiddle - left, left, if (wide) screenHeight - 89.dp else screenHeight - 98.dp) {
         MenuTitle("Guide Options")

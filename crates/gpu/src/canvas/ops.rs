@@ -3300,7 +3300,13 @@ impl Canvas {
 
     /// A dual brush's paint laid in place put together with its second over `rect` (see
     /// `cs_synthesize`), and shown.
-    pub(crate) fn synthesize(&mut self, gpu: &Gpu, encoder: &mut wgpu::CommandEncoder, params: &mut UniformData, rect: IRect) {
+    pub(crate) fn synthesize(
+        &mut self,
+        gpu: &Gpu,
+        encoder: &mut wgpu::CommandEncoder,
+        params: &mut UniformData,
+        rect: IRect,
+    ) {
         let device = &gpu.device;
         let Some(&(style, dual, _)) = self.smudge.as_ref().and_then(|s| s.apart.as_ref()) else { return };
         let brush = self.full_grain_bind(device, &style).unwrap_or_else(|| self.brush_bind.clone());
@@ -4065,7 +4071,7 @@ impl Canvas {
     }
 
     /// Applies an undo or redo step and returns its inverse: the pixels and document it replaced.
-    pub(crate) fn apply_step(&mut self, gpu: &Gpu, encoder: &mut wgpu::CommandEncoder, doc: &mut Document, step: Step) -> Step {
+    fn apply_step(&mut self, gpu: &Gpu, encoder: &mut wgpu::CommandEncoder, doc: &mut Document, step: Step) -> Step {
         let device = &gpu.device;
         let made = step.made;
         let name = step.name.clone();
@@ -4136,7 +4142,7 @@ impl Canvas {
     }
 
     /// Draws layer `id` inverted within `rect`, from its copy there in the scratch texture.
-    pub(crate) fn encode_invert(&self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder, id: LayerId, rect: IRect) {
+    fn encode_invert(&self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder, id: LayerId, rect: IRect) {
         let Some(layer) = self.layers.get(&id) else { return };
         let (scratch, scratch_view) = self.scratch.get(device);
         encoder.copy_texture_to_texture(
@@ -4188,7 +4194,13 @@ impl Canvas {
     }
 
     /// Draws the layer being edited from its copy through `filter`, kept to the selection.
-    pub(crate) fn filter(&mut self, gpu: &Gpu, encoder: &mut wgpu::CommandEncoder, uniforms: &mut UniformData, filter: Filter) {
+    pub(crate) fn filter(
+        &mut self,
+        gpu: &Gpu,
+        encoder: &mut wgpu::CommandEncoder,
+        uniforms: &mut UniformData,
+        filter: Filter,
+    ) {
         let Some(t) = &self.transforming else { return };
         let Some(layer) = self.layers.get(&t.layer) else { return };
         let (w, h) = (self.width as f32, self.height as f32);
@@ -4461,7 +4473,7 @@ impl Canvas {
 
     /// `view` bound as an adjustment's source, with where it shows when `masked`: what is painted
     /// on, or else the selection.
-    pub(crate) fn adjustment_bind(&self, device: &wgpu::Device, view: &wgpu::TextureView, masked: bool) -> wgpu::BindGroup {
+    fn adjustment_bind(&self, device: &wgpu::Device, view: &wgpu::TextureView, masked: bool) -> wgpu::BindGroup {
         let painted = self.pencil.as_ref().map(|p| &p.view);
         let chosen =
             painted.or(self.selection.as_ref().map(|s| &s.view)).filter(|_| masked).unwrap_or(&self.everything);
@@ -4555,7 +4567,7 @@ impl Canvas {
 
     /// A blur's working texture `width` x `height` for `part` (0 a halving, 1 across, 2 down),
     /// made the first time and kept until the adjustment ends.
-    pub(crate) fn blur_texture(&self, device: &wgpu::Device, label: &str, width: u32, height: u32, part: u8) -> wgpu::TextureView {
+    fn blur_texture(&self, device: &wgpu::Device, label: &str, width: u32, height: u32, part: u8) -> wgpu::TextureView {
         let mut kept = self.blur_textures.lock().unwrap_or_else(PoisonError::into_inner);
         kept.entry((width, height, part))
             .or_insert_with(|| {

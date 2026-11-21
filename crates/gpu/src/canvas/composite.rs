@@ -504,7 +504,11 @@ impl Canvas {
 
     /// What `make` makes, unless the device refuses it (past its memory, or lost): then none, the
     /// work that wanted it left out, and the first such said in the log.
-    pub(crate) fn made_or_told<T>(&mut self, device: &wgpu::Device, make: impl FnOnce(&wgpu::Device) -> T) -> Option<T> {
+    pub(crate) fn made_or_told<T>(
+        &mut self,
+        device: &wgpu::Device,
+        make: impl FnOnce(&wgpu::Device) -> T,
+    ) -> Option<T> {
         let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
         let invalid = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let made = make(device);

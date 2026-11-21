@@ -6,6 +6,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -40,7 +41,8 @@ fun ModelPicture(vm: CanvasViewModel) {
             vm.readModelPicture()
         }
     }
-    Box(Modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val btnW = minOf(PictureButton, ((maxWidth - 32.dp) / 6).coerceAtLeast(44.dp))
         Canvas(Modifier.fillMaxSize()) {
             val path = Path()
             corners.chunked(2).forEachIndexed { i, (x, y) ->
@@ -57,12 +59,12 @@ fun ModelPicture(vm: CanvasViewModel) {
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ToolbarButton(PcIcons.FlipHorizontal, "Flip Horizontal", width = PictureButton, iconSize = 50.dp) { vm.flipModelPicture(true) }
-            ToolbarButton(PcIcons.FlipVertical, "Flip Vertical", width = PictureButton, iconSize = 50.dp) { vm.flipModelPicture(false) }
-            ToolbarButton(PcIcons.Rotate45, "Rotate 45°", width = PictureButton, iconSize = 44.dp) { vm.turnModelPicture() }
-            ToolbarButton(PcIcons.TransformReset, "Reset", width = PictureButton, iconSize = 44.dp) { vm.resetModelPicture() }
-            ToolbarButton(PcIcons.Cross, "Cancel", width = PictureButton, iconSize = 28.dp) { vm.endModelPicture(keep = false) }
-            ToolbarButton(PcIcons.Tick, "Done", width = PictureButton, iconSize = 28.dp) { vm.endModelPicture(keep = true) }
+            ToolbarButton(PcIcons.FlipHorizontal, "Flip Horizontal", width = btnW, iconSize = 50.dp) { vm.flipModelPicture(true) }
+            ToolbarButton(PcIcons.FlipVertical, "Flip Vertical", width = btnW, iconSize = 50.dp) { vm.flipModelPicture(false) }
+            ToolbarButton(PcIcons.Rotate45, "Rotate 45°", width = btnW, iconSize = 44.dp) { vm.turnModelPicture() }
+            ToolbarButton(PcIcons.TransformReset, "Reset", width = btnW, iconSize = 44.dp) { vm.resetModelPicture() }
+            ToolbarButton(PcIcons.Cross, "Cancel", width = btnW, iconSize = 28.dp) { vm.endModelPicture(keep = false) }
+            ToolbarButton(PcIcons.Tick, "Done", width = btnW, iconSize = 28.dp) { vm.endModelPicture(keep = true) }
         }
     }
 }

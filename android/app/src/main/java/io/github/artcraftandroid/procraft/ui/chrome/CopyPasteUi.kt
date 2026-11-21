@@ -50,33 +50,35 @@ fun BoxScope.CopyPastePanel(vm: CanvasViewModel) {
         f()
     }
     BoxWithConstraints(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { vm.copyPasteOpen = false } }) {
+        val panelW = minOf(496.dp, (maxWidth - 16.dp).coerceAtLeast(280.dp))
+        val btnW = panelW / 6
         Box(
-            Modifier.offset(x = (maxWidth - 496.dp) / 2, y = maxHeight * (617f / 1133f)).size(496.dp, 106.dp).clip(RoundedCornerShape(30.dp)).background(PanelFill)
+            Modifier.offset(x = (maxWidth - panelW) / 2, y = maxHeight * (617f / 1133f)).size(panelW, 106.dp).clip(RoundedCornerShape(30.dp)).background(PanelFill)
                 .pointerInput(Unit) { detectTapGestures { } },
         ) {
             Box(Modifier.align(Alignment.TopCenter).padding(top = 5.dp).size(40.dp, 4.dp).clip(CircleShape).background(Color(0xFF7C7C7C)))
             Text("Copy & Paste", color = PanelTitleInk, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.offset(x = 18.dp, y = 12.dp))
-            Box(Modifier.offset(x = 453.dp, y = 6.dp).size(40.dp).clip(CircleShape).background(CloseFill).clickable { vm.copyPasteOpen = false }, contentAlignment = Alignment.Center) {
+            Box(Modifier.offset(x = panelW - 43.dp, y = 6.dp).size(40.dp).clip(CircleShape).background(CloseFill).clickable { vm.copyPasteOpen = false }, contentAlignment = Alignment.Center) {
                 Icon(PcIcons.Cross, contentDescription = "Close", tint = ButtonInk, modifier = Modifier.size(18.dp))
             }
             Row(Modifier.offset(y = 48.dp)) {
-                PanelButton(PcIcons.CopyCut, "Cut") { act(vm::cutLayer) }
-                PanelButton(PcIcons.CopyOne, "Copy") { act(vm::copyLayer) }
-                PanelButton(PcIcons.CopyAll, "Copy All") { act(vm::copyCanvas) }
-                PanelButton(PcIcons.CopyDuplicate, "Duplicate") { act(vm::duplicateCurrent) }
-                PanelButton(PcIcons.CutPaste, "Cut & Paste") { act(vm::cutAndPaste) }
-                PanelButton(PcIcons.PasteDown, "Paste", enabled = vm.canPaste) { act(vm::paste) }
+                PanelButton(PcIcons.CopyCut, "Cut", width = btnW) { act(vm::cutLayer) }
+                PanelButton(PcIcons.CopyOne, "Copy", width = btnW) { act(vm::copyLayer) }
+                PanelButton(PcIcons.CopyAll, "Copy All", width = btnW) { act(vm::copyCanvas) }
+                PanelButton(PcIcons.CopyDuplicate, "Duplicate", width = btnW) { act(vm::duplicateCurrent) }
+                PanelButton(PcIcons.CutPaste, "Cut & Paste", width = btnW) { act(vm::cutAndPaste) }
+                PanelButton(PcIcons.PasteDown, "Paste", enabled = vm.canPaste, width = btnW) { act(vm::paste) }
             }
         }
     }
 }
 
 @Composable
-private fun PanelButton(icon: ImageVector, label: String, enabled: Boolean = true, onClick: () -> Unit) {
+private fun PanelButton(icon: ImageVector, label: String, enabled: Boolean = true, width: androidx.compose.ui.unit.Dp = 82.7.dp, onClick: () -> Unit) {
     val ink = if (enabled) ButtonInk else ButtonInk.copy(alpha = 0.4f)
     // the icon (a 50 frame) 28 across, centred 17 down; the name from 34
-    Box(Modifier.width(82.7.dp).height(50.dp).clickable(enabled = enabled, onClick = onClick)) {
+    Box(Modifier.width(width).height(50.dp).clickable(enabled = enabled, onClick = onClick)) {
         Icon(icon, contentDescription = null, tint = ink, modifier = Modifier.align(Alignment.TopCenter).padding(top = 3.dp).requiredSize(28.dp))
-        Text(label, color = ink, fontSize = 13.sp, maxLines = 1, modifier = Modifier.align(Alignment.TopCenter).padding(top = 33.dp))
+        Text(label, color = ink, fontSize = if (width < 70.dp) 10.5.sp else 13.sp, maxLines = 1, modifier = Modifier.align(Alignment.TopCenter).padding(top = 33.dp))
     }
 }

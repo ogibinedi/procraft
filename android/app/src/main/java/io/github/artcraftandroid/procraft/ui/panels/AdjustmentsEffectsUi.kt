@@ -143,11 +143,12 @@ private fun LiquifyPanelAndMenus(vm: CanvasViewModel, screenWidth: Dp, screenHei
     val full = liquifyFullWidth(screenWidth)
     if (wide) LiquifyWide(vm, full, modifier) else LiquifyUpright(vm, modifier)
     // the way's list and the adjust slider open over the panel's buttons
-    val panelLeft = (screenWidth - 654.dp) / 2
+    val panelW = toolbarWidth(654.dp, screenWidth)
+    val panelLeft = (screenWidth - panelW) / 2
     val buttonsTop = if (wide) screenHeight - 25.dp - 162.dp + 28.dp else screenHeight - 25.dp - 16.dp - 40.dp
     when (vm.liquifyPopup) {
         1 -> if (!wide) {
-            val centre = panelLeft + 16.dp + (654.dp - 32.dp - 16.dp) / 6
+            val centre = panelLeft + 16.dp + (panelW - 32.dp - 16.dp) / 6
             val left = (centre - 130.dp).coerceIn(0.dp, screenWidth - 260.dp)
             MenuPopover(centre - left, left, buttonsTop) {
                 MenuTitle("Liquify Mode")
@@ -244,8 +245,9 @@ private fun LiquifyButton(icon: androidx.compose.ui.graphics.vector.ImageVector,
 /** Liquify upright: two rows of two sliders, then the way, Adjust and Reset. */
 @Composable
 private fun LiquifyUpright(vm: CanvasViewModel, modifier: Modifier) {
+    val panelW = toolbarWidth(654.dp, windowWidth())
     Column(
-        modifier.offset(y = (-25).dp).size(654.dp, 200.dp).clip(RoundedCornerShape(33.dp)).background(HsbPanelFill).padding(16.dp),
+        modifier.offset(y = (-25).dp).size(panelW, 200.dp).clip(RoundedCornerShape(33.dp)).background(HsbPanelFill).padding(16.dp),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         val percent = { v: Float, none: String? -> if (v >= 1f) "Max" else if (v <= 0f && none != null) none else "${(v * 100).roundToInt()}%" }
@@ -439,7 +441,7 @@ private val GLITCH_KINDS = listOf(
 fun GlitchPanel(vm: CanvasViewModel, modifier: Modifier = Modifier) {
     val window = windowWidth()
     val wide = sideBySide(window, GlitchSideBySide)
-    val width = if (wide) toolbarWidth(973.dp, window) else 640.dp
+    val width = if (wide) toolbarWidth(973.dp, window) else toolbarWidth(640.dp, window)
     Column(
         modifier.offset(y = (-25).dp).size(width, if (wide) 120.dp else 167.dp).clip(RoundedCornerShape(33.dp)).background(HsbPanelFill).padding(top = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -467,13 +469,15 @@ fun GlitchPanel(vm: CanvasViewModel, modifier: Modifier = Modifier) {
             }
             return@Column
         }
+        val rowW = (width - 32.dp).coerceAtLeast(240.dp)
+        val colW = (rowW - 8.dp) / 2
         for (row in names.indices.chunked(2)) {
-            Row(Modifier.width(608.dp).height(54.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.width(rowW).height(54.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for (k in row) {
                     // diverge's shifts go both ways from the middle
                     val both = vm.glitchKind == GlitchKind.DIVERGE && k < 3
                     val v = values.getOrElse(k) { 0f }
-                    OptionSlider(names[k], v, "${(v * 100).roundToInt()}%", 300.dp, both) { vm.setGlitchValue(k, it) }
+                    OptionSlider(names[k], v, "${(v * 100).roundToInt()}%", colW, both) { vm.setGlitchValue(k, it) }
                 }
             }
         }
@@ -487,7 +491,7 @@ internal class Kind(val icon: androidx.compose.ui.graphics.vector.ImageVector, v
 @Composable
 internal fun KindsSwitch(width: Dp, kinds: List<Kind>, chosen: Int, onChoose: (Int) -> Unit) {
     Row(
-        Modifier.size(width, 34.dp).clip(RoundedCornerShape(17.dp)).background(KindsFill).border(1.dp, KindsEdge, RoundedCornerShape(17.dp)).padding(2.dp),
+        Modifier.padding(horizontal = 8.dp).fitWidth().size(width, 34.dp).clip(RoundedCornerShape(17.dp)).background(KindsFill).border(1.dp, KindsEdge, RoundedCornerShape(17.dp)).padding(2.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         kinds.forEachIndexed { i, kind ->
@@ -509,8 +513,9 @@ internal fun KindsSwitch(width: Dp, kinds: List<Kind>, chosen: Int, onChoose: (I
 /** A toolbar's floating panel, [width] × [height], 25 above the bottom. */
 @Composable
 internal fun OptionsPanel(width: Dp, height: Dp, modifier: Modifier, top: Dp, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+    val fitted = toolbarWidth(width, windowWidth())
     Column(
-        modifier.offset(y = (-25).dp).size(width, height).clip(RoundedCornerShape(33.dp)).background(HsbPanelFill).padding(top = top),
+        modifier.offset(y = (-25).dp).size(fitted, height).clip(RoundedCornerShape(33.dp)).background(HsbPanelFill).padding(top = top),
         horizontalAlignment = Alignment.CenterHorizontally,
         content = content,
     )
@@ -624,20 +629,23 @@ fun NoisePanel(vm: CanvasViewModel, modifier: Modifier = Modifier) {
         }
         return
     }
-    OptionsPanel(532.dp, 292.dp, modifier, 10.dp) {
+    val panelW = toolbarWidth(532.dp, windowWidth())
+    val sliderW = (panelW - 32.dp).coerceAtLeast(220.dp)
+    val btnW = minOf(160.dp, ((sliderW - 110.dp) / 2).coerceAtLeast(72.dp))
+    OptionsPanel(panelW, 292.dp, modifier, 10.dp) {
         switch()
         Spacer(Modifier.height(8.dp))
-        Column(Modifier.width(500.dp), verticalArrangement = Arrangement.spacedBy(8.5.dp)) {
-            OptionSlider("Scale", vm.noiseScale, shown(vm.noiseScale), 500.dp, labelColor = ModesText) { vm.setNoiseValue(0, it) }
-            OptionSlider("Octaves", vm.noiseOctaves, shown(vm.noiseOctaves), 500.dp, labelColor = ModesText) { vm.setNoiseValue(1, it) }
-            OptionSlider("Turbulence", vm.noiseTurbulence, shown(vm.noiseTurbulence), 500.dp, labelColor = ModesText) { vm.setNoiseValue(2, it) }
+        Column(Modifier.width(sliderW), verticalArrangement = Arrangement.spacedBy(8.5.dp)) {
+            OptionSlider("Scale", vm.noiseScale, shown(vm.noiseScale), sliderW, labelColor = ModesText) { vm.setNoiseValue(0, it) }
+            OptionSlider("Octaves", vm.noiseOctaves, shown(vm.noiseOctaves), sliderW, labelColor = ModesText) { vm.setNoiseValue(1, it) }
+            OptionSlider("Turbulence", vm.noiseTurbulence, shown(vm.noiseTurbulence), sliderW, labelColor = ModesText) { vm.setNoiseValue(2, it) }
         }
         Spacer(Modifier.height(12.dp))
-        Row(Modifier.width(492.dp).height(40.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.width(sliderW).height(40.dp), verticalAlignment = Alignment.CenterVertically) {
             for ((multi, label) in listOf(false to "Single", true to "Multi")) {
                 val on = vm.noiseMulti == multi
                 Box(
-                    Modifier.size(160.dp, 40.dp).clip(RoundedCornerShape(20.dp)).background(if (on) Pc.Accent else NoiseButton).tap { vm.chooseNoiseMulti(multi) },
+                    Modifier.size(btnW, 40.dp).clip(RoundedCornerShape(20.dp)).background(if (on) Pc.Accent else NoiseButton).tap { vm.chooseNoiseMulti(multi) },
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(label, color = if (on) Color.White else ModesText, fontSize = 15.sp, maxLines = 1)
@@ -671,11 +679,13 @@ fun BloomPanel(vm: CanvasViewModel, modifier: Modifier = Modifier) {
         }
         return
     }
-    OptionsPanel(532.dp, 220.dp, modifier, 24.dp) {
-        Column(Modifier.width(500.dp), verticalArrangement = Arrangement.spacedBy(8.5.dp)) {
-            OptionSlider("Transition", vm.bloomTransition, shown(vm.bloomTransition, max = true), 500.dp) { vm.setBloomValue(0, it) }
-            OptionSlider("Size", vm.bloomSize, shown(vm.bloomSize, max = true), 500.dp) { vm.setBloomValue(1, it) }
-            OptionSlider("Burn", vm.bloomBurn, shown(vm.bloomBurn, max = true), 500.dp) { vm.setBloomValue(2, it) }
+    val panelW = toolbarWidth(532.dp, window)
+    val sliderW = (panelW - 32.dp).coerceAtLeast(220.dp)
+    OptionsPanel(panelW, 220.dp, modifier, 24.dp) {
+        Column(Modifier.width(sliderW), verticalArrangement = Arrangement.spacedBy(8.5.dp)) {
+            OptionSlider("Transition", vm.bloomTransition, shown(vm.bloomTransition, max = true), sliderW) { vm.setBloomValue(0, it) }
+            OptionSlider("Size", vm.bloomSize, shown(vm.bloomSize, max = true), sliderW) { vm.setBloomValue(1, it) }
+            OptionSlider("Burn", vm.bloomBurn, shown(vm.bloomBurn, max = true), sliderW) { vm.setBloomValue(2, it) }
         }
     }
 }
@@ -695,11 +705,13 @@ fun PluginFilterPanel(vm: CanvasViewModel, modifier: Modifier = Modifier) {
         }
     }
     val rows = controls.size.coerceAtLeast(1)
-    OptionsPanel(532.dp, 41.dp + 54.dp * rows + 8.5.dp * (rows - 1), modifier, 24.dp) {
-        Column(Modifier.width(500.dp), verticalArrangement = Arrangement.spacedBy(8.5.dp)) {
+    val panelW = toolbarWidth(532.dp, windowWidth())
+    val sliderW = (panelW - 32.dp).coerceAtLeast(220.dp)
+    OptionsPanel(panelW, 41.dp + 54.dp * rows + 8.5.dp * (rows - 1), modifier, 24.dp) {
+        Column(Modifier.width(sliderW), verticalArrangement = Arrangement.spacedBy(8.5.dp)) {
             for (control in controls) {
                 when (control) {
-                    is PluginControl.Slider -> PluginFilterSlider(vm, control.control)
+                    is PluginControl.Slider -> PluginFilterSlider(vm, control.control, sliderW)
                     is PluginControl.Switch -> Row(
                         Modifier.fillMaxWidth().height(54.dp).padding(start = 10.dp, end = 15.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -717,12 +729,12 @@ fun PluginFilterPanel(vm: CanvasViewModel, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun PluginFilterSlider(vm: CanvasViewModel, slider: PluginSlider) {
+private fun PluginFilterSlider(vm: CanvasViewModel, slider: PluginSlider, width: Dp = 500.dp) {
     OptionSlider(
         slider.label,
         pluginSliderAlong(slider, slider.value),
         pluginSliderShown(slider, slider.value),
-        500.dp,
+        width,
         onLetGo = { vm.letGoPluginFilter(slider.key) },
     ) { along -> vm.setPluginFilterSlider(slider.key, pluginSliderAt(slider, along)) }
 }
@@ -810,7 +822,11 @@ fun PerspectivePanel(vm: CanvasViewModel, modifier: Modifier = Modifier) {
 /** The chromatic aberration toolbar: perspective or displace, with the kind's two sliders. */
 @Composable
 fun ChromaticPanel(vm: CanvasViewModel, modifier: Modifier = Modifier) {
-    OptionsPanel(668.dp, 120.dp, modifier, 8.dp) {
+    val panelW = toolbarWidth(668.dp, windowWidth())
+    val rowW = (panelW - 48.dp).coerceAtLeast(240.dp)
+    val gap = if (panelW < 500.dp) 10.dp else 20.dp
+    val colW = (rowW - gap) / 2
+    OptionsPanel(panelW, 120.dp, modifier, 8.dp) {
         val kinds = listOf(ChromaticKind.PERSPECTIVE, ChromaticKind.DISPLACE)
         KindsSwitch(428.dp, listOf(Kind(PcIcons.ChromaPerspective, "Perspective", 204.dp), Kind(PcIcons.ChromaDisplace, "Displace", 204.dp)), kinds.indexOf(vm.chromaKind)) {
             vm.chooseChromaKind(kinds[it])
@@ -818,10 +834,10 @@ fun ChromaticPanel(vm: CanvasViewModel, modifier: Modifier = Modifier) {
         Spacer(Modifier.height(12.dp))
         val names = if (vm.chromaKind == ChromaticKind.PERSPECTIVE) listOf("Transition", "Fall off") else listOf("Blur", "Transparency")
         val values = vm.chromaValues[vm.chromaKind].orEmpty()
-        Row(Modifier.width(620.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+        Row(Modifier.width(rowW), horizontalArrangement = Arrangement.spacedBy(gap)) {
             names.forEachIndexed { k, name ->
                 val v = values.getOrElse(k) { 0f }
-                OptionSlider(name, v, shown(v, max = true), 300.dp) { vm.setChromaValue(k, it) }
+                OptionSlider(name, v, shown(v, max = true), colW) { vm.setChromaValue(k, it) }
             }
         }
     }

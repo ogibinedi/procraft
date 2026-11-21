@@ -63,19 +63,21 @@ fun BoxScope.TouchCompanion(vm: CanvasViewModel) {
     if (!vm.singleTouchCompanion) return
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val density = LocalDensity.current
-        val (w, h) = with(density) { CompanionWidth.toPx() to CompanionHeight.toPx() }
+        val barW = minOf(CompanionWidth, (maxWidth - 16.dp).coerceAtLeast(260.dp))
+        val btnW = ((barW - 16.dp - CompanionButtonGap * 4) / 5).coerceAtLeast(44.dp)
+        val (w, h) = with(density) { barW.toPx() to CompanionHeight.toPx() }
         val (sw, sh) = with(density) { maxWidth.toPx() to maxHeight.toPx() }
         var at by remember { mutableStateOf(Offset((sw - w) / 2f, sh * COMPANION_START_Y - h / 2f)) }
         Column(
-            Modifier.offset { IntOffset(at.x.roundToInt(), at.y.roundToInt()) }.size(CompanionWidth, CompanionHeight)
+            Modifier.offset { IntOffset(at.x.roundToInt(), at.y.roundToInt()) }.size(barW, CompanionHeight)
                 .shadow(16.dp, RoundedCornerShape(30.dp)).clip(RoundedCornerShape(30.dp)).background(CompanionFill),
         ) {
             // the grab line, and the strip it sits in, drags the bar about, kept on the screen
             Box(
-                Modifier.fillMaxWidth().height(24.dp).pointerInput(sw, sh) {
+                Modifier.fillMaxWidth().height(24.dp).pointerInput(sw, sh, w) {
                     detectDragGestures { change, amount ->
                         change.consume()
-                        at = Offset((at.x + amount.x).coerceIn(0f, sw - w), (at.y + amount.y).coerceIn(0f, sh - h))
+                        at = Offset((at.x + amount.x).coerceIn(0f, (sw - w).coerceAtLeast(0f)), (at.y + amount.y).coerceIn(0f, (sh - h).coerceAtLeast(0f)))
                     }
                 },
                 contentAlignment = Alignment.Center,
@@ -83,19 +85,19 @@ fun BoxScope.TouchCompanion(vm: CanvasViewModel) {
                 Box(Modifier.size(40.dp, 5.dp).clip(CircleShape).background(CompanionGrab))
             }
             Row(Modifier.padding(start = 8.dp)) {
-                CompanionButton(PcIcons.Undo, "Undo", false, 30.dp) { vm.undo() }
+                CompanionButton(PcIcons.Undo, "Undo", false, 30.dp, btnW) { vm.undo() }
                 Spacer(Modifier.width(CompanionButtonGap))
-                CompanionButton(PcIcons.Redo, "Redo", false, 30.dp) { vm.redo() }
+                CompanionButton(PcIcons.Redo, "Redo", false, 30.dp, btnW) { vm.redo() }
                 Spacer(Modifier.width(CompanionButtonGap))
-                CompanionButton(PcIcons.Zoom, "Zoom", vm.companionMode == CanvasViewModel.CompanionMode.ZOOM, 22.dp) {
+                CompanionButton(PcIcons.Zoom, "Zoom", vm.companionMode == CanvasViewModel.CompanionMode.ZOOM, 22.dp, btnW) {
                     vm.toggleCompanionMode(CanvasViewModel.CompanionMode.ZOOM)
                 }
                 Spacer(Modifier.width(CompanionButtonGap))
-                CompanionButton(PcIcons.MoveCanvas, "Move", vm.companionMode == CanvasViewModel.CompanionMode.MOVE, 22.dp) {
+                CompanionButton(PcIcons.MoveCanvas, "Move", vm.companionMode == CanvasViewModel.CompanionMode.MOVE, 22.dp, btnW) {
                     vm.toggleCompanionMode(CanvasViewModel.CompanionMode.MOVE)
                 }
                 Spacer(Modifier.width(CompanionButtonGap))
-                CompanionButton(PcIcons.FitCanvas, "Fit Canvas", false, 22.dp) { vm.settleToFit() }
+                CompanionButton(PcIcons.FitCanvas, "Fit Canvas", false, 22.dp, btnW) { vm.settleToFit() }
             }
         }
     }
@@ -103,14 +105,14 @@ fun BoxScope.TouchCompanion(vm: CanvasViewModel) {
 
 /** A button of the bar: its icon (blue while its mode is on) over its name. */
 @Composable
-private fun CompanionButton(icon: ImageVector, label: String, on: Boolean, iconSize: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
+private fun CompanionButton(icon: ImageVector, label: String, on: Boolean, iconSize: androidx.compose.ui.unit.Dp, width: androidx.compose.ui.unit.Dp = CompanionButtonWidth, onClick: () -> Unit) {
     Column(
-        Modifier.size(CompanionButtonWidth, 50.dp).clip(RoundedCornerShape(10.dp)).clickable(onClick = onClick),
+        Modifier.size(width, 50.dp).clip(RoundedCornerShape(10.dp)).clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(Modifier.height(30.dp), contentAlignment = Alignment.Center) {
             Icon(icon, contentDescription = null, tint = if (on) Pc.Accent else CompanionInk, modifier = Modifier.size(iconSize))
         }
-        Text(label, color = CompanionInk, fontSize = 13.sp, maxLines = 1)
+        Text(label, color = CompanionInk, fontSize = if (width < 70.dp) 11.sp else 13.sp, maxLines = 1)
     }
 }

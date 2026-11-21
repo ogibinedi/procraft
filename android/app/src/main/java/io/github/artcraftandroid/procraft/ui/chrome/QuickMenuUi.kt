@@ -130,8 +130,22 @@ fun BoxScope.QuickMenu(vm: CanvasViewModel) {
     ) {
         // kept on the screen (in a window too small for the ring, in its middle)
         val c = with(density) { ringCentre(at.x.toDp(), at.y.toDp(), maxWidth, maxHeight) }
+        val compactRing = maxWidth < 569.dp
+        val btnW = if (compactRing) minOf(RingButtonWidth, ((maxWidth - 24.dp) * 0.42f).coerceAtLeast(116.dp)) else RingButtonWidth
+        val sideReachX = if (compactRing) ((maxWidth - btnW - 16.dp) / 2).coerceAtLeast(80.dp) else RingReachX
+        val sideReachY = if (compactRing) 54.dp else 39.dp
+        val topReachY = if (compactRing) 108.dp else RingReachY
+        fun slotOffset(i: Int): Pair<Dp, Dp> = when (i) {
+            0 -> 0.dp to -topReachY
+            1 -> sideReachX to -sideReachY
+            2 -> sideReachX to sideReachY
+            3 -> 0.dp to topReachY
+            4 -> -sideReachX to sideReachY
+            5 -> -sideReachX to -sideReachY
+            else -> 0.dp to 0.dp
+        }
         Box(
-            Modifier.offset(x = c.first - RingButtonWidth / 2, y = c.second - RingButtonHeight / 2).size(RingButtonWidth, RingButtonHeight)
+            Modifier.offset(x = c.first - btnW / 2, y = c.second - RingButtonHeight / 2).size(btnW, RingButtonHeight)
                 .graphicsLayer { alpha = shown.coerceIn(0f, 1f) }.clip(CircleShape).background(TitleFill)
                 // tapped, it lists the menus
                 .pointerInput(Unit) {
@@ -147,15 +161,16 @@ fun BoxScope.QuickMenu(vm: CanvasViewModel) {
                 },
             contentAlignment = Alignment.Center,
         ) {
-            Text(vm.quickMenus.getOrNull(vm.quickMenuShown)?.name.orEmpty(), color = TitleInk, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text(vm.quickMenus.getOrNull(vm.quickMenuShown)?.name.orEmpty(), color = TitleInk, fontSize = if (compactRing) 14.sp else 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
         }
         val slots = vm.quickMenuSlots
         slots.forEachIndexed { i, _ ->
-            val (dx, dy) = Slots.getOrNull(i) ?: return@forEachIndexed
-            val x = c.first + dx.dp * shown - RingButtonWidth / 2
-            val y = c.second + dy.dp * shown - RingButtonHeight / 2
+            if (i !in Slots.indices) return@forEachIndexed
+            val (dx, dy) = slotOffset(i)
+            val x = c.first + dx * shown - btnW / 2
+            val y = c.second + dy * shown - RingButtonHeight / 2
             Box(
-                Modifier.offset(x = x, y = y).size(RingButtonWidth, RingButtonHeight).graphicsLayer { alpha = shown.coerceIn(0f, 1f) }.clip(CircleShape)
+                Modifier.offset(x = x, y = y).size(btnW, RingButtonHeight).graphicsLayer { alpha = shown.coerceIn(0f, 1f) }.clip(CircleShape)
                     .background(ButtonFill).border(1.dp, ButtonEdge, CircleShape)
                     .combinedClickable(
                         onClick = {
@@ -170,14 +185,15 @@ fun BoxScope.QuickMenu(vm: CanvasViewModel) {
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(vm.quickSlotLabel(i), color = ButtonInk, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, textAlign = TextAlign.Center)
+                Text(vm.quickSlotLabel(i), color = ButtonInk, fontSize = if (compactRing) 13.5.sp else 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 8.dp))
             }
         }
         // the actions a held button can be set to, hung from it
         choosing?.let { i ->
-            val (dx, dy) = Slots.getOrNull(i) ?: return@let
-            val centre = c.first + dx.dp
-            val top = c.second + dy.dp - RingButtonHeight / 2
+            if (i !in Slots.indices) return@let
+            val (dx, dy) = slotOffset(i)
+            val centre = c.first + dx
+            val top = c.second + dy - RingButtonHeight / 2
             ActionPicker(
                 slots.getOrNull(i) ?: QuickAction.NONE, vm.quickSlotBrush(i), vm.brushSets, centre, top, top + RingButtonHeight, maxWidth, maxHeight,
                 onBrush = {
@@ -190,10 +206,10 @@ fun BoxScope.QuickMenu(vm: CanvasViewModel) {
             }
         }
         if (menusOpen) {
-            val left = c.first - RingButtonWidth / 2
+            val left = c.first - btnW / 2
             val top = c.second - RingButtonHeight / 2
             MenusPopover(
-                vm, left, top, left + RingButtonWidth, top + RingButtonHeight, maxWidth, maxHeight, fresh, marked,
+                vm, left, top, left + btnW, top + RingButtonHeight, maxWidth, maxHeight, fresh, marked,
                 onAdd = {
                     // it shows, but the active one stays until a row is chosen
                     fresh.add(0, vm.addQuickMenu())

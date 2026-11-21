@@ -417,35 +417,48 @@ private fun TextBar(vm: CanvasViewModel) {
 @Composable
 private fun TextStyleSheet(vm: CanvasViewModel, info: TextInfo) {
     var page by remember { mutableIntStateOf(0) }
-    val sheetWide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp >= WIDE_SHEET
+    val config = androidx.compose.ui.platform.LocalConfiguration.current
+    val screenW = config.screenWidthDp.dp
+    val screenH = config.screenHeightDp.dp
+    val sheetWide = screenW >= WIDE_SHEET
+    val compact = screenW < 440.dp
+    val sheetH = if (screenH < 720.dp || compact) {
+        minOf(if (sheetWide) 521.dp else 561.dp, (screenH * 0.64f).coerceAtLeast(300.dp))
+    } else {
+        if (sheetWide) 521.dp else 561.dp
+    }
     val importFont = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) vm.importFonts(uris)
     }
     // wide, the cards end 33 above the bottom
     Column(
-        Modifier.fillMaxWidth().height(if (sheetWide) 521.dp else 561.dp).background(SheetFill)
+        Modifier.fillMaxWidth().height(sheetH).background(SheetFill)
             // a touch on the sheet between its controls stays in it: it doesn't end the editing
             .pointerInput(Unit) { awaitEachGesture { awaitFirstDown().consume() } },
     ) {
-        Row(Modifier.fillMaxWidth().height(62.dp).background(SheetBar).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        val barGap = if (compact) 6.dp else 13.dp
+        val clipBtnW = if (compact) 36.dp else 41.dp
+        val clipGap = if (compact) 2.dp else 7.dp
+        val textBtnPad = if (compact) 10.dp else 14.dp
+        Row(Modifier.fillMaxWidth().height(62.dp).background(SheetBar).padding(horizontal = if (compact) 6.dp else 8.dp), verticalAlignment = Alignment.CenterVertically) {
             SheetIcon(PcIcons.Keyboard, "Keyboard", Modifier.size(44.dp).clip(CircleShape).background(KeyboardDisc), 40.dp) { vm.textStyleOpen = false }
-            Spacer(Modifier.width(13.dp))
+            Spacer(Modifier.width(barGap))
             Row(Modifier.height(40.dp).clip(RoundedCornerShape(12.dp)).background(SheetCapsule)) {
-                SheetIcon(PcIcons.TextCut, "Cut", Modifier.size(41.dp, 40.dp), 40.dp) { vm.copyText(cut = true) }
-                Spacer(Modifier.width(7.dp))
-                SheetIcon(PcIcons.TextCopy, "Copy", Modifier.size(41.dp, 40.dp), 40.dp) { vm.copyText(cut = false) }
-                Spacer(Modifier.width(7.dp))
-                SheetIcon(PcIcons.TextPaste, "Paste", Modifier.size(41.dp, 40.dp), 40.dp) { vm.pasteText() }
+                SheetIcon(PcIcons.TextCut, "Cut", Modifier.size(clipBtnW, 40.dp), 40.dp) { vm.copyText(cut = true) }
+                Spacer(Modifier.width(clipGap))
+                SheetIcon(PcIcons.TextCopy, "Copy", Modifier.size(clipBtnW, 40.dp), 40.dp) { vm.copyText(cut = false) }
+                Spacer(Modifier.width(clipGap))
+                SheetIcon(PcIcons.TextPaste, "Paste", Modifier.size(clipBtnW, 40.dp), 40.dp) { vm.pasteText() }
             }
             Spacer(Modifier.weight(1f))
             Row(Modifier.height(43.dp).clip(CircleShape).background(SheetCapsule), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "Import", color = CapsuleInk, fontSize = 15.sp,
-                    modifier = Modifier.clickable { importFont.launch(arrayOf("font/ttf", "font/otf", "font/sfnt", "font/collection", "application/font-sfnt", "application/x-font-ttf", "application/x-font-otf", "application/octet-stream")) }.padding(horizontal = 14.dp),
+                    "Import", color = CapsuleInk, fontSize = if (compact) 14.sp else 15.sp,
+                    modifier = Modifier.clickable { importFont.launch(arrayOf("font/ttf", "font/otf", "font/sfnt", "font/collection", "application/font-sfnt", "application/x-font-ttf", "application/x-font-otf", "application/octet-stream")) }.padding(horizontal = textBtnPad),
                 )
-                Text("Cancel", color = CapsuleInk, fontSize = 15.sp, modifier = Modifier.clickable { vm.cancelTextStyle() }.padding(horizontal = 14.dp))
+                Text("Cancel", color = CapsuleInk, fontSize = if (compact) 14.sp else 15.sp, modifier = Modifier.clickable { vm.cancelTextStyle() }.padding(horizontal = textBtnPad))
             }
-            Spacer(Modifier.width(13.dp))
+            Spacer(Modifier.width(barGap))
             Box(Modifier.size(44.dp, 45.dp).clip(CircleShape).background(DoneBlue).clickable { vm.endText(true) }, contentAlignment = Alignment.Center) {
                 Icon(PcIcons.DoneTick, contentDescription = "Done", tint = Color.White, modifier = Modifier.requiredSize(40.dp))
             }
@@ -453,7 +466,8 @@ private fun TextStyleSheet(vm: CanvasViewModel, info: TextInfo) {
         // wide (landscape), the four cards side by side; narrow, Typeface or Design, switched below
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
             val wide = maxWidth >= WIDE_SHEET
-            Row(Modifier.fillMaxSize().padding(horizontal = 10.dp)) {
+            val narrowPhone = maxWidth < 520.dp
+            Row(Modifier.fillMaxSize().padding(horizontal = if (narrowPhone) 6.dp else 10.dp)) {
                 if (wide) {
                     FontCard(vm, info, Modifier.weight(263.5f))
                     Spacer(Modifier.width(2.dp))
@@ -467,22 +481,23 @@ private fun TextStyleSheet(vm: CanvasViewModel, info: TextInfo) {
                     Spacer(Modifier.width(2.dp))
                     StyleCard(vm, info, Modifier.weight(297.5f))
                 } else {
-                    DesignCard(vm, info, Modifier.weight(584f))
+                    DesignCard(vm, info, Modifier.weight(if (narrowPhone) 215f else 584f))
                     Spacer(Modifier.width(5.dp))
-                    AttributesCard(vm, info, Modifier.weight(135f), wide = false)
+                    AttributesCard(vm, info, Modifier.weight(if (narrowPhone) 115f else 135f), wide = false)
                 }
             }
         }
         if (sheetWide) Spacer(Modifier.height(33.dp))
         // Typeface | Design, when the cards don't all fit
-        if (!sheetWide) Box(Modifier.fillMaxWidth().height(81.dp).background(SheetFill)) {
+        if (!sheetWide) Box(Modifier.fillMaxWidth().height(if (compact) 60.dp else 81.dp).background(SheetFill)) {
+            val pillTabW = minOf(156.dp, (screenW - 44.dp) / 2)
             Row(
                 Modifier.align(Alignment.TopCenter).padding(top = 11.dp).height(34.dp).clip(CircleShape).background(SegmentTrack).padding(2.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 for ((i, label) in listOf("Typeface", "Design").withIndex()) {
                     Box(
-                        Modifier.width(156.dp).height(30.dp).clip(CircleShape).background(if (i == page) Pc.Accent else Color.Transparent).clickable { page = i },
+                        Modifier.width(pillTabW).height(30.dp).clip(CircleShape).background(if (i == page) Pc.Accent else Color.Transparent).clickable { page = i },
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(label, color = if (i == page) Color.White else CapsuleInk, fontSize = 13.sp)

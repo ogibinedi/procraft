@@ -320,7 +320,7 @@ fun HsbPanel(vm: CanvasViewModel, modifier: Modifier = Modifier) {
         ) { rows(Modifier.weight(1f)) }
     } else {
         Column(
-            modifier.offset(y = (-25).dp).size(532.dp, 220.dp).clip(RoundedCornerShape(33.dp)).background(HsbPanelFill).padding(horizontal = 26.dp, vertical = 16.dp),
+            modifier.offset(y = (-25).dp).size(toolbarWidth(532.dp, window), 220.dp).clip(RoundedCornerShape(33.dp)).background(HsbPanelFill).padding(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) { rows(Modifier.fillMaxWidth()) }
     }
@@ -402,7 +402,7 @@ fun ColorBalancePanel(vm: CanvasViewModel, modifier: Modifier = Modifier) {
         return
     }
     Column(
-        modifier.offset(y = (-25).dp).size(532.dp, 272.dp).clip(RoundedCornerShape(33.dp)).background(HsbPanelFill).padding(horizontal = 26.dp, vertical = 16.dp),
+        modifier.offset(y = (-25).dp).size(toolbarWidth(532.dp, window), 272.dp).clip(RoundedCornerShape(33.dp)).background(HsbPanelFill).padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         BALANCE_PAIRS.forEachIndexed { k, (left, right, colours) ->
@@ -463,9 +463,10 @@ private fun BalanceRow(left: String, right: String, value: Float, track: Brush, 
  */
 @Composable
 fun CurvesPanel(vm: CanvasViewModel, modifier: Modifier = Modifier) {
+    val width = toolbarWidth(584.dp, windowWidth())
     Row(
-        modifier.offset(y = (-25).dp).size(584.dp, 183.dp).clip(RoundedCornerShape(33.dp)).background(HsbPanelFill).padding(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        modifier.offset(y = (-25).dp).size(width, 183.dp).clip(RoundedCornerShape(33.dp)).background(HsbPanelFill).padding(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (width < 420.dp) 10.dp else 16.dp),
     ) {
         val points = vm.curves[vm.curveChannel]
         // the point whose Delete shows, and the graph's size for placing it
@@ -558,7 +559,7 @@ fun GradientMapPanel(vm: CanvasViewModel, modifier: Modifier = Modifier) {
     val editing = vm.gradientEditing
     // wider in a wide window, showing more of the library
     val window = windowWidth()
-    val width = if (sideBySide(window, GradientSideBySide)) toolbarWidth(835.dp, window) else 544.dp
+    val width = if (sideBySide(window, GradientSideBySide)) toolbarWidth(835.dp, window) else toolbarWidth(544.dp, window)
     Column(modifier.offset(y = (-25).dp).size(width, 159.dp).clip(RoundedCornerShape(33.dp)).background(HsbPanelFill).padding(horizontal = 14.dp, vertical = 12.dp)) {
         Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(if (editing != null) "Gradient Map" else "Gradient Library", color = MenuText, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f).padding(start = 14.dp))

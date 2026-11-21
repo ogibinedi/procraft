@@ -2,25 +2,6 @@
 
 use super::*;
 
-/// What `textures` take on the GPU, bytes: every level and layer of each, as its format packs
-/// them (before the driver's own rounding up).
-pub fn textures_bytes(textures: &[wgpu::Texture]) -> u64 {
-    textures
-        .iter()
-        .map(|t| {
-            let (bw, bh) = t.format().block_dimensions();
-            let block = u64::from(t.format().block_copy_size(None).unwrap_or(4));
-            let layers = u64::from(t.depth_or_array_layers()) * u64::from(t.sample_count());
-            (0..t.mip_level_count())
-                .map(|level| {
-                    let (w, h) = ((t.width() >> level).max(1), (t.height() >> level).max(1));
-                    u64::from(w.div_ceil(bw)) * u64::from(h.div_ceil(bh)) * block * layers
-                })
-                .sum::<u64>()
-        })
-        .sum()
-}
-
 impl Pipelines {
     pub(crate) fn new(device: &wgpu::Device, abilities: Abilities, cache: Option<wgpu::PipelineCache>) -> Pipelines {
         let kept = cache.as_ref();
@@ -674,7 +655,11 @@ pub(crate) fn region_copy(
 
 /// The part of liquify's field (`width` by `height`, `scale` field pixels a canvas pixel) a step of
 /// `stamps` reaches, field pixels from the top left to the bottom right: all of it for none.
-pub(crate) fn liquify_reach(stamps: &[LiquifyStamp], (width, height): (u32, u32), [across, down]: [f32; 2]) -> [u32; 4] {
+pub(crate) fn liquify_reach(
+    stamps: &[LiquifyStamp],
+    (width, height): (u32, u32),
+    [across, down]: [f32; 2],
+) -> [u32; 4] {
     if stamps.is_empty() {
         return [0, 0, width, height];
     }
@@ -950,7 +935,13 @@ pub(crate) fn buffer_init(
     buffer
 }
 
-pub(crate) fn texture(device: &wgpu::Device, label: &str, width: u32, height: u32, format: wgpu::TextureFormat) -> wgpu::Texture {
+pub(crate) fn texture(
+    device: &wgpu::Device,
+    label: &str,
+    width: u32,
+    height: u32,
+    format: wgpu::TextureFormat,
+) -> wgpu::Texture {
     // where the GPU's block compression loses parts of a picture redrawn a part at a time (Mali),
     // a texture that can be a storage one is kept uncompressed
     let uncompressed = crate::textures_uncompressed() && format == wgpu::TextureFormat::Rgba8Unorm;
@@ -1023,33 +1014,6 @@ pub(crate) fn painted_bounds_slowly(t: &Thumbnail, painted: impl Fn([u8; 4]) -> 
 
 /// The longest side of a parked layer's small pictures, pixels: as big as any thumbnail asked for.
 pub(crate) const PARKED_PICTURE_SIDE: u32 = 192;
-
-/// How a remake of the caches went: over how many renders, and the most items one part took.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct RemakeStats {
-    pub renders: u32,
-    pub largest_part: usize,
-}
-
-/// A layer's pixels made ready to park: compressed, with its small pictures. Made on any thread
-/// (the slow part of [`Canvas::park_pixels`]), then given to [`Canvas::park_ready`].
-pub struct ReadyToPark {
-    pub(crate) parked: Parked,
-    pub(crate) pictures: Pictures,
-}
-
-impl ReadyToPark {
-    /// Of a layer's pixels (premultiplied RGBA, `width` x `height`).
-    pub fn of(rgba: &[u8], width: u32, height: u32) -> ReadyToPark {
-        let pictures = Pictures::of(rgba, width, height);
-        ReadyToPark { parked: Parked::of(rgba, width, pictures.bounds), pictures }
-    }
-
-    /// How many bytes the compressed pixels take.
-    pub fn bytes(&self) -> usize {
-        self.parked.lz4.len()
-    }
-}
 
 /// A parked layer's pixels: the rectangle painted (none if nothing), its rows compressed, so a
 /// layer drawn on in one place costs little to keep and to bring back.
@@ -1587,32 +1551,6 @@ pub(crate) const SOURCE_SLOTS: usize = 8;
 /// How many brush files' grains stay on the GPU at their own size.
 pub(crate) const FULL_GRAINS_HELD: usize = 3;
 
-/// The most shape images a stroke's own set holds (see [`Canvas::use_tip_set`]).
-pub const MOST_TIPS: u32 = 255;
-
-/// What a stroke's own shapes are, and how they colour its stamps.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub enum TipKind {
-    /// How much each pixel paints, in the stroke's colour.
-    #[default]
-    Mask = 0,
-    /// Pictures: each pixel paints its own colour, as far as it is opaque.
-    Picture = 1,
-    /// Each pixel's grey sets the colour's lightness (a middle grey keeping it as it is, as far as
-    /// the stamp's lightness strength goes), as far as it is opaque.
-    Lightness = 2,
-    /// Each pixel's grey picks a colour between the stroke's (black) and its secondary colour
-    /// (white), as far as it is opaque.
-    Gradient = 3,
-}
-
-impl TipKind {
-    /// Bytes a pixel of its images take.
-    pub fn channels(self) -> u32 {
-        if self == TipKind::Mask { 1 } else { 4 }
-    }
-}
-
 /// Brush files' grains or shapes at their own size, each an array with its mip levels, the image in its first
 /// layer: only the last few used, so that their memory doesn't grow with the brushes.
 #[derive(Default)]
@@ -1783,7 +1721,7 @@ pub(crate) fn write_image_levels(gpu: &Gpu, texture: &wgpu::Texture, layer: u32,
 }
 
 /// [`write_image_levels`] for an image of `channels` bytes a pixel.
-pub(crate) fn write_image_levels_of(gpu: &Gpu, texture: &wgpu::Texture, layer: u32, n: u32, pixels: &[u8], channels: u32) {
+fn write_image_levels_of(gpu: &Gpu, texture: &wgpu::Texture, layer: u32, n: u32, pixels: &[u8], channels: u32) {
     let mut level = pixels.to_vec();
     let mut size = n;
     for mip in 0..n.ilog2() + 1 {
@@ -1879,7 +1817,13 @@ pub(crate) fn coverage_bounds(rows: &[u8], width: u32, first: usize) -> IRect {
     bounds
 }
 
-pub(crate) fn coverage_texture(device: &wgpu::Device, queue: &wgpu::Queue, width: u32, height: u32, data: &[u8]) -> wgpu::Texture {
+pub(crate) fn coverage_texture(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    width: u32,
+    height: u32,
+    data: &[u8],
+) -> wgpu::Texture {
     let texture = device.create_texture(&wgpu::TextureDescriptor {
         label: Some("selection"),
         size: extent(width, height),
@@ -1962,7 +1906,11 @@ pub(crate) fn sampled_bind(
     })
 }
 
-pub(crate) fn uniforms(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, slots: u64) -> (wgpu::Buffer, wgpu::BindGroup) {
+pub(crate) fn uniforms(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    slots: u64) -> (wgpu::Buffer, wgpu::BindGroup,
+) {
     let buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("uniforms"),
         size: slots * SLOT,
@@ -2066,43 +2014,6 @@ pub(crate) fn srgb_to_linear(c: f32) -> f32 {
     if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
 }
 
-/// Reads a texture of 4-byte pixels back from the GPU, rows top to bottom without padding.
-pub fn read_texture(gpu: &Gpu, texture: &wgpu::Texture, width: u32, height: u32) -> Result<Vec<u8>, GpuError> {
-    start_reading(gpu, texture, width, height).pixels()
-}
-
-/// Pixels on their way back from the GPU: their copy is queued (under whatever lock guards what
-/// they are copied from), and waited for later, the lock let go ([`Readback::pixels`]).
-pub enum Readback {
-    /// Already here.
-    Ready(Vec<u8>),
-    /// The copy couldn't be made (why): nothing is coming.
-    Failed(String),
-    Copying {
-        device: wgpu::Device,
-        /// Whether the device has been lost (see [`Gpu::is_lost`]).
-        lost: Arc<AtomicBool>,
-        /// The buffer and how much of it the pixels take; kept for the next readback after.
-        buffer: wgpu::Buffer,
-        size: u64,
-        kept: Arc<Mutex<Vec<wgpu::Buffer>>>,
-        /// A row's bytes, and as the copy pads it.
-        row: usize,
-        padded: usize,
-        mapped: mpsc::Receiver<Result<(), wgpu::BufferAsyncError>>,
-    },
-}
-
-/// The layers' coverage at a point, as [`Canvas::start_alphas_at`] started reading it.
-#[derive(Default)]
-pub struct PendingAlphas {
-    /// The paint layers in the document's order, those read from the GPU, and the parked ones'.
-    pub(crate) paint: Vec<LayerId>,
-    pub(crate) ids: Vec<LayerId>,
-    pub(crate) parked: HashMap<LayerId, u8>,
-    pub(crate) read: Option<Readback>,
-}
-
 impl PendingAlphas {
     /// Each paint layer's coverage (alpha, 0 to 255), in the document's order, once the GPU has
     /// copied it.
@@ -2161,18 +2072,6 @@ impl Readback {
         }
         Ok(out)
     }
-}
-
-/// How many layers `width` x `height` a canvas keeps on the GPU at once with textures' budget
-/// `budget` bytes (0: no limit; one at least).
-pub fn most_resident(budget: u64, width: u32, height: u32) -> usize {
-    let per = u64::from(width) * u64::from(height) * 4;
-    if budget == 0 { usize::MAX } else { usize::try_from(budget / per.max(1)).unwrap_or(usize::MAX).max(1) }
-}
-
-/// Starts reading a texture of 4-byte pixels back from the GPU: its copy is queued now.
-pub fn start_reading(gpu: &Gpu, texture: &wgpu::Texture, width: u32, height: u32) -> Readback {
-    start_reading_part(gpu, texture, IRect::from_size(width, height))
 }
 
 /// [`start_reading`] for the pixels inside `rect` (on the texture, not empty) only.

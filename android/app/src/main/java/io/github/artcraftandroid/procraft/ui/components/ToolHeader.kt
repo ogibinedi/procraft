@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -56,23 +57,36 @@ fun ToolHeader(title: String, buttons: List<ToolButton>, onDone: () -> Unit, mod
     // it fades in over the top bar as its mode begins
     val shown = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(0f) }
     androidx.compose.runtime.LaunchedEffect(Unit) { shown.animateTo(1f, Motion.toolHeaderIn()) }
-    Box(modifier.fillMaxWidth().height(ToolHeaderHeight).graphicsLayer { alpha = shown.value }.background(colors.band)) {
-        Text(title, color = HeaderLabel, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.padding(start = 32.dp, top = 27.dp))
-        Row(Modifier.align(Alignment.TopEnd).padding(top = 20.dp, end = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+    BoxWithConstraints(modifier.fillMaxWidth().height(ToolHeaderHeight).graphicsLayer { alpha = shown.value }.background(colors.band)) {
+        val compact = maxWidth < 540.dp
+        if (!compact || buttons.size <= 1) {
+            Text(
+                title,
+                color = HeaderLabel,
+                fontSize = if (compact) 18.sp else 22.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                modifier = Modifier.padding(start = if (compact) 16.dp else 32.dp, top = if (compact) 30.dp else 27.dp),
+            )
+        }
+        Row(
+            Modifier.align(Alignment.TopEnd).padding(top = 20.dp, end = if (compact) 12.dp else 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             if (buttons.isNotEmpty()) {
                 Row(Modifier.height(43.dp).clip(CircleShape).background(colors.capsule).border(1.dp, colors.edge, CircleShape), verticalAlignment = Alignment.CenterVertically) {
                     for (b in buttons) {
                         Box(
                             Modifier.height(43.dp).clip(CircleShape).background(if (b.chosen) CapsuleChosen else Color.Transparent)
                                 .then(if (b.onClick != null) Modifier.clickable(onClick = b.onClick) else Modifier)
-                                .padding(horizontal = 13.dp),
+                                .padding(horizontal = if (compact) 10.dp else 13.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text(b.label, color = if (b.chosen) ChosenLabel else ButtonLabel, fontSize = 17.sp, maxLines = 1)
+                            Text(b.label, color = if (b.chosen) ChosenLabel else ButtonLabel, fontSize = if (compact) 15.sp else 17.sp, maxLines = 1)
                         }
                     }
                 }
-                Spacer(Modifier.width(13.dp))
+                Spacer(Modifier.width(if (compact) 8.dp else 13.dp))
             }
             Box(Modifier.size(44.dp).clip(CircleShape).background(DoneBlue).clickable(onClick = onDone), contentAlignment = Alignment.Center) {
                 Icon(PcIcons.DoneTick, contentDescription = "Done", tint = Color.White, modifier = Modifier.requiredSize(40.dp))

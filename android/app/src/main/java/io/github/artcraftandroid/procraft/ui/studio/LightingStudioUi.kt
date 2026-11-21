@@ -171,9 +171,12 @@ fun LightingStudio(vm: CanvasViewModel) {
                 }
             },
         )
+        val compact = maxWidth < 540.dp
         Box(Modifier.fillMaxWidth().height(85.dp).background(StudioBar).pointerInput(Unit) { detectTapGestures { environmentOpen = false } }) {
-            Text("Lighting Studio", color = StudioTitle, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.offset(32.dp, 27.dp))
-            Row(Modifier.align(Alignment.TopEnd).padding(top = 21.dp, end = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (!compact) {
+                Text("Lighting Studio", color = StudioTitle, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.offset(32.dp, 27.dp))
+            }
+            Row(Modifier.align(Alignment.TopEnd).padding(top = 21.dp, end = if (compact) 12.dp else 20.dp), verticalAlignment = Alignment.CenterVertically) {
                 Row(Modifier.height(43.dp).clip(CircleShape).background(PillFill).border(1.dp, PillEdge, CircleShape)) {
                     PillButton("Cancel", 73.dp, lit = false) { vm.closeLightingStudio(keep = false) }
                     PillButton("Add Light", 92.dp, lit = false) {
@@ -183,7 +186,7 @@ fun LightingStudio(vm: CanvasViewModel) {
                     }
                     PillButton("Environment", 113.dp, lit = environmentOpen) { environmentOpen = !environmentOpen }
                 }
-                Spacer(Modifier.width(13.dp))
+                Spacer(Modifier.width(if (compact) 8.dp else 13.dp))
                 Box(Modifier.size(44.dp, 45.dp).clip(CircleShape).background(DoneBlue).clickable { vm.closeLightingStudio(keep = true) }, contentAlignment = Alignment.Center) {
                     Icon(PcIcons.DoneTick, contentDescription = "Done", tint = Color.White, modifier = Modifier.requiredSize(40.dp))
                 }
@@ -346,7 +349,9 @@ private fun PillButton(label: String, width: androidx.compose.ui.unit.Dp, lit: B
 /** The Environment popover: Show Environment, Exposure, and the environments, the one lighting the model blue. */
 @Composable
 private fun EnvironmentPopover(vm: CanvasViewModel, modifier: Modifier) {
-    Popover(350.dp, 0.dp, modifier.pointerInput(Unit) { detectTapGestures { } }, fill = PopoverFill, side = ArrowSide.NONE) {
+    val screenW = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
+    val popW = minOf(350.dp, (screenW - 24.dp).coerceAtLeast(260.dp))
+    Popover(popW, 0.dp, modifier.pointerInput(Unit) { detectTapGestures { } }, fill = PopoverFill, side = ArrowSide.NONE) {
         Text("Environment", color = Pc.PanelTitle, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.padding(start = 26.dp, top = 8.dp).height(40.dp))
         Column(Modifier.padding(horizontal = 10.dp)) {
             Spacer(Modifier.height(13.dp))

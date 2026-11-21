@@ -336,7 +336,7 @@ private val LocalTightPill = staticCompositionLocalOf { false }
  * Shows its content as wide as it asks, or where there is less room, scaled down to fit it
  * (touches and all), centred.
  */
-private fun Modifier.fitWidth(): Modifier = layout { measurable, constraints ->
+internal fun Modifier.fitWidth(): Modifier = layout { measurable, constraints ->
     val p = measurable.measure(constraints.copy(minWidth = 0, maxWidth = Constraints.Infinity))
     val room = constraints.maxWidth
     if (p.width <= room) {

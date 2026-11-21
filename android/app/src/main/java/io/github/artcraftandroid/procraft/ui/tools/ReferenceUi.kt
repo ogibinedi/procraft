@@ -228,8 +228,8 @@ private fun ReferenceWindowContent(vm: CanvasViewModel, w: CanvasViewModel.Refer
                 contentAlignment = Alignment.Center,
             ) {
                 Row(
-                    Modifier.width(270.dp).height(35.dp).clip(CircleShape).background(SegmentTrack).padding(2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(11.dp),
+                    Modifier.width(minOf(270.dp, (picture.width - 16.dp).coerceAtLeast(140.dp))).height(35.dp).clip(CircleShape).background(SegmentTrack).padding(2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(if (picture.width < 260.dp) 4.dp else 11.dp),
                 ) {
                     // on a model the third is the model itself; no Face without face tracking
                     val kinds = listOf(CanvasViewModel.ReferenceMode.CANVAS to "Canvas", CanvasViewModel.ReferenceMode.IMAGE to "Image") +

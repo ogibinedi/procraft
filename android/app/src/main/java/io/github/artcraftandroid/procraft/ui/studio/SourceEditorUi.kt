@@ -123,11 +123,19 @@ fun SourceEditor(vm: CanvasViewModel) {
     val photo = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let { scope.launch { take(vm.decodeSource(it)) } } }
     BackHandler { vm.sourceEditing = null }
     // landscape: a page sliding over the studio from the right, its pages' card still showing
-    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val config = LocalConfiguration.current
+    val landscape = config.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val screenW = config.screenWidthDp.dp
+    val screenH = config.screenHeightDp.dp
+    val sideBySide = studioSideBySide(landscape, screenW)
+    val availW = if (sideBySide) screenW - 246.dp else screenW
+    val compact = availW < 640.dp || screenH < 660.dp
+    val boxSide = if (compact) minOf(600.dp, availW - 24.dp, (screenH - 110.dp).coerceAtLeast(180.dp)) else 600.dp
+    val discSide = boxSide * (480f / 600f)
     Box(Modifier.fillMaxSize().pointerInput(Unit) { awaitEachGesture { awaitFirstDown().consume() } }) {
         Box(
             Modifier.fillMaxSize()
-                .then(if (landscape) Modifier.padding(start = 246.dp).clip(RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp)) else Modifier)
+                .then(if (sideBySide) Modifier.padding(start = 246.dp).clip(RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp)) else Modifier)
                 .background(EditorPage),
         ) {
             // the grain repeating over the whole page
@@ -135,7 +143,7 @@ fun SourceEditor(vm: CanvasViewModel) {
                 Box(Modifier.fillMaxSize().background(ShaderBrush(ImageShader(shown, TileMode.Repeated, TileMode.Repeated))))
             } else {
                 Box(
-                    Modifier.align(Alignment.Center).offset(y = 32.dp).size(600.dp, 601.dp).clip(RoundedCornerShape(20.dp)).background(EditorView)
+                    Modifier.align(Alignment.Center).offset(y = if (compact) 20.dp else 32.dp).size(boxSide, if (compact) boxSide else 601.dp).clip(RoundedCornerShape(20.dp)).background(EditorView)
                         .pointerInput(Unit) {
                             // a two-finger tap turns the image negative
                             awaitEachGesture {
@@ -155,21 +163,23 @@ fun SourceEditor(vm: CanvasViewModel) {
                 ) {
                     shown?.let { Image(it, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize()) }
                         // the round tip: a white disc
-                        ?: if (!grain) Box(Modifier.align(Alignment.Center).size(480.dp).clip(CircleShape).background(Color.White)) else Box(Modifier.fillMaxSize().background(Color.White))
+                        ?: if (!grain) Box(Modifier.align(Alignment.Center).size(discSide).clip(CircleShape).background(Color.White)) else Box(Modifier.fillMaxSize().background(Color.White))
                 }
             }
-            Text(
-                when (kind) {
-                    SourceKind.SHAPE -> "Shape Editor"
-                    SourceKind.GRAIN -> "Grain Editor"
-                    SourceKind.METALLIC -> "Metallic Editor"
-                    SourceKind.ROUGHNESS -> "Roughness Editor"
-                },
-                color = EditorTitle, fontSize = 22.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.offset(24.dp, if (landscape) 16.dp else 26.dp),
-            )
+            if (availW >= 520.dp) {
+                Text(
+                    when (kind) {
+                        SourceKind.SHAPE -> "Shape Editor"
+                        SourceKind.GRAIN -> "Grain Editor"
+                        SourceKind.METALLIC -> "Metallic Editor"
+                        SourceKind.ROUGHNESS -> "Roughness Editor"
+                    },
+                    color = EditorTitle, fontSize = 22.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.offset(24.dp, if (landscape) 16.dp else 26.dp),
+                )
+            }
             Row(
-                Modifier.align(Alignment.TopEnd).padding(top = if (landscape) 10.dp else 20.dp, end = if (landscape) 12.dp else 20.dp),
+                Modifier.align(Alignment.TopEnd).padding(top = if (landscape) 10.dp else 20.dp, end = if (availW < 520.dp || landscape) 12.dp else 20.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(Modifier.height(43.dp).clip(CircleShape).background(CapsuleFill).border(1.dp, CapsuleEdge, CircleShape), verticalAlignment = Alignment.CenterVertically) {
@@ -188,7 +198,7 @@ fun SourceEditor(vm: CanvasViewModel) {
                     if (grain) CapsuleButton("Auto repeat", 107, on = repeating) { repeating = !repeating }
                     CapsuleButton("Cancel", 73) { vm.sourceEditing = null }
                 }
-                Spacer(Modifier.width(13.dp))
+                Spacer(Modifier.width(if (availW < 520.dp) 8.dp else 13.dp))
                 Box(
                     Modifier.size(44.dp, 45.dp).clip(CircleShape).background(DoneBlue).tap {
                         vm.keepStudioSource(kind, result(), shipped.takeIf { !repeating })
@@ -199,8 +209,9 @@ fun SourceEditor(vm: CanvasViewModel) {
                 }
             }
             if (repeating) RepeatPanel(
-                Modifier.align(Alignment.BottomCenter).padding(bottom = 30.dp),
+                Modifier.align(Alignment.BottomCenter).padding(bottom = if (compact) 16.dp else 30.dp),
                 scale, rotate, overlap, hardness, mirror, pyramid,
+                maxWidth = availW,
                 onScale = { scale = it }, onRotate = { rotate = it }, onOverlap = { overlap = it }, onHardness = { hardness = it },
                 onMirror = { mirror = it }, onPyramid = { pyramid = it },
             )
@@ -271,43 +282,49 @@ private fun MenuRow(icon: ImageVector, label: String, iconSize: Dp = 24.dp, onCl
 private fun RepeatPanel(
     modifier: Modifier,
     scale: Float, rotate: Float, overlap: Float, hardness: Float, mirror: Boolean, pyramid: Boolean,
+    maxWidth: Dp = 666.dp,
     onScale: (Float) -> Unit, onRotate: (Float) -> Unit, onOverlap: (Float) -> Unit, onHardness: (Float) -> Unit,
     onMirror: (Boolean) -> Unit, onPyramid: (Boolean) -> Unit,
 ) {
+    val panelW = minOf(650.dp, maxWidth - 16.dp)
+    val gap = if (panelW < 500.dp) 8.dp else 16.dp
+    val colW = ((panelW - 32.dp - gap) / 2).coerceAtLeast(110.dp)
     Column(
-        modifier.size(650.dp, 228.dp).clip(RoundedCornerShape(16.dp)).background(EditorPage).padding(16.dp),
+        modifier.size(panelW, 228.dp).clip(RoundedCornerShape(16.dp)).background(EditorPage).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            RepeatSlider("Grain scale", "%.1f".format(1f + scale * 3f).trimEnd('0').trimEnd('.'), scale, onScale)
-            RepeatSlider("Rotate", "${(rotate * 360f).roundToInt()}°", rotate, onRotate)
+        Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+            RepeatSlider("Grain scale", "%.1f".format(1f + scale * 3f).trimEnd('0').trimEnd('.'), scale, colW, onScale)
+            RepeatSlider("Rotate", "${(rotate * 360f).roundToInt()}°", rotate, colW, onRotate)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            RepeatSlider("Border overlap", if (overlap >= 1f) "Maximal" else if (overlap <= 0f) "None" else "${(overlap * 100).roundToInt()}%", overlap, onOverlap)
-            RepeatSlider("Mask hardness", if (hardness <= 0f) "Soft" else if (hardness >= 1f) "Hard" else "${(hardness * 100).roundToInt()}%", hardness, onHardness)
+        Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+            RepeatSlider("Border overlap", if (overlap >= 1f) "Maximal" else if (overlap <= 0f) "None" else "${(overlap * 100).roundToInt()}%", overlap, colW, onOverlap)
+            RepeatSlider("Mask hardness", if (hardness <= 0f) "Soft" else if (hardness >= 1f) "Hard" else "${(hardness * 100).roundToInt()}%", hardness, colW, onHardness)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            RepeatSwitch("Mirror overlap", mirror, onMirror)
-            RepeatSwitch("Pyramid blending", pyramid, onPyramid)
+        Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+            RepeatSwitch("Mirror overlap", mirror, colW, onMirror)
+            RepeatSwitch("Pyramid blending", pyramid, colW, onPyramid)
         }
     }
 }
 
 @Composable
-private fun RepeatSlider(label: String, value: String, at: Float, onChange: (Float) -> Unit) {
-    Column(Modifier.width(301.dp).height(55.dp)) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
-            Text(label, color = RepeatLabel, fontSize = 15.sp, maxLines = 1, modifier = Modifier.weight(1f))
-            Text(value, color = RepeatLabel, fontSize = 15.sp, maxLines = 1)
+private fun RepeatSlider(label: String, value: String, at: Float, width: Dp = 301.dp, onChange: (Float) -> Unit) {
+    val compact = width < 220.dp
+    Column(Modifier.width(width).height(55.dp)) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = if (compact) 6.dp else 16.dp, vertical = 6.dp)) {
+            Text(label, color = RepeatLabel, fontSize = if (compact) 13.sp else 15.sp, maxLines = 1, modifier = Modifier.weight(1f))
+            Text(value, color = RepeatLabel, fontSize = if (compact) 13.sp else 15.sp, maxLines = 1)
         }
-        SimpleSlider(at, onChange, Modifier.padding(horizontal = 16.dp))
+        SimpleSlider(at, onChange, Modifier.padding(horizontal = if (compact) 6.dp else 16.dp))
     }
 }
 
 @Composable
-private fun RepeatSwitch(label: String, on: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.width(301.dp).height(40.dp).tap { onChange(!on) }.padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, color = RepeatLabel, fontSize = 15.sp, maxLines = 1, modifier = Modifier.weight(1f))
+private fun RepeatSwitch(label: String, on: Boolean, width: Dp = 301.dp, onChange: (Boolean) -> Unit) {
+    val compact = width < 220.dp
+    Row(Modifier.width(width).height(40.dp).tap { onChange(!on) }.padding(start = if (compact) 6.dp else 16.dp, end = if (compact) 4.dp else 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = RepeatLabel, fontSize = if (compact) 13.sp else 15.sp, maxLines = 1, modifier = Modifier.weight(1f))
         Switch(on, enabled = true)
     }
 }
@@ -362,28 +379,41 @@ private fun SourceLibrary(vm: CanvasViewModel, grain: Boolean, onPick: (Int) -> 
         }
     }
     PcPopup(atOrigin, onDismissRequest = onCancel, properties = PopupProperties(focusable = true, clippingEnabled = false)) {
-    Box(Modifier.fillMaxSize().background(LibraryVeil).pointerInput(Unit) { awaitEachGesture { awaitFirstDown().consume() } }) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(LibraryVeil).pointerInput(Unit) { awaitEachGesture { awaitFirstDown().consume() } }) {
+        val libW = minOf(580.dp, (maxWidth - 16.dp).coerceAtLeast(280.dp))
+        val libH = minOf(575.dp, (maxHeight - 32.dp).coerceAtLeast(260.dp))
+        val compact = libW < 540.dp
+        val topOffset = if (maxHeight < 660.dp) ((maxHeight - libH) / 2).coerceAtLeast(8.dp) else 74.dp
         Column(
-            Modifier.align(Alignment.TopCenter).offset(y = 74.dp).size(580.dp, 575.dp).clip(RoundedCornerShape(26.dp)).background(LibrarySheet)
+            Modifier.align(Alignment.TopCenter).offset(y = topOffset).size(libW, libH).clip(RoundedCornerShape(26.dp)).background(LibrarySheet)
                 .pointerInput(Unit) { awaitEachGesture { awaitFirstDown(requireUnconsumed = false) } },
         ) {
-            Row(Modifier.fillMaxWidth().padding(start = 19.dp, end = 19.dp, top = 69.dp).height(39.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Source Library", color = LibraryTitle, fontSize = 32.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f))
+            Row(Modifier.fillMaxWidth().padding(start = 19.dp, end = 19.dp, top = if (compact) 20.dp else 69.dp).height(39.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Source Library", color = LibraryTitle, fontSize = if (compact) 24.sp else 32.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f))
                 Text("Cancel", color = LibraryDim, fontSize = 17.sp, maxLines = 1, modifier = Modifier.tap(onCancel))
             }
-            Row(Modifier.padding(start = 43.dp, top = 25.dp).height(45.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(start = if (compact) 16.dp else 43.dp, top = if (compact) 12.dp else 25.dp).height(45.dp), verticalAlignment = Alignment.CenterVertically) {
                 for ((label, isGrain) in listOf("Shape Source" to false, "Grain Source" to true)) {
                     Box(Modifier.padding(end = 11.dp).size(115.dp, 41.dp).tap { showGrains = isGrain }, contentAlignment = Alignment.Center) {
-                        Text(label, color = if (showGrains == isGrain) Pc.MenuInk else LibraryDim, fontSize = 17.sp, maxLines = 1)
+                        Text(label, color = if (showGrains == isGrain) Pc.MenuInk else LibraryDim, fontSize = if (compact) 15.sp else 17.sp, maxLines = 1)
                     }
                 }
-                Spacer(Modifier.width(8.dp))
-                LibrarySearch(query) { query = it }
+                if (!compact) {
+                    Spacer(Modifier.width(8.dp))
+                    LibrarySearch(query) { query = it }
+                }
             }
+            if (compact) {
+                Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
+                    LibrarySearch(query, width = libW - 32.dp) { query = it }
+                }
+            }
+            val gap = if (compact) 12.dp else 53.dp
+            val cellSide = if (compact) ((libW - 32.dp - gap * 2) / 3).coerceIn(80.dp, 147.dp) else 147.dp
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 11.dp, bottom = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(53.dp),
+                horizontalArrangement = Arrangement.spacedBy(gap),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
@@ -391,15 +421,15 @@ private fun SourceLibrary(vm: CanvasViewModel, grain: Boolean, onPick: (Int) -> 
                     val (i, item) = shown[k]
                     val (name, image) = item
                     Column(
-                        Modifier.width(147.dp).tap {
+                        Modifier.width(cellSide).tap {
                             // each kind takes its own: a grain picked in the shape editor is not taken
                             if (showGrains == grain) onPick(i)
                         },
                     ) {
-                        Box(Modifier.size(147.dp, 146.dp).clip(RoundedCornerShape(8.dp)).background(Color.Black).border(1.dp, LibraryEdge, RoundedCornerShape(8.dp))) {
+                        Box(Modifier.size(cellSide, cellSide - 1.dp).clip(RoundedCornerShape(8.dp)).background(Color.Black).border(1.dp, LibraryEdge, RoundedCornerShape(8.dp))) {
                             image?.let { Image(it, contentDescription = name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
                         }
-                        Text(name, color = LibraryTitle, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.padding(start = 3.dp, top = 5.dp).height(21.dp))
+                        Text(name, color = LibraryTitle, fontSize = if (compact) 11.5.sp else 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.padding(start = 3.dp, top = 5.dp).height(21.dp))
                     }
                 }
             }
@@ -410,9 +440,9 @@ private fun SourceLibrary(vm: CanvasViewModel, grain: Boolean, onPick: (Int) -> 
 
 /** The library's search: a round field with a magnifier and its hint, matching names as typed. */
 @Composable
-private fun LibrarySearch(query: String, onQuery: (String) -> Unit) {
+private fun LibrarySearch(query: String, width: Dp = 225.dp, onQuery: (String) -> Unit) {
     Row(
-        Modifier.size(225.dp, 45.dp).clip(RoundedCornerShape(22.5.dp)).background(LibrarySearchFill).border(1.dp, LibrarySearchEdge, RoundedCornerShape(22.5.dp)),
+        Modifier.size(width, 45.dp).clip(RoundedCornerShape(22.5.dp)).background(LibrarySearchFill).border(1.dp, LibrarySearchEdge, RoundedCornerShape(22.5.dp)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         androidx.compose.foundation.Canvas(Modifier.padding(start = 11.dp).size(23.dp, 22.dp)) {
