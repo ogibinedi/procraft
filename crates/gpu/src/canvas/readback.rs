@@ -242,7 +242,7 @@ impl Canvas {
     }
 
     /// `rect` of a texture box-filtered to fit `max_side` pixels (never enlarged), read back.
-    pub(crate) fn sample_view(
+    pub(super) fn sample_view(
         &self,
         gpu: &Gpu,
         source: &wgpu::TextureView,
@@ -426,7 +426,7 @@ impl Canvas {
     /// Copies `rect` of `texture` from `data` (from `offset`, rows `row` bytes apart) in
     /// `encoder`, through an upload buffer: returns it, to give back once `encoder` is sent.
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn upload(
+    pub(super) fn upload(
         &self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
@@ -472,7 +472,7 @@ impl Canvas {
     }
 
     /// [`Canvas::upload`] sent at once, ahead of whatever is recorded but not yet sent.
-    pub(crate) fn upload_now(
+    pub(super) fn upload_now(
         &self,
         gpu: &Gpu,
         texture: &wgpu::Texture,
@@ -647,7 +647,7 @@ impl Canvas {
     /// The boxes the GPU's passes (`pipelines`: across rows, down columns) find for each of
     /// `sources` (a bind group for them, or a box already known), all drawn and read back
     /// together: none where nothing is marked, an error where the GPU didn't say.
-    pub(crate) fn boxes(
+    pub(super) fn boxes(
         &self,
         gpu: &Gpu,
         sources: Vec<Result<wgpu::BindGroup, Option<IRect>>>,
@@ -729,13 +729,13 @@ impl Canvas {
     }
 
     /// A bind group of four textures (layer, stroke, clip base, backdrop) plus the grains.
-    pub(crate) fn quad(&self, device: &wgpu::Device, views: [&wgpu::TextureView; 4]) -> wgpu::BindGroup {
+    pub(super) fn quad(&self, device: &wgpu::Device, views: [&wgpu::TextureView; 4]) -> wgpu::BindGroup {
         let [a, b, c, d] = views;
         self.quad_masked(device, [a, b, c, d], &self.stroke_view, &self.stroke_view)
     }
 
     /// As [`Self::quad`], with the layer's mask and the mask of the base it is clipped to.
-    pub(crate) fn quad_masked(
+    pub(super) fn quad_masked(
         &self,
         device: &wgpu::Device,
         views: [&wgpu::TextureView; 4],
@@ -754,7 +754,7 @@ impl Canvas {
     }
 
     /// The open stroke's second's texture while it has one (else any, unread).
-    pub(crate) fn second_view(&self, device: &wgpu::Device) -> &wgpu::TextureView {
+    pub(super) fn second_view(&self, device: &wgpu::Device) -> &wgpu::TextureView {
         if self.active.is_some_and(|a| a.second.is_some()) {
             self.second_stroke.get(device).1
         } else {

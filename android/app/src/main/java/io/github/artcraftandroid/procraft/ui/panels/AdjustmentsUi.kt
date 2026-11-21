@@ -63,18 +63,6 @@ import io.github.artcraftandroid.procraft.canvas.paintable
 import io.github.artcraftandroid.procraft.canvas.swiped
 import io.github.artcraftandroid.procraft.core.Adjustment
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel
-import io.github.artcraftandroid.procraft.core.ChromaticKind
-import io.github.artcraftandroid.procraft.core.GlitchKind
-import io.github.artcraftandroid.procraft.core.HalftoneKind
-import io.github.artcraftandroid.procraft.core.NoiseKind
-import io.github.artcraftandroid.procraft.core.PerspectiveKind
-import io.github.artcraftandroid.procraft.core.PluginControl
-import io.github.artcraftandroid.procraft.core.PluginSlider
-import io.github.artcraftandroid.procraft.core.pluginSliderAlong
-import io.github.artcraftandroid.procraft.core.pluginSliderAt
-import io.github.artcraftandroid.procraft.core.pluginSliderShown
-import io.github.artcraftandroid.procraft.core.QuickShapeKind
-import io.github.artcraftandroid.procraft.core.LiquifyKind
 import kotlin.math.roundToInt
 
 // light: the band see-through (241 over white, 228 over the surround), the panel near white

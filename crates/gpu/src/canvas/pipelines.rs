@@ -629,7 +629,7 @@ impl Pipelines {
 
 /// The adjustment passes, by their fragment entry in `filter.wgsl`.
 /// A copy of `rect` of the layer-format texture `source`, for an undo step.
-pub(crate) fn region_copy(
+pub(super) fn region_copy(
     device: &wgpu::Device,
     encoder: &mut wgpu::CommandEncoder,
     source: &wgpu::Texture,
@@ -655,7 +655,7 @@ pub(crate) fn region_copy(
 
 /// The part of liquify's field (`width` by `height`, `scale` field pixels a canvas pixel) a step of
 /// `stamps` reaches, field pixels from the top left to the bottom right: all of it for none.
-pub(crate) fn liquify_reach(
+pub(super) fn liquify_reach(
     stamps: &[LiquifyStamp],
     (width, height): (u32, u32),
     [across, down]: [f32; 2],
@@ -677,14 +677,14 @@ pub(crate) fn liquify_reach(
 }
 
 /// The smallest a liquify stamp can be, canvas pixels.
-pub(crate) const LIQUIFY_LEAST_RADIUS: f32 = 0.25;
+pub(super) const LIQUIFY_LEAST_RADIUS: f32 = 0.25;
 
 /// What a liquify step's stamps add up to: an offset, and how much is rebuilt.
-pub(crate) const LIQUIFY_SUMS_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
+pub(super) const LIQUIFY_SUMS_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
 /// The liquify field: two floats of offset a pixel, as many bits as can be drawn into here. Each
 /// step redraws the field from itself, so half floats would drift.
-pub(crate) fn liquify_format(adapter: &wgpu::Adapter) -> wgpu::TextureFormat {
+pub(super) fn liquify_format(adapter: &wgpu::Adapter) -> wgpu::TextureFormat {
     let wanted = wgpu::TextureFormat::Rg32Float;
     let needed = wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT;
     let can = adapter.get_texture_format_features(wanted).allowed_usages.contains(needed);
@@ -692,7 +692,7 @@ pub(crate) fn liquify_format(adapter: &wgpu::Adapter) -> wgpu::TextureFormat {
 }
 
 /// Added to what is there (liquify stamps into the field).
-pub(crate) const ADD: wgpu::BlendState = wgpu::BlendState {
+pub(super) const ADD: wgpu::BlendState = wgpu::BlendState {
     color: wgpu::BlendComponent {
         src_factor: wgpu::BlendFactor::One,
         dst_factor: wgpu::BlendFactor::One,
@@ -705,7 +705,7 @@ pub(crate) const ADD: wgpu::BlendState = wgpu::BlendState {
     },
 };
 
-pub(crate) const FILTER_PASSES: [&str; 17] = [
+pub(super) const FILTER_PASSES: [&str; 17] = [
     "fs_glitch",
     "fs_clone",
     "fs_liquified",
@@ -726,7 +726,7 @@ pub(crate) const FILTER_PASSES: [&str; 17] = [
 ];
 
 /// A full-screen pipeline (no vertex buffers) with its blending.
-pub(crate) fn blended_pipeline(
+pub(super) fn blended_pipeline(
     device: &wgpu::Device,
     cache: Option<&wgpu::PipelineCache>,
     layout: &wgpu::PipelineLayout,
@@ -759,7 +759,7 @@ pub(crate) fn blended_pipeline(
     })
 }
 
-pub(crate) fn sampled_pipeline(
+pub(super) fn sampled_pipeline(
     device: &wgpu::Device,
     cache: Option<&wgpu::PipelineCache>,
     layout: &wgpu::PipelineLayout,
@@ -774,13 +774,13 @@ pub(crate) fn sampled_pipeline(
 
 /// One frame's uniforms, a slot per draw.
 #[derive(Default)]
-pub(crate) struct UniformData {
-    pub(crate) data: Vec<u8>,
+pub(super) struct UniformData {
+    pub(super) data: Vec<u8>,
 }
 
 impl UniformData {
     /// Adds `value` in the next slot (as many as it fills) and returns its dynamic offset.
-    pub(crate) fn push<T: bytemuck::Pod>(&mut self, value: &T) -> u32 {
+    pub(super) fn push<T: bytemuck::Pod>(&mut self, value: &T) -> u32 {
         let offset = self.data.len();
         self.data.extend_from_slice(bytemuck::bytes_of(value));
         let slots = (size_of::<T>() as u64).div_ceil(SLOT).max(1);
@@ -792,7 +792,7 @@ impl UniformData {
 /// `ops` without the tips taken off again among them: what a tip covered comes back as it was, so
 /// one that never reached the screen is work for nothing. Behind with a fast stroke, a frame has
 /// a tip for every input event since the last, and drawing them all left it further behind.
-pub(crate) fn without_passing_tips(ops: Vec<Op>) -> Vec<Op> {
+pub(super) fn without_passing_tips(ops: Vec<Op>) -> Vec<Op> {
     let mut kept: Vec<Op> = Vec::with_capacity(ops.len());
     for op in ops {
         if let Op::Untip(rect) = op
@@ -809,13 +809,13 @@ pub(crate) fn without_passing_tips(ops: Vec<Op>) -> Vec<Op> {
 
 /// Whether `ops` lay a stroke again from scratch (a layer's, not an adjustment's mask) and then end
 /// it: its end redrawn whole.
-pub(crate) fn lays_ended_stroke_again(ops: &[Op]) -> bool {
+pub(super) fn lays_ended_stroke_again(ops: &[Op]) -> bool {
     let from = ops.iter().position(|op| matches!(op, Op::Stamps { clear: true, pencil: false, .. }));
     from.is_some_and(|from| ops.iter().skip(from).any(|op| matches!(op, Op::Commit(_))))
 }
 
 /// `stamps` laid after those `laid` holds, as far as it keeps them (see [`LAID_KEPT_MOST`]).
-pub(crate) fn keep_laid(laid: &mut Option<Vec<Stamp>>, stamps: &[Stamp]) {
+pub(super) fn keep_laid(laid: &mut Option<Vec<Stamp>>, stamps: &[Stamp]) {
     if let Some(kept) = laid.as_mut() {
         if kept.len() + stamps.len() <= LAID_KEPT_MOST {
             kept.extend_from_slice(stamps);
@@ -827,14 +827,14 @@ pub(crate) fn keep_laid(laid: &mut Option<Vec<Stamp>>, stamps: &[Stamp]) {
 
 /// How many of `stamps` (a stroke's final form) were laid already: those `laid` holds, if they are
 /// all still at its start (and laying it whole isn't asked for, `whole`).
-pub(crate) fn laid_before(laid: Option<&[Stamp]>, stamps: &[Stamp], whole: bool) -> Option<usize> {
+pub(super) fn laid_before(laid: Option<&[Stamp]>, stamps: &[Stamp], whole: bool) -> Option<usize> {
     laid.filter(|laid| !whole && !laid.is_empty() && stamps.starts_with(laid)).map(<[Stamp]>::len)
 }
 
 /// `ops` without the open stroke's stamps into `layer` at their end (not its second's, nor an
 /// adjustment's mask's), nor the tips put aside and given back among them, back to the last other
 /// work: the stroke redrawn from scratch after them clears what they would lay.
-pub(crate) fn drop_superseded_stamps(ops: &mut Vec<Op>, layer: LayerId) {
+pub(super) fn drop_superseded_stamps(ops: &mut Vec<Op>, layer: LayerId) {
     while let Some(op) = ops.last() {
         let superseded = match op {
             Op::Stamps { second: false, pencil: false, layer: on, .. } => *on == layer,
@@ -849,14 +849,14 @@ pub(crate) fn drop_superseded_stamps(ops: &mut Vec<Op>, layer: LayerId) {
 }
 
 /// The work of `stamps` on a canvas `full` (see [`stamp_work`]).
-pub(crate) fn stamps_work(stamps: &[StampInstance], full: IRect, in_place: bool) -> u64 {
+pub(super) fn stamps_work(stamps: &[StampInstance], full: IRect, in_place: bool) -> u64 {
     stamps.iter().fold(0, |work, s| work.saturating_add(stamp_work(s, full, in_place)))
 }
 
 /// `ops` with stamps of more work than `most`, or more than `most_stamps` of them, as several in a
 /// row of no more (a stamp is never cut in two): a stroke redrawn whole would otherwise reach the
 /// GPU as one piece.
-pub(crate) fn in_pieces(ops: Vec<Op>, full: IRect, most: u64, most_stamps: u64) -> Vec<Op> {
+pub(super) fn in_pieces(ops: Vec<Op>, full: IRect, most: u64, most_stamps: u64) -> Vec<Op> {
     let mut pieces = Vec::with_capacity(ops.len());
     for op in ops {
         let Op::Stamps { second, instances, wet, picks, times, style, clear, layer, pencil } = op else {
@@ -902,7 +902,7 @@ pub(crate) fn in_pieces(ops: Vec<Op>, full: IRect, most: u64, most_stamps: u64) 
 }
 
 /// The rows of `rect` (on the picture) out of a picture `width` pixels wide (RGBA8).
-pub(crate) fn cropped(pixels: &[u8], width: u32, rect: IRect) -> Vec<u8> {
+pub(super) fn cropped(pixels: &[u8], width: u32, rect: IRect) -> Vec<u8> {
     let (row, x0, x1) = (width as usize * 4, rect.x0.max(0) as usize * 4, rect.x1.max(0) as usize * 4);
     let mut out = Vec::with_capacity(rect.width() as usize * rect.height() as usize * 4);
     for line in pixels.chunks_exact(row.max(1)).skip(rect.y0.max(0) as usize).take(rect.height() as usize) {
@@ -935,7 +935,7 @@ pub(crate) fn buffer_init(
     buffer
 }
 
-pub(crate) fn texture(
+pub(super) fn texture(
     device: &wgpu::Device,
     label: &str,
     width: u32,
@@ -965,23 +965,23 @@ pub(crate) fn texture(
 
 /// A pair of textures layers are composited onto, the result in one of them.
 /// The smallest box [x0, y0, x1, y1) around a thumbnail's pixels with any alpha.
-pub(crate) fn alpha_bounds(t: &Thumbnail) -> Option<[u32; 4]> {
+pub(super) fn alpha_bounds(t: &Thumbnail) -> Option<[u32; 4]> {
     painted_bounds(t, |[_, _, _, alpha]| alpha > 0)
 }
 
 /// Where a mask's thumbnail is painted on: what isn't white.
-pub(crate) fn ink_bounds(t: &Thumbnail) -> Option<[u32; 4]> {
+pub(super) fn ink_bounds(t: &Thumbnail) -> Option<[u32; 4]> {
     painted_bounds(t, |[r, ..]| r < 255)
 }
 
 /// The pixels of a thumbnail that `painted` holds for, as [x0, y0, x1, y1); none if none.
-pub(crate) fn painted_bounds(t: &Thumbnail, painted: impl Fn([u8; 4]) -> bool) -> Option<[u32; 4]> {
+pub(super) fn painted_bounds(t: &Thumbnail, painted: impl Fn([u8; 4]) -> bool) -> Option<[u32; 4]> {
     painted_bounds_of(&t.rgba, t.width, painted)
 }
 
 /// [`painted_bounds`] of pixels `width` wide, a row at a time: a row's first and last painted
 /// pixels only widen the box.
-pub(crate) fn painted_bounds_of(rgba: &[u8], width: u32, painted: impl Fn([u8; 4]) -> bool) -> Option<[u32; 4]> {
+pub(super) fn painted_bounds_of(rgba: &[u8], width: u32, painted: impl Fn([u8; 4]) -> bool) -> Option<[u32; 4]> {
     let mut b: Option<[u32; 4]> = None;
     for (y, row) in rgba.chunks_exact(width.max(1) as usize * 4).enumerate() {
         let pixels = row.as_chunks::<4>().0;
@@ -998,7 +998,7 @@ pub(crate) fn painted_bounds_of(rgba: &[u8], width: u32, painted: impl Fn([u8; 4
 
 /// The old [`painted_bounds`], a pixel at a time: what [`painted_bounds_of`] must still give.
 #[cfg(test)]
-pub(crate) fn painted_bounds_slowly(t: &Thumbnail, painted: impl Fn([u8; 4]) -> bool) -> Option<[u32; 4]> {
+pub(super) fn painted_bounds_slowly(t: &Thumbnail, painted: impl Fn([u8; 4]) -> bool) -> Option<[u32; 4]> {
     let mut b: Option<[u32; 4]> = None;
     for (i, px) in t.rgba.as_chunks::<4>().0.iter().enumerate() {
         if painted(*px) {
@@ -1013,18 +1013,18 @@ pub(crate) fn painted_bounds_slowly(t: &Thumbnail, painted: impl Fn([u8; 4]) -> 
 }
 
 /// The longest side of a parked layer's small pictures, pixels: as big as any thumbnail asked for.
-pub(crate) const PARKED_PICTURE_SIDE: u32 = 192;
+pub(super) const PARKED_PICTURE_SIDE: u32 = 192;
 
 /// A parked layer's pixels: the rectangle painted (none if nothing), its rows compressed, so a
 /// layer drawn on in one place costs little to keep and to bring back.
-pub(crate) struct Parked {
-    pub(crate) rect: Option<IRect>,
-    pub(crate) lz4: Vec<u8>,
+pub(super) struct Parked {
+    pub(super) rect: Option<IRect>,
+    pub(super) lz4: Vec<u8>,
 }
 
 impl Parked {
     /// Of a layer's pixels (premultiplied RGBA, `width` wide), painted only within `rect`.
-    pub(crate) fn of(rgba: &[u8], width: u32, rect: Option<IRect>) -> Parked {
+    pub(super) fn of(rgba: &[u8], width: u32, rect: Option<IRect>) -> Parked {
         let rect = rect.filter(|r| !r.is_empty());
         let mut rows = Vec::new();
         if let Some(r) = rect {
@@ -1039,13 +1039,13 @@ impl Parked {
     }
 
     /// The painted rectangle's rows, one after another; none if damaged.
-    pub(crate) fn rows(&self) -> Option<Vec<u8>> {
+    pub(super) fn rows(&self) -> Option<Vec<u8>> {
         let size = self.rect.map_or(0, |r| r.width() as usize * r.height() as usize * 4);
         procraft_engine::applz4::decode(&self.lz4, size).filter(|p| p.len() == size)
     }
 
     /// The whole layer (`width` x `height`, clear outside the rectangle); none if damaged.
-    pub(crate) fn pixels(&self, width: u32, height: u32) -> Option<Vec<u8>> {
+    pub(super) fn pixels(&self, width: u32, height: u32) -> Option<Vec<u8>> {
         let rows = self.rows()?;
         let mut full = vec![0u8; width as usize * height as usize * 4];
         if let Some(r) = self.rect {
@@ -1061,15 +1061,15 @@ impl Parked {
 
 /// A parked layer's small pictures: the whole layer, and what is drawn on it (none if nothing);
 /// and where it is drawn (none if nowhere).
-pub(crate) struct Pictures {
-    pub(crate) whole: Thumbnail,
-    pub(crate) drawn: Option<Thumbnail>,
-    pub(crate) bounds: Option<IRect>,
+pub(super) struct Pictures {
+    pub(super) whole: Thumbnail,
+    pub(super) drawn: Option<Thumbnail>,
+    pub(super) bounds: Option<IRect>,
 }
 
 impl Pictures {
     /// Of a layer's pixels (premultiplied RGBA, `width` x `height`).
-    pub(crate) fn of(rgba: &[u8], width: u32, height: u32) -> Pictures {
+    pub(super) fn of(rgba: &[u8], width: u32, height: u32) -> Pictures {
         // read where they are, the layer neither copied nor cut out first (a large one is many
         // megabytes, and an undo brings one back and parks another)
         let whole = shrink_part(rgba, width, [0, 0, width, height], PARKED_PICTURE_SIDE);
@@ -1082,7 +1082,7 @@ impl Pictures {
 }
 
 /// A picture box-filtered to fit `side` pixels (never enlarged).
-pub(crate) fn shrink(t: &Thumbnail, side: u32) -> Thumbnail {
+pub(super) fn shrink(t: &Thumbnail, side: u32) -> Thumbnail {
     shrink_part(&t.rgba, t.width, [0, 0, t.width, t.height], side)
 }
 
@@ -1090,7 +1090,7 @@ pub(crate) fn shrink(t: &Thumbnail, side: u32) -> Thumbnail {
 /// pixels (never enlarged): each pixel the rounded mean of those that fall in it, as [`shrink`]
 /// was before, but which column each source column goes to worked out once, the counts by row
 /// and column, and clear pixels (nothing to add) passed over.
-pub(crate) fn shrink_part(rgba: &[u8], width: u32, [x0, y0, x1, y1]: [u32; 4], side: u32) -> Thumbnail {
+pub(super) fn shrink_part(rgba: &[u8], width: u32, [x0, y0, x1, y1]: [u32; 4], side: u32) -> Thumbnail {
     let (pw, ph) = ((x1.saturating_sub(x0)).max(1), (y1.saturating_sub(y0)).max(1));
     let scale = (side.max(1) as f32 / pw.max(ph) as f32).min(1.0);
     let w = ((pw as f32 * scale).round() as u32).clamp(1, pw);
@@ -1146,7 +1146,7 @@ pub(crate) fn shrink_part(rgba: &[u8], width: u32, [x0, y0, x1, y1]: [u32; 4], s
 
 /// The old [`shrink`], a pixel at a time: what [`shrink_part`] must still give.
 #[cfg(test)]
-pub(crate) fn shrink_slowly(t: &Thumbnail, side: u32) -> Thumbnail {
+pub(super) fn shrink_slowly(t: &Thumbnail, side: u32) -> Thumbnail {
     let (width, height) = (t.width.max(1), t.height.max(1));
     let scale = (side.max(1) as f32 / width.max(height) as f32).min(1.0);
     let w = ((width as f32 * scale).round() as u32).clamp(1, width);
@@ -1182,7 +1182,7 @@ pub(crate) fn shrink_slowly(t: &Thumbnail, side: u32) -> Thumbnail {
 }
 
 /// Part [x0, y0, x1, y1) of a thumbnail.
-pub(crate) fn crop(t: &Thumbnail, [x0, y0, x1, y1]: [u32; 4]) -> Thumbnail {
+pub(super) fn crop(t: &Thumbnail, [x0, y0, x1, y1]: [u32; 4]) -> Thumbnail {
     let row = t.width as usize * 4;
     let mut rgba = Vec::with_capacity((x1 - x0) as usize * (y1 - y0) as usize * 4);
     for y in y0..y1 {
@@ -1194,12 +1194,12 @@ pub(crate) fn crop(t: &Thumbnail, [x0, y0, x1, y1]: [u32; 4]) -> Thumbnail {
 
 /// A pair of textures layers are composited onto, the result in one of them: the first, and
 /// the second that blend modes other than Normal draw into.
-pub(crate) struct Stack<'a> {
-    pub(crate) first: (&'a wgpu::Texture, &'a wgpu::TextureView),
-    pub(crate) second: Second<'a>,
+pub(super) struct Stack<'a> {
+    pub(super) first: (&'a wgpu::Texture, &'a wgpu::TextureView),
+    pub(super) second: Second<'a>,
 }
 
-pub(crate) enum Second<'a> {
+pub(super) enum Second<'a> {
     Made(&'a wgpu::Texture, &'a wgpu::TextureView),
     /// Made the first time a blend needs it.
     OnDemand(&'a OnDemand, &'a wgpu::Device),
@@ -1207,20 +1207,20 @@ pub(crate) enum Second<'a> {
 
 /// A texture made the first time it is wanted, and kept from then on: one most canvases never
 /// want (a ping-pong partner, a scratch copy).
-pub(crate) struct OnDemand {
-    pub(crate) label: &'static str,
-    pub(crate) width: u32,
-    pub(crate) height: u32,
-    pub(crate) format: wgpu::TextureFormat,
-    pub(crate) made: OnceLock<(wgpu::Texture, wgpu::TextureView)>,
+pub(super) struct OnDemand {
+    pub(super) label: &'static str,
+    pub(super) width: u32,
+    pub(super) height: u32,
+    pub(super) format: wgpu::TextureFormat,
+    pub(super) made: OnceLock<(wgpu::Texture, wgpu::TextureView)>,
 }
 
 impl OnDemand {
-    pub(crate) fn new(label: &'static str, width: u32, height: u32, format: wgpu::TextureFormat) -> OnDemand {
+    pub(super) fn new(label: &'static str, width: u32, height: u32, format: wgpu::TextureFormat) -> OnDemand {
         OnDemand { label, width, height, format, made: OnceLock::new() }
     }
 
-    pub(crate) fn get<'a>(&'a self, device: &wgpu::Device) -> (&'a wgpu::Texture, &'a wgpu::TextureView) {
+    pub(super) fn get<'a>(&'a self, device: &wgpu::Device) -> (&'a wgpu::Texture, &'a wgpu::TextureView) {
         let (texture, view) = self.made.get_or_init(|| {
             let t = texture(device, self.label, self.width, self.height, self.format);
             let v = t.create_view(&wgpu::TextureViewDescriptor::default());
@@ -1230,12 +1230,12 @@ impl OnDemand {
     }
 
     /// The texture, if it has been made.
-    pub(crate) fn made(&self) -> Option<&wgpu::Texture> {
+    pub(super) fn made(&self) -> Option<&wgpu::Texture> {
         self.made.get().map(|(t, _)| t)
     }
 
     /// Lets the texture go, to be made again when next wanted.
-    pub(crate) fn let_go(&mut self) {
+    pub(super) fn let_go(&mut self) {
         self.made.take();
     }
 }
@@ -1245,23 +1245,23 @@ impl OnDemand {
 /// `queue.write_texture` makes a buffer for every write, which for a layer the canvas's size took
 /// several times the copy itself on a tablet. A few are kept (to [`UPLOADS_KEPT`] bytes).
 #[derive(Default)]
-pub(crate) struct Uploads {
-    pub(crate) kept: Mutex<Vec<(wgpu::Buffer, Arc<AtomicU8>)>>,
+pub(super) struct Uploads {
+    pub(super) kept: Mutex<Vec<(wgpu::Buffer, Arc<AtomicU8>)>>,
 }
 
 /// An upload buffer's state: on its way back, mapped again, or not mapped (let go).
-pub(crate) const UPLOAD_WAITING: u8 = 0;
-pub(crate) const UPLOAD_READY: u8 = 1;
-pub(crate) const UPLOAD_FAILED: u8 = 2;
+pub(super) const UPLOAD_WAITING: u8 = 0;
+pub(super) const UPLOAD_READY: u8 = 1;
+pub(super) const UPLOAD_FAILED: u8 = 2;
 
 /// The most bytes of upload buffers kept between uploads: two layers the size of a large tablet
 /// canvas; bigger ones are made for each upload.
-pub(crate) const UPLOADS_KEPT: u64 = 96 << 20;
+pub(super) const UPLOADS_KEPT: u64 = 96 << 20;
 
 impl Uploads {
     /// A mapped buffer of `size` bytes or more: one kept and back from the GPU, or one waited
     /// for, or else a new one.
-    pub(crate) fn take(&self, device: &wgpu::Device, size: u64) -> wgpu::Buffer {
+    pub(super) fn take(&self, device: &wgpu::Device, size: u64) -> wgpu::Buffer {
         let mut kept = self.kept.lock().unwrap_or_else(PoisonError::into_inner);
         kept.retain(|(_, state)| state.load(Ordering::Acquire) != UPLOAD_FAILED);
         let fits = |kept: &[(wgpu::Buffer, Arc<AtomicU8>)]| {
@@ -1286,7 +1286,7 @@ impl Uploads {
     }
 
     /// `buffer` back once what used it has been sent: mapped again, and kept while there is room.
-    pub(crate) fn give_back(&self, buffer: wgpu::Buffer) {
+    pub(super) fn give_back(&self, buffer: wgpu::Buffer) {
         let mut kept = self.kept.lock().unwrap_or_else(PoisonError::into_inner);
         let room = kept.iter().map(|(b, _)| b.size()).sum::<u64>().saturating_add(buffer.size()) <= UPLOADS_KEPT;
         if !room {
@@ -1304,32 +1304,32 @@ impl Uploads {
 /// Pictures of the top level's items that aren't being worked on, so only those that are
 /// composite each time (and the others' layers needn't be at hand): the background with every
 /// item below them, and a run of plain items above them over transparency.
-pub(crate) struct Caches {
+pub(super) struct Caches {
     /// The top level's items composited live, and every layer in them.
-    pub(crate) live: Vec<LayerId>,
-    pub(crate) live_layers: HashSet<LayerId>,
+    pub(super) live: Vec<LayerId>,
+    pub(super) live_layers: HashSet<LayerId>,
     /// The items below them, composited over the background, and what that was made from.
-    pub(crate) below: CachePicture,
-    pub(crate) below_items: Vec<LayerId>,
-    pub(crate) below_key: u64,
+    pub(super) below: CachePicture,
+    pub(super) below_items: Vec<LayerId>,
+    pub(super) below_key: u64,
     /// The items above them, over transparency, and what from.
-    pub(crate) above: CachePicture,
-    pub(crate) above_items: Vec<LayerId>,
-    pub(crate) above_key: u64,
+    pub(super) above: CachePicture,
+    pub(super) above_items: Vec<LayerId>,
+    pub(super) above_key: u64,
 }
 
 /// One of the composite's caches (see [`Caches`]): a picture the canvas's size and the other half
 /// of the ping-pong pair it is made with, an item of a blend mode at a time. On a device of little
 /// memory it has none of its own: the composite's is borrowed while it is made (the two are never
 /// made at once), its picture settled back into its own texture after each part.
-pub(crate) struct CachePicture {
-    pub(crate) texture: wgpu::Texture,
-    pub(crate) view: wgpu::TextureView,
-    pub(crate) second: Option<(wgpu::Texture, wgpu::TextureView)>,
+pub(super) struct CachePicture {
+    pub(super) texture: wgpu::Texture,
+    pub(super) view: wgpu::TextureView,
+    pub(super) second: Option<(wgpu::Texture, wgpu::TextureView)>,
 }
 
 impl CachePicture {
-    pub(crate) fn new(device: &wgpu::Device, label: &str, width: u32, height: u32, paired: bool) -> CachePicture {
+    pub(super) fn new(device: &wgpu::Device, label: &str, width: u32, height: u32, paired: bool) -> CachePicture {
         let made = || {
             let t = texture(device, label, width, height, LAYER_FORMAT);
             let v = t.create_view(&wgpu::TextureViewDescriptor::default());
@@ -1340,7 +1340,7 @@ impl CachePicture {
     }
 
     /// The pair it is made with: its own second texture, or `borrowed`.
-    pub(crate) fn stack<'a>(&'a self, borrowed: &'a OnDemand, device: &'a wgpu::Device) -> Stack<'a> {
+    pub(super) fn stack<'a>(&'a self, borrowed: &'a OnDemand, device: &'a wgpu::Device) -> Stack<'a> {
         let second = match &self.second {
             Some((t, v)) => Second::Made(t, v),
             None => Second::OnDemand(borrowed, device),
@@ -1349,58 +1349,58 @@ impl CachePicture {
     }
 
     /// Whether it borrows the second texture of its pair.
-    pub(crate) fn borrows(&self) -> bool {
+    pub(super) fn borrows(&self) -> bool {
         self.second.is_none()
     }
 
-    pub(crate) fn textures(&self) -> impl Iterator<Item = &wgpu::Texture> {
+    pub(super) fn textures(&self) -> impl Iterator<Item = &wgpu::Texture> {
         std::iter::once(&self.texture).chain(self.second.as_ref().map(|(t, _)| t))
     }
 }
 
 /// How many layers a render reads back to park, at most, and how long it goes on reading them
 /// (after the first).
-pub(crate) const MOST_PARK_READS: usize = 4;
-pub(crate) const PARK_SLICE: std::time::Duration = std::time::Duration::from_millis(6);
+pub(super) const MOST_PARK_READS: usize = 4;
+pub(super) const PARK_SLICE: std::time::Duration = std::time::Duration::from_millis(6);
 
 /// The room (in layers' textures) a remake keeps free for its next part, letting go of the
 /// layers it brought back only so far.
-pub(crate) const LET_GO_ROOM: usize = 2 * MOST_PART_ITEMS;
+pub(super) const LET_GO_ROOM: usize = 2 * MOST_PART_ITEMS;
 
 /// The most items a part of a remake composites before it is sent (and the time looked at).
-pub(crate) const MOST_PART_ITEMS: usize = 8;
+pub(super) const MOST_PART_ITEMS: usize = 8;
 
 /// The most uniform slots a filter takes: a wide blur's halvings (at most five), its two passes
 /// and the filter's own.
-pub(crate) const FILTER_SLOTS: usize = 8;
+pub(super) const FILTER_SLOTS: usize = 8;
 
 /// How long each render goes on remaking caches before it lets the app go on.
-pub(crate) const REMAKE_SLICE: std::time::Duration = std::time::Duration::from_millis(16);
+pub(super) const REMAKE_SLICE: std::time::Duration = std::time::Duration::from_millis(16);
 
 /// Caches being remade a little each render: their textures, how far each has got (the next item
 /// and where its stack's result is; none when done or not remade), what they are made from,
 /// and the layers worked on, which stay.
-pub(crate) struct Remake {
-    pub(crate) caches: Caches,
-    pub(crate) below: Option<(usize, usize)>,
-    pub(crate) above: Option<(usize, usize)>,
-    pub(crate) below_items: Vec<LayerId>,
-    pub(crate) below_key: u64,
-    pub(crate) above_items: Vec<LayerId>,
-    pub(crate) above_key: u64,
-    pub(crate) keep: HashSet<LayerId>,
+pub(super) struct Remake {
+    pub(super) caches: Caches,
+    pub(super) below: Option<(usize, usize)>,
+    pub(super) above: Option<(usize, usize)>,
+    pub(super) below_items: Vec<LayerId>,
+    pub(super) below_key: u64,
+    pub(super) above_items: Vec<LayerId>,
+    pub(super) above_key: u64,
+    pub(super) keep: HashSet<LayerId>,
     /// For the log: when it started, over how many renders, and the layers brought back for it
     /// and the time that took.
-    pub(crate) started: std::time::Instant,
-    pub(crate) slices: u32,
-    pub(crate) largest_part: usize,
-    pub(crate) restored: usize,
-    pub(crate) restoring: std::time::Duration,
+    pub(super) started: std::time::Instant,
+    pub(super) slices: u32,
+    pub(super) largest_part: usize,
+    pub(super) restored: usize,
+    pub(super) restoring: std::time::Duration,
 }
 
 /// How many levels of group textures compositing `doc` takes: down to the deepest group
 /// composited on its own (with Animation Assist any group, its frame's onion skin tinted whole).
-pub(crate) fn group_levels(doc: &Document) -> usize {
+pub(super) fn group_levels(doc: &Document) -> usize {
     if doc.animation.is_some() {
         return doc.max_depth();
     }
@@ -1410,7 +1410,7 @@ pub(crate) fn group_levels(doc: &Document) -> usize {
 
 /// Whether item `id` composited over transparency, then over what is below, shows as it does
 /// composited straight onto it: normal, and if a group passing through, only of such items.
-pub(crate) fn plain(doc: &Document, id: LayerId) -> bool {
+pub(super) fn plain(doc: &Document, id: LayerId) -> bool {
     match doc.layer(id) {
         Some(l) if l.kind == LayerKind::Mask => true,
         Some(l) if l.blend != BlendMode::Normal => false,
@@ -1420,7 +1420,7 @@ pub(crate) fn plain(doc: &Document, id: LayerId) -> bool {
 }
 
 /// What a top-level item composites from: itself and its mask, or a group and all it holds.
-pub(crate) fn item_layers(doc: &Document, item: LayerId) -> Vec<LayerId> {
+pub(super) fn item_layers(doc: &Document, item: LayerId) -> Vec<LayerId> {
     let mut layers = vec![item];
     match doc.layer(item).map(|l| l.kind) {
         Some(LayerKind::Group) => layers.extend(doc.contents(item)),
@@ -1433,7 +1433,7 @@ pub(crate) fn item_layers(doc: &Document, item: LayerId) -> Vec<LayerId> {
 /// A fingerprint of how `items` composite (with the background, if `background`): every setting
 /// of every layer in them, and which layer is shown alone. Their pixels change only through work
 /// that drops the caches.
-pub(crate) fn items_key(doc: &Document, items: &[LayerId], background: bool) -> u64 {
+pub(super) fn items_key(doc: &Document, items: &[LayerId], background: bool) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
     if background {
@@ -1450,14 +1450,14 @@ pub(crate) fn items_key(doc: &Document, items: &[LayerId], background: bool) -> 
 
 impl<'a> Stack<'a> {
     /// Both made already.
-    pub(crate) fn pair(textures: &'a [wgpu::Texture; 2], views: &'a [wgpu::TextureView; 2]) -> Stack<'a> {
+    pub(super) fn pair(textures: &'a [wgpu::Texture; 2], views: &'a [wgpu::TextureView; 2]) -> Stack<'a> {
         let [t0, t1] = textures;
         let [v0, v1] = views;
         Stack { first: (t0, v0), second: Second::Made(t1, v1) }
     }
 
     /// The second texture, made now if it has to be.
-    pub(crate) fn second(&self) -> (&'a wgpu::Texture, &'a wgpu::TextureView) {
+    pub(super) fn second(&self) -> (&'a wgpu::Texture, &'a wgpu::TextureView) {
         match self.second {
             Second::Made(t, v) => (t, v),
             Second::OnDemand(lazy, device) => lazy.get(device),
@@ -1465,7 +1465,7 @@ impl<'a> Stack<'a> {
     }
 
     /// Leaves the result in the first texture (where `current` says it is, within `rect`).
-    pub(crate) fn settle(&self, encoder: &mut wgpu::CommandEncoder, rect: IRect, current: usize) {
+    pub(super) fn settle(&self, encoder: &mut wgpu::CommandEncoder, rect: IRect, current: usize) {
         if current == 1 {
             encoder.copy_texture_to_texture(
                 copy_at(self.second().0, rect.x0, rect.y0),
@@ -1476,7 +1476,7 @@ impl<'a> Stack<'a> {
     }
 }
 
-pub(crate) fn quad_bind(
+pub(super) fn quad_bind(
     device: &wgpu::Device,
     layout: &wgpu::BindGroupLayout,
     views: [&wgpu::TextureView; 7],
@@ -1505,7 +1505,7 @@ pub(crate) fn quad_bind(
 
 /// The paper's tile ([`Canvas::set_paper`]): `TEXTURE_SIZE` square, a grey a pixel, every mip
 /// level; at first all peak, taking all of the paint.
-pub(crate) fn paper_texture(gpu: &Gpu) -> wgpu::Texture {
+pub(super) fn paper_texture(gpu: &Gpu) -> wgpu::Texture {
     let n = TEXTURE_SIZE as u32;
     let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
         label: Some("paper"),
@@ -1522,14 +1522,14 @@ pub(crate) fn paper_texture(gpu: &Gpu) -> wgpu::Texture {
 }
 
 /// The layer `first` is clipped to, and that layer's mask: what compositing it reads.
-pub(crate) fn clip_base_and_mask(doc: &Document, first: LayerId) -> impl Iterator<Item = LayerId> {
+pub(super) fn clip_base_and_mask(doc: &Document, first: LayerId) -> impl Iterator<Item = LayerId> {
     let base = doc.clip_base(first);
     base.into_iter().chain(base.and_then(|b| doc.mask_of(b)))
 }
 
 /// The layers at the start of `rest` (items of a level, bottom up, from just above `base`)
 /// clipped to `base`: with it, a clipping group.
-pub(crate) fn clipped_run<'a>(doc: &Document, rest: &'a [LayerId], base: LayerId) -> &'a [LayerId] {
+pub(super) fn clipped_run<'a>(doc: &Document, rest: &'a [LayerId], base: LayerId) -> &'a [LayerId] {
     let clipped =
         |id: LayerId| doc.layer(id).is_some_and(|l| l.kind == LayerKind::Paint) && doc.clip_base(id) == Some(base);
     let n = rest.iter().take_while(|id| clipped(**id)).count();
@@ -1538,37 +1538,37 @@ pub(crate) fn clipped_run<'a>(doc: &Document, rest: &'a [LayerId], base: LayerId
 
 /// A clipping group as it composites: its base and how that shows, the layers clipped to it (just
 /// above it), and how each of those shows (none: not at all).
-pub(crate) struct ClipGroup<'a> {
-    pub(crate) base: &'a Layer,
-    pub(crate) look: Look,
-    pub(crate) clipped: &'a [LayerId],
-    pub(crate) looks: &'a dyn Fn(LayerId) -> Option<Look>,
+pub(super) struct ClipGroup<'a> {
+    pub(super) base: &'a Layer,
+    pub(super) look: Look,
+    pub(super) clipped: &'a [LayerId],
+    pub(super) looks: &'a dyn Fn(LayerId) -> Option<Look>,
 }
 
 /// How many images of the user's own each of the shape and grain arrays holds at once.
-pub(crate) const SOURCE_SLOTS: usize = 8;
+pub(super) const SOURCE_SLOTS: usize = 8;
 
 /// How many brush files' grains stay on the GPU at their own size.
-pub(crate) const FULL_GRAINS_HELD: usize = 3;
+pub(super) const FULL_GRAINS_HELD: usize = 3;
 
 /// Brush files' grains or shapes at their own size, each an array with its mip levels, the image in its first
 /// layer: only the last few used, so that their memory doesn't grow with the brushes.
 #[derive(Default)]
-pub(crate) struct FullGrains {
-    pub(crate) held: Vec<(u64, wgpu::TextureView, u64)>,
-    pub(crate) clock: u64,
+pub(super) struct FullGrains {
+    pub(super) held: Vec<(u64, wgpu::TextureView, u64)>,
+    pub(super) clock: u64,
 }
 
 impl FullGrains {
     /// Has the image `id` ready; false if `pixels` aren't `side` square.
-    pub(crate) fn hold(&mut self, gpu: &Gpu, id: u64, side: u32, pixels: &[u8]) -> bool {
+    pub(super) fn hold(&mut self, gpu: &Gpu, id: u64, side: u32, pixels: &[u8]) -> bool {
         self.hold_set(gpu, id, side, &[pixels], 1)
     }
 
     /// Has the images `id` ready, one to a layer in their order, `channels` bytes a pixel (1 grey,
     /// 4 RGBA straight, held premultiplied); false if any isn't `side` square, there are none or
     /// more than [`MOST_TIPS`].
-    pub(crate) fn hold_set(&mut self, gpu: &Gpu, id: u64, side: u32, images: &[&[u8]], channels: u32) -> bool {
+    pub(super) fn hold_set(&mut self, gpu: &Gpu, id: u64, side: u32, images: &[&[u8]], channels: u32) -> bool {
         self.clock += 1;
         let clock = self.clock;
         if let Some(slot) = self.held.iter_mut().find(|slot| slot.0 == id) {
@@ -1622,26 +1622,26 @@ impl FullGrains {
         true
     }
 
-    pub(crate) fn view(&self, id: u64) -> Option<&wgpu::TextureView> {
+    pub(super) fn view(&self, id: u64) -> Option<&wgpu::TextureView> {
         self.held.iter().find(|slot| slot.0 == id).map(|slot| &slot.1)
     }
 }
 
 /// The spare layers of a brush image array, after the shipped images: which image of the user's
 /// own each holds, and when it was last used (the longest unused gives way).
-pub(crate) struct SourceSlots {
-    pub(crate) first: u32,
-    pub(crate) held: Vec<(u64, u64)>,
-    pub(crate) clock: u64,
+pub(super) struct SourceSlots {
+    pub(super) first: u32,
+    pub(super) held: Vec<(u64, u64)>,
+    pub(super) clock: u64,
 }
 
 impl SourceSlots {
-    pub(crate) fn after(shipped: usize) -> SourceSlots {
+    pub(super) fn after(shipped: usize) -> SourceSlots {
         SourceSlots { first: shipped as u32, held: Vec::new(), clock: 0 }
     }
 
     /// The layer of `texture` holding `source`, put there if it isn't.
-    pub(crate) fn layer(&mut self, gpu: &Gpu, texture: &wgpu::Texture, source: &Source) -> u32 {
+    pub(super) fn layer(&mut self, gpu: &Gpu, texture: &wgpu::Texture, source: &Source) -> u32 {
         self.clock += 1;
         let clock = self.clock;
         if let Some(i) = self.held.iter().position(|&(id, _)| id == source.id) {
@@ -1667,7 +1667,7 @@ impl SourceSlots {
 }
 
 /// One white texel standing in for an array of brush images, until a canvas wants them.
-pub(crate) fn stand_in_images(gpu: &Gpu, label: &str) -> wgpu::Texture {
+pub(super) fn stand_in_images(gpu: &Gpu, label: &str) -> wgpu::Texture {
     let layers = gpu.array_layers_least();
     gpu.device.create_texture_with_data(
         &gpu.queue,
@@ -1688,7 +1688,7 @@ pub(crate) fn stand_in_images(gpu: &Gpu, label: &str) -> wgpu::Texture {
 
 /// Greyscale brush images as one array texture with a full mip chain (each level a 2×2 average
 /// of the one above), with [`SOURCE_SLOTS`] spare layers after them.
-pub(crate) fn brush_images(gpu: &Gpu, label: &str, images: &[GrayImage]) -> wgpu::Texture {
+pub(super) fn brush_images(gpu: &Gpu, label: &str, images: &[GrayImage]) -> wgpu::Texture {
     let n = TEXTURE_SIZE as u32;
     let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
         label: Some(label),
@@ -1711,17 +1711,17 @@ pub(crate) fn brush_images(gpu: &Gpu, label: &str, images: &[GrayImage]) -> wgpu
 }
 
 /// One brush image (`TEXTURE_SIZE` square) into `layer` of `texture`, every mip level.
-pub(crate) fn write_brush_image(gpu: &Gpu, texture: &wgpu::Texture, layer: u32, pixels: &[u8]) {
+pub(super) fn write_brush_image(gpu: &Gpu, texture: &wgpu::Texture, layer: u32, pixels: &[u8]) {
     write_image_levels(gpu, texture, layer, TEXTURE_SIZE as u32, pixels);
 }
 
 /// A greyscale image `n` square into `layer` of `texture`, every mip level.
-pub(crate) fn write_image_levels(gpu: &Gpu, texture: &wgpu::Texture, layer: u32, n: u32, pixels: &[u8]) {
+pub(super) fn write_image_levels(gpu: &Gpu, texture: &wgpu::Texture, layer: u32, n: u32, pixels: &[u8]) {
     write_image_levels_of(gpu, texture, layer, n, pixels, 1);
 }
 
 /// [`write_image_levels`] for an image of `channels` bytes a pixel.
-pub(crate) fn write_image_levels_of(gpu: &Gpu, texture: &wgpu::Texture, layer: u32, n: u32, pixels: &[u8], channels: u32) {
+pub(super) fn write_image_levels_of(gpu: &Gpu, texture: &wgpu::Texture, layer: u32, n: u32, pixels: &[u8], channels: u32) {
     let mut level = pixels.to_vec();
     let mut size = n;
     for mip in 0..n.ilog2() + 1 {
@@ -1748,7 +1748,7 @@ pub(crate) fn write_image_levels_of(gpu: &Gpu, texture: &wgpu::Texture, layer: u
 }
 
 /// [`half_size`] for an image of `channels` bytes a pixel, each channel on its own.
-pub(crate) fn half_size_of(pixels: &[u8], size: usize, channels: usize) -> Vec<u8> {
+pub(super) fn half_size_of(pixels: &[u8], size: usize, channels: usize) -> Vec<u8> {
     let half = size / 2;
     let at = |x: usize, y: usize, c: usize| u32::from(pixels.get((y * size + x) * channels + c).copied().unwrap_or(0));
     let mut out = Vec::with_capacity(half * half * channels);
@@ -1767,7 +1767,7 @@ pub(crate) fn half_size_of(pixels: &[u8], size: usize, channels: usize) -> Vec<u
 }
 
 /// A square greyscale image at half the size: each pixel the average of four.
-pub(crate) fn half_size(pixels: &[u8], size: usize) -> Vec<u8> {
+pub(super) fn half_size(pixels: &[u8], size: usize) -> Vec<u8> {
     let half = size / 2;
     let at = |x: usize, y: usize| u32::from(pixels.get(y * size + x).copied().unwrap_or(0));
     let mut out = Vec::with_capacity(half * half);
@@ -1781,7 +1781,7 @@ pub(crate) fn half_size(pixels: &[u8], size: usize) -> Vec<u8> {
 }
 
 /// The stamp shader's shapes, grains and selection, and its two samplers.
-pub(crate) fn brush_bind(
+pub(super) fn brush_bind(
     device: &wgpu::Device,
     layout: &wgpu::BindGroupLayout,
     [shapes, grains, mask]: [&wgpu::TextureView; 3],
@@ -1803,7 +1803,7 @@ pub(crate) fn brush_bind(
 /// A one-channel texture of coverage, `width` × `height`, from `data` (one byte a pixel).
 /// The rectangle holding every pixel `rows` (whole rows of a coverage `width` pixels wide, the
 /// first of them row `first`) selects any of; empty where none is.
-pub(crate) fn coverage_bounds(rows: &[u8], width: u32, first: usize) -> IRect {
+pub(super) fn coverage_bounds(rows: &[u8], width: u32, first: usize) -> IRect {
     let w = (width as usize).max(1);
     let mut bounds = IRect::EMPTY;
     for (j, row) in rows.chunks(w).enumerate() {
@@ -1817,7 +1817,7 @@ pub(crate) fn coverage_bounds(rows: &[u8], width: u32, first: usize) -> IRect {
     bounds
 }
 
-pub(crate) fn coverage_texture(
+pub(super) fn coverage_texture(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     width: u32,
@@ -1850,7 +1850,7 @@ pub(crate) fn coverage_texture(
 
 /// A 3D colour table `grid` on a side (RGBA8, blue varying fastest, then green, then red) and
 /// its sampler, bound for the display.
-pub(crate) fn lut_bind(gpu: &Gpu, layout: &wgpu::BindGroupLayout, grid: u32, rgba: &[u8]) -> wgpu::BindGroup {
+pub(super) fn lut_bind(gpu: &Gpu, layout: &wgpu::BindGroupLayout, grid: u32, rgba: &[u8]) -> wgpu::BindGroup {
     let size = wgpu::Extent3d { width: grid, height: grid, depth_or_array_layers: grid };
     let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
         label: Some("colour table"),
@@ -1890,7 +1890,7 @@ pub(crate) fn lut_bind(gpu: &Gpu, layout: &wgpu::BindGroupLayout, grid: u32, rgb
     })
 }
 
-pub(crate) fn sampled_bind(
+pub(super) fn sampled_bind(
     device: &wgpu::Device,
     layout: &wgpu::BindGroupLayout,
     view: &wgpu::TextureView,
@@ -1906,7 +1906,7 @@ pub(crate) fn sampled_bind(
     })
 }
 
-pub(crate) fn uniforms(
+pub(super) fn uniforms(
     device: &wgpu::Device,
     layout: &wgpu::BindGroupLayout,
     slots: u64) -> (wgpu::Buffer, wgpu::BindGroup,
@@ -1933,7 +1933,7 @@ pub(crate) fn uniforms(
 }
 
 /// Uniform slots for `count` smudge stamps.
-pub(crate) fn spare_buffer(device: &wgpu::Device) -> wgpu::Buffer {
+pub(super) fn spare_buffer(device: &wgpu::Device) -> wgpu::Buffer {
     device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("smudge spare"),
         size: 16,
@@ -1942,7 +1942,7 @@ pub(crate) fn spare_buffer(device: &wgpu::Device) -> wgpu::Buffer {
     })
 }
 
-pub(crate) fn wet_params(device: &wgpu::Device, count: u64) -> wgpu::Buffer {
+pub(super) fn wet_params(device: &wgpu::Device, count: u64) -> wgpu::Buffer {
     device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("wet passes"),
         size: count.max(1) * WET_PASS_SIZE.div_ceil(SLOT) * SLOT,
@@ -1951,7 +1951,7 @@ pub(crate) fn wet_params(device: &wgpu::Device, count: u64) -> wgpu::Buffer {
     })
 }
 
-pub(crate) fn smudge_params(device: &wgpu::Device, count: u64) -> wgpu::Buffer {
+pub(super) fn smudge_params(device: &wgpu::Device, count: u64) -> wgpu::Buffer {
     device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("smudge stamps"),
         size: count.max(1) * SLOT,
@@ -1960,7 +1960,7 @@ pub(crate) fn smudge_params(device: &wgpu::Device, count: u64) -> wgpu::Buffer {
     })
 }
 
-pub(crate) fn stamp_buffer(device: &wgpu::Device, capacity: u64) -> wgpu::Buffer {
+pub(super) fn stamp_buffer(device: &wgpu::Device, capacity: u64) -> wgpu::Buffer {
     device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("stamps"),
         size: capacity.max(1) * size_of::<StampInstance>() as u64,
@@ -1970,7 +1970,7 @@ pub(crate) fn stamp_buffer(device: &wgpu::Device, capacity: u64) -> wgpu::Buffer
     })
 }
 
-pub(crate) fn render_pass<'e>(
+pub(super) fn render_pass<'e>(
     encoder: &'e mut wgpu::CommandEncoder,
     label: &str,
     view: &wgpu::TextureView,
@@ -1991,17 +1991,17 @@ pub(crate) fn render_pass<'e>(
     })
 }
 
-pub(crate) fn scissor(pass: &mut wgpu::RenderPass<'_>, r: IRect) {
+pub(super) fn scissor(pass: &mut wgpu::RenderPass<'_>, r: IRect) {
     let x = u32::try_from(r.x0).unwrap_or(0);
     let y = u32::try_from(r.y0).unwrap_or(0);
     pass.set_scissor_rect(x, y, r.width(), r.height());
 }
 
-pub(crate) fn extent(width: u32, height: u32) -> wgpu::Extent3d {
+pub(super) fn extent(width: u32, height: u32) -> wgpu::Extent3d {
     wgpu::Extent3d { width: width.max(1), height: height.max(1), depth_or_array_layers: 1 }
 }
 
-pub(crate) fn copy_at(texture: &wgpu::Texture, x: i32, y: i32) -> wgpu::TexelCopyTextureInfo<'_> {
+pub(super) fn copy_at(texture: &wgpu::Texture, x: i32, y: i32) -> wgpu::TexelCopyTextureInfo<'_> {
     wgpu::TexelCopyTextureInfo {
         texture,
         mip_level: 0,
@@ -2010,7 +2010,7 @@ pub(crate) fn copy_at(texture: &wgpu::Texture, x: i32, y: i32) -> wgpu::TexelCop
     }
 }
 
-pub(crate) fn srgb_to_linear(c: f32) -> f32 {
+pub(super) fn srgb_to_linear(c: f32) -> f32 {
     if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
 }
 
@@ -2030,7 +2030,7 @@ impl PendingAlphas {
 }
 
 /// The most bytes of readback buffers kept: two layers the size of a large tablet canvas.
-pub(crate) const READBACKS_KEPT: u64 = 96 << 20;
+pub(super) const READBACKS_KEPT: u64 = 96 << 20;
 
 impl Readback {
     /// How many bytes the pixels take.
@@ -2075,7 +2075,7 @@ impl Readback {
 }
 
 /// [`start_reading`] for the pixels inside `rect` (on the texture, not empty) only.
-pub(crate) fn start_reading_part(gpu: &Gpu, texture: &wgpu::Texture, rect: IRect) -> Readback {
+pub(super) fn start_reading_part(gpu: &Gpu, texture: &wgpu::Texture, rect: IRect) -> Readback {
     let (width, height) = (rect.width(), rect.height());
     let row = width as usize * 4;
     let padded = row.div_ceil(256) * 256;

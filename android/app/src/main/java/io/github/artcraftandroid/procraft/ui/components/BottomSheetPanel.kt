@@ -7,8 +7,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -17,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -61,32 +58,40 @@ fun BoxScope.SmartphoneBottomSheet(
     // On landscape phones, constrain sheet width to a comfortable 420.dp centered card
     val sheetWidth = if (isLandscape) minOf(screenWidth - 16.dp, 420.dp) else screenWidth
     var expanded by remember(shown) { mutableStateOf(false) }
-    var dragDeltaPx by remember(shown) { mutableFloatStateOf(0f) }
+    // Keep upward drag (height growth) and downward drag (translation offset) separate so
+    // swiping down to dismiss updates only the layout placement phase with zero recompositions.
+    var dragUpPx by remember(shown) { mutableFloatStateOf(0f) }
+    var dragDownPx by remember(shown) { mutableFloatStateOf(0f) }
 
     LaunchedEffect(shown) {
-        dragDeltaPx = 0f
+        dragUpPx = 0f
+        dragDownPx = 0f
     }
 
     val targetFraction = ResponsiveLayout.sheetFraction(shown, expanded, isLandscape)
+    val sheetSpring = remember { spring<Dp>(dampingRatio = 0.85f, stiffness = 520f) }
     val targetHeight by animateDpAsState(
         targetValue = (screenHeight * targetFraction).coerceAtLeast(240.dp),
-        animationSpec = spring(dampingRatio = 0.85f, stiffness = 520f),
+        animationSpec = sheetSpring,
         label = "bottomSheetHeight",
     )
 
     val density = LocalDensity.current
-    val dragOffsetDp = with(density) { dragDeltaPx.toDp() }
-    val effectiveHeight = (targetHeight - dragOffsetDp.coerceAtMost(0.dp)).coerceIn(180.dp, screenHeight - Pc.barShown - 8.dp)
-    val slideDownPx = ((1f - alpha) * with(density) { effectiveHeight.toPx() }) + dragDeltaPx.coerceAtLeast(0f)
-    val pivot = with(density) {
-        Offset(screenWidth.toPx() / 2f, screenHeight.toPx())
+    val dismissThresholdPx = remember(density) { with(density) { 88.dp.toPx() } }
+    val expandThresholdPx = remember(density) { with(density) { -48.dp.toPx() } }
+    val maxDragUpPx = remember(density) { with(density) { -180.dp.toPx() } }
+    val dragUpDp = with(density) { dragUpPx.toDp() }
+    val effectiveHeight = (targetHeight - dragUpDp).coerceIn(180.dp, screenHeight - Pc.barShown - 8.dp)
+    val effectiveHeightPx = with(density) { effectiveHeight.toPx() }
+    val pivot = remember(density, screenWidth, screenHeight) {
+        with(density) { Offset(screenWidth.toPx() / 2f, screenHeight.toPx()) }
     }
 
     val sheetModifier = Modifier
         .align(Alignment.BottomCenter)
         .width(sheetWidth)
         .heightIn(max = effectiveHeight)
-        .offset { IntOffset(0, slideDownPx.roundToInt()) }
+        .offset { IntOffset(0, (((1f - alpha) * effectiveHeightPx) + dragDownPx).roundToInt()) }
         .graphicsLayer {
             this.alpha = alpha
             scaleY = 0.94f + 0.06f * scale
@@ -110,27 +115,40 @@ fun BoxScope.SmartphoneBottomSheet(
                         .pointerInput(shown, expanded) {
                             detectTapGestures(onTap = { expanded = !expanded })
                         }
-                        .pointerInput(shown, expanded) {
+                        .pointerInput(shown, expanded, dismissThresholdPx, expandThresholdPx, maxDragUpPx) {
+                            var rawDelta = 0f
                             detectVerticalDragGestures(
+                                onDragStart = { rawDelta = 0f },
                                 onDragEnd = {
-                                    val dismissThreshold = with(density) { 88.dp.toPx() }
-                                    val expandThreshold = with(density) { -48.dp.toPx() }
                                     when {
-                                        dragDeltaPx > dismissThreshold -> {
+                                        rawDelta > dismissThresholdPx -> {
                                             if (expanded) {
                                                 expanded = false
                                             } else {
                                                 vm.closePanels()
                                             }
                                         }
-                                        dragDeltaPx < expandThreshold -> expanded = true
+                                        rawDelta < expandThresholdPx -> expanded = true
                                     }
-                                    dragDeltaPx = 0f
+                                    rawDelta = 0f
+                                    dragUpPx = 0f
+                                    dragDownPx = 0f
                                 },
-                                onDragCancel = { dragDeltaPx = 0f },
+                                onDragCancel = {
+                                    rawDelta = 0f
+                                    dragUpPx = 0f
+                                    dragDownPx = 0f
+                                },
                                 onVerticalDrag = { change, dragAmount ->
                                     change.consume()
-                                    dragDeltaPx = (dragDeltaPx + dragAmount).coerceAtLeast(with(density) { -180.dp.toPx() })
+                                    rawDelta = (rawDelta + dragAmount).coerceAtLeast(maxDragUpPx)
+                                    if (rawDelta >= 0f) {
+                                        if (dragUpPx != 0f) dragUpPx = 0f
+                                        dragDownPx = rawDelta
+                                    } else {
+                                        if (dragDownPx != 0f) dragDownPx = 0f
+                                        dragUpPx = rawDelta
+                                    }
                                 },
                             )
                         },

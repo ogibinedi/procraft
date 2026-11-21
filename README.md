@@ -29,7 +29,7 @@
   <a href="#smartphone-ui--architecture">Smartphone UI &amp; Architecture</a> ·
   <a href="#features">Features</a> ·
   <a href="#project-structure">Project Structure</a> ·
-  <a href="#building-instructions">Building</a> ·
+  <a href="#building--releases">Building &amp; Releases</a> ·
   <a href="PROGRESS.md">Progress</a> ·
   <a href="CHANGELOG.md">Changelog</a>
 </p>
@@ -116,12 +116,16 @@ procraft/
 
 ---
 
-## Building Instructions
+## Building & Releases
 
-### Option 1: GitHub Actions CI/CD (Recommended)
-Every push to `main` (or manual trigger via **Actions > CI > Run workflow**) automatically compiles the Rust crates for Android, runs lint and unit tests, builds the release APK, verifies 16 KB page alignment, and uploads the **`procraft-android-apk`** artifact ready for download.
+### Option 1: Download Signed Release APK (Recommended)
+Signed release APKs (`arm64-v8a` for modern smartphones and `armeabi-v7a` for legacy 32-bit devices) along with `SHA256SUMS.txt` are published directly to [GitHub Releases](https://github.com/ogibinedi/procraft/releases) whenever a version tag (`v*`) is pushed.
 
-### Option 2: Local Build
+### Option 2: GitHub Actions CI/CD
+- **Release workflow (`.github/workflows/release.yml`)**: Triggered on version tags (`v0.0.1`, `v0.0.2`, ...). Compiles `procraft-core` via `cargo-ndk`, builds and signs the release APKs using repository secrets, verifies APK signatures and SHA-256 checksums, and publishes directly to GitHub Releases without using Actions Artifact storage quota.
+- **CI workflow (`.github/workflows/ci.yml`)**: Runs Rust `clippy` & unit tests, Android lint, Kotlin unit tests, release APK build, and 16 KB page-size alignment verification on pull requests and manual triggers (**Actions > CI > Run workflow**).
+
+### Option 3: Local Build
 *One Gradle command builds the whole app: it compiles the Rust engine with [cargo-ndk](https://github.com/bbqsrc/cargo-ndk) and generates the Kotlin bindings.*
 
 1. Clone this repository:

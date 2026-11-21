@@ -129,7 +129,7 @@ impl Canvas {
     /// least; all of it before that is known, or in a render that doesn't show the canvas. The last
     /// render that laid such work is seen here if it is done (its time from being sent to being seen
     /// done is at least what the GPU took: the GPU is at least that fast).
-    pub(crate) fn in_place_most(&mut self, gpu: &Gpu, shown: bool) -> u64 {
+    pub(super) fn in_place_most(&mut self, gpu: &Gpu, shown: bool) -> u64 {
         if let Some((index, sent, work)) = self.in_place_sent.take() {
             let now = wgpu::PollType::Wait {
                 submission_index: Some(index.clone()),
@@ -156,7 +156,7 @@ impl Canvas {
     }
 
     /// The most stamps one buffer of this device holds.
-    pub(crate) fn stamps_in_a_buffer(device: &wgpu::Device) -> u64 {
+    pub(super) fn stamps_in_a_buffer(device: &wgpu::Device) -> u64 {
         (device.limits().max_buffer_size / size_of::<StampInstance>() as u64).max(1)
     }
 
@@ -198,7 +198,7 @@ impl Canvas {
 
     /// Waits for the piece of work sent as `index` at `sent`, if the canvas is paced (see
     /// [`Canvas::pace`]).
-    pub(crate) fn wait_if_paced(&mut self, gpu: &Gpu, index: wgpu::SubmissionIndex, sent: std::time::Instant) {
+    pub(super) fn wait_if_paced(&mut self, gpu: &Gpu, index: wgpu::SubmissionIndex, sent: std::time::Instant) {
         if !self.paced {
             return;
         }
@@ -229,7 +229,7 @@ impl Canvas {
     }
 
     /// Whether the device has little memory (see [`LOW_MEMORY_BUDGET`]).
-    pub(crate) fn low_memory(&self) -> bool {
+    pub(super) fn low_memory(&self) -> bool {
         self.resident_budget != 0 && self.resident_budget <= LOW_MEMORY_BUDGET
     }
 
@@ -246,7 +246,7 @@ impl Canvas {
     /// steps stay on the GPU (see [`RECENT_HISTORY_SHARE`]), so undoing and redoing them is as
     /// quick as ever; an older one is uploaded again as it is undone (see [`Canvas::unpacked`]).
     /// Nothing new is started while an edit is under way.
-    pub(crate) fn pack_history(&mut self, gpu: &Gpu) {
+    pub(super) fn pack_history(&mut self, gpu: &Gpu) {
         if let Some(packing) = self.packing.take() {
             match packing.done.try_recv() {
                 Ok(packed) => self.take_packed(packing, packed),
@@ -308,7 +308,7 @@ impl Canvas {
 
     /// Puts what `packing` compressed in place of the textures it read, where the history still
     /// has them as they were read; the textures let go (those the canvas's size kept as spares).
-    pub(crate) fn take_packed(&mut self, packing: Packing, packed: Vec<Option<Vec<u8>>>) {
+    pub(super) fn take_packed(&mut self, packing: Packing, packed: Vec<Option<Vec<u8>>>) {
         if packing.generation != self.history_generation {
             return;
         }
@@ -345,7 +345,7 @@ impl Canvas {
     /// `step` with any of its pixels kept compressed (see [`Canvas::pack_history`]) back in
     /// textures, uploaded in `encoder` before what is recorded after: the upload buffers go in
     /// `uploaded`, to be given back once it is sent.
-    pub(crate) fn unpacked(
+    pub(super) fn unpacked(
         &self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
@@ -761,7 +761,7 @@ impl Canvas {
 
     /// Lets the caches go (and any remake of them, with `remake`), their textures kept for the
     /// next.
-    pub(crate) fn let_go_caches(&mut self, remake: bool) {
+    pub(super) fn let_go_caches(&mut self, remake: bool) {
         let remade = if remake { self.remake.take().map(|r| r.caches) } else { None };
         if let Some(c) = self.caches.take().or(remade) {
             self.spare_caches = Some(c);
@@ -823,7 +823,7 @@ impl Canvas {
     }
 
     /// A parked layer's small pictures, if they are big enough for a thumbnail `max_side` across.
-    pub(crate) fn parked_pictures(&self, id: LayerId, max_side: u32) -> Option<&Pictures> {
+    pub(super) fn parked_pictures(&self, id: LayerId, max_side: u32) -> Option<&Pictures> {
         if self.layers.contains_key(&id) || max_side > PARKED_PICTURE_SIDE {
             return None;
         }
@@ -837,7 +837,7 @@ impl Canvas {
     }
 
     /// Layer `id`'s pixels are changing: counted for the next save, and given a new version.
-    pub(crate) fn touched(&mut self, id: LayerId) {
+    pub(super) fn touched(&mut self, id: LayerId) {
         self.changed.insert(id);
         self.version += 1;
         self.versions.insert(id, self.version);
@@ -862,7 +862,7 @@ impl Canvas {
 
     /// Gives layer `id` its texture again from its compressed pixels, if it is parked; whether
     /// it has one now. Its pixels go up before any work recorded in this render.
-    pub(crate) fn restore(&mut self, gpu: &Gpu, id: LayerId) -> bool {
+    pub(super) fn restore(&mut self, gpu: &Gpu, id: LayerId) -> bool {
         if self.layers.contains_key(&id) {
             return true;
         }
@@ -881,7 +881,7 @@ impl Canvas {
 
     /// Where an item's layers are painted, as far as is known (the whole canvas for a layer
     /// with a texture of its own; empty if every one is parked and empty).
-    pub(crate) fn painted(&self, layers: &[LayerId]) -> IRect {
+    pub(super) fn painted(&self, layers: &[LayerId]) -> IRect {
         layers.iter().fold(IRect::EMPTY, |r, id| {
             match self.pictures.get(id).filter(|_| !self.layers.contains_key(id)) {
                 Some(p) => p.bounds.map_or(r, |b| r.union(b)),
@@ -892,7 +892,7 @@ impl Canvas {
 
     /// Every layer in `ids` given its texture again; those about to be written lose their
     /// compressed copies.
-    pub(crate) fn restore_all(&mut self, gpu: &Gpu, ids: impl IntoIterator<Item = LayerId>, written: bool) {
+    pub(super) fn restore_all(&mut self, gpu: &Gpu, ids: impl IntoIterator<Item = LayerId>, written: bool) {
         for (n, id) in ids.into_iter().enumerate() {
             let restored = !self.layers.contains_key(&id) && self.restore(gpu, id);
             if written {
@@ -910,7 +910,7 @@ impl Canvas {
 
     /// The layers the queued work reads and those it writes (which need their textures and lose
     /// their compressed copies).
-    pub(crate) fn ops_layers(&self) -> (Vec<LayerId>, Vec<LayerId>) {
+    pub(super) fn ops_layers(&self) -> (Vec<LayerId>, Vec<LayerId>) {
         let (mut read, mut written) = (Vec::new(), Vec::new());
         let contents = |d: &Document, id: LayerId| -> Vec<LayerId> {
             if d.layer(id).is_some_and(|l| l.kind == LayerKind::Group) { d.contents(id) } else { vec![id] }
@@ -973,7 +973,7 @@ impl Canvas {
     /// Parks the layers needed least lately until the textures fit the budget, keeping those
     /// worked on (and what they are clipped to); none while the composite isn't made around
     /// pictures of the others.
-    pub(crate) fn park_extra(&mut self, gpu: &Gpu, doc: &Document) {
+    pub(super) fn park_extra(&mut self, gpu: &Gpu, doc: &Document) {
         self.parking_left = false;
         let most = self.most_resident();
         if self.resident_budget == 0 || self.layers.len() <= most {
@@ -1041,7 +1041,7 @@ impl Canvas {
     }
 
     /// The paper as a stroke's and the background's uniform take it ([`LayerUniform::paper`]).
-    pub(crate) fn paper_look(&self) -> [f32; 4] {
+    pub(super) fn paper_look(&self) -> [f32; 4] {
         match &self.paper {
             Some(p) => [p.strength.clamp(0.0, 1.0), p.scale.clamp(0.25, 16.0), p.depth.clamp(0.0, 1.0), 0.0],
             None => [0.0, 1.0, 0.0, 0.0],
@@ -1050,7 +1050,7 @@ impl Canvas {
 
     /// What draws the background: its colour (the paper's, if it has one) where it shows, with
     /// the paper's depth.
-    pub(crate) fn background_uniform(&self, doc: &Document) -> LayerUniform {
+    pub(super) fn background_uniform(&self, doc: &Document) -> LayerUniform {
         let [r, g, b] = self.paper.as_ref().and_then(|p| p.colour).unwrap_or(doc.background);
         let solid = if doc.background_visible { [r, g, b, 1.0] } else { [0.0; 4] };
         let scaled = self.scaled.map_or([1.0, 0.0, 0.0, 0.0], |([x, y], k)| [k, x, y, 0.0]);
@@ -1152,7 +1152,7 @@ impl Canvas {
         self.selection.as_ref().map(|s| s.coverage.as_slice())
     }
 
-    pub(crate) fn put_selection(
+    pub(super) fn put_selection(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -1399,7 +1399,7 @@ impl Canvas {
     }
 
     /// Layer `id` copied aside to be transformed (or adjusted) from.
-    pub(crate) fn copy_aside(
+    pub(super) fn copy_aside(
         &mut self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
@@ -1450,7 +1450,7 @@ impl Canvas {
 
     /// The liquify field's bind group with the edit's copy: its bits where the field is kept in
     /// integers, else as the copy's second texture.
-    pub(crate) fn liquify_bind(&self, device: &wgpu::Device, field: &wgpu::TextureView) -> wgpu::BindGroup {
+    pub(super) fn liquify_bind(&self, device: &wgpu::Device, field: &wgpu::TextureView) -> wgpu::BindGroup {
         match self.liquify_field_bind(device, field) {
             Some(bind) if self.liquifies_in_integers() => bind,
             _ => self.copy_bind_with(device, field),
@@ -1458,7 +1458,7 @@ impl Canvas {
     }
 
     /// The edit's copy and `second` bound as an adjustment's last-pass group.
-    pub(crate) fn copy_bind_with(&self, device: &wgpu::Device, second: &wgpu::TextureView) -> wgpu::BindGroup {
+    pub(super) fn copy_bind_with(&self, device: &wgpu::Device, second: &wgpu::TextureView) -> wgpu::BindGroup {
         let fallback;
         let copy = match &self.transforming {
             Some(t) => {
@@ -1489,7 +1489,7 @@ impl Canvas {
     }
 
     /// Queues a redraw of the layer being transformed; only the latest needs drawing.
-    pub(crate) fn replace_placement(&mut self, op: Op) {
+    pub(super) fn replace_placement(&mut self, op: Op) {
         if let Some(Op::TransformSet { .. } | Op::TransformMesh { .. } | Op::FilterSet(_) | Op::PluginFilter(_)) =
             self.ops.last()
         {
@@ -1524,7 +1524,7 @@ impl Canvas {
 
     /// Creates textures for layers that have none yet: the document's and those queued work
     /// refers to (a layer can be added, painted and merged away before a frame is drawn).
-    pub(crate) fn sync_layers(&mut self, gpu: &Gpu, doc: &Document) {
+    pub(super) fn sync_layers(&mut self, gpu: &Gpu, doc: &Document) {
         let mut ids: Vec<LayerId> = doc.pixel_layer_ids().collect();
         for op in &self.ops {
             match op {
@@ -1602,7 +1602,7 @@ impl Canvas {
     }
 
     /// Drops the textures of layers that neither the document nor the history refers to.
-    pub(crate) fn collect_layers(&mut self, doc: &Document) {
+    pub(super) fn collect_layers(&mut self, doc: &Document) {
         let mut keep: HashSet<LayerId> = doc.layer_ids().collect();
         for step in self.undo.iter().chain(self.redo.iter()) {
             if let Some(d) = &step.doc {
@@ -2911,7 +2911,7 @@ impl Canvas {
     /// down what it carries, a window at a time (see `smudge.rs`), the changed pixels going back
     /// into the layer texture. Wet paint is laid a pass at a time (a display frame's input, see
     /// [`Canvas::lay_wet`]), the newest pass's stamps held back until the rest of it comes.
-    pub(crate) fn smudge_stamps(
+    pub(super) fn smudge_stamps(
         &mut self,
         gpu: &Gpu,
         encoder: &mut wgpu::CommandEncoder,
@@ -3149,7 +3149,7 @@ impl Canvas {
     /// the brush carries. A pass goes on from one render to the next as its frame's stamps come.
     /// Each of a symmetry's copies of the stroke carries its own, its stamps of a pass laid in
     /// turn, all picking up from the layer as the last pass left it.
-    pub(crate) fn lay_smudge(
+    pub(super) fn lay_smudge(
         &mut self,
         gpu: &Gpu,
         encoder: &mut wgpu::CommandEncoder,
@@ -3232,7 +3232,7 @@ impl Canvas {
     /// a pass begun here; for one going on, as much more of it as the pass now reaches (none of it
     /// laid on yet: what the pass lays lies within what it reached). Where it is kept from, or none
     /// if it couldn't be (they then pick up from the layer as it is).
-    pub(crate) fn smudge_pass_start(
+    pub(super) fn smudge_pass_start(
         &mut self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
@@ -3292,7 +3292,7 @@ impl Canvas {
     }
 
     /// Paint laid apart has been put together over `rect` (see [`Smudge::synthesized`]).
-    pub(crate) fn note_synthesized(&mut self, rect: IRect) {
+    pub(super) fn note_synthesized(&mut self, rect: IRect) {
         if let Some(smudge) = self.smudge.as_mut() {
             smudge.synthesized = smudge.synthesized.union(rect.intersect(IRect::from_size(self.width, self.height)));
         }
@@ -3300,7 +3300,7 @@ impl Canvas {
 
     /// A dual brush's paint laid in place put together with its second over `rect` (see
     /// `cs_synthesize`), and shown.
-    pub(crate) fn synthesize(
+    pub(super) fn synthesize(
         &mut self,
         gpu: &Gpu,
         encoder: &mut wgpu::CommandEncoder,
@@ -3320,7 +3320,7 @@ impl Canvas {
     }
 
     /// The pieces of [`Canvas::synthesize`] over `rect`: none without paint laid apart.
-    pub(crate) fn synthesis(&self, rect: IRect) -> Vec<smudge::Piece> {
+    pub(super) fn synthesis(&self, rect: IRect) -> Vec<smudge::Piece> {
         let rect = rect.intersect(IRect::from_size(self.width, self.height));
         let Some(&(style, dual, dual_threshold)) = self.smudge.as_ref().and_then(|s| s.apart.as_ref()) else {
             return Vec::new();
@@ -3343,7 +3343,7 @@ impl Canvas {
     /// `stamps` in order, with their wet-mix scaling and places in the stroke. Each pass works out
     /// what each of its stamps lays down from the layer as the pass finds it (see the shader's
     /// `cs_wet_plots`), then lays the stamps, each through its shape and grain.
-    pub(crate) fn lay_wet(
+    pub(super) fn lay_wet(
         &mut self,
         gpu: &Gpu,
         encoder: &mut wgpu::CommandEncoder,
@@ -3600,7 +3600,7 @@ impl Canvas {
 
     /// Ends a smudge stroke: one undo step with the pixels it changed, or (`cancel`) puts the
     /// layer back as it was.
-    pub(crate) fn finish_smudge(
+    pub(super) fn finish_smudge(
         &mut self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
@@ -3657,7 +3657,7 @@ impl Canvas {
         self.push_step(Step { made: 0, name: None, doc: None, pixels, selection: None, flip: None, stores });
     }
 
-    pub(crate) fn commit(
+    pub(super) fn commit(
         &mut self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
@@ -3769,7 +3769,7 @@ impl Canvas {
     /// layer changed so whole as it was (once each: a second copy would put back a changed one),
     /// else `lower` where the merge can change it (`within`; nothing for an empty box).
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn before_merge(
+    pub(super) fn before_merge(
         &self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
@@ -3806,7 +3806,7 @@ impl Canvas {
     /// layer clipped to `lower` as in their clipping group (onto it as if it were opaque, its
     /// alpha kept), one clipped to the same base as `lower` as it is (clipped with `lower` after),
     /// one clipped elsewhere through its base's alpha.
-    pub(crate) fn blend_layer_into(
+    pub(super) fn blend_layer_into(
         &self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
@@ -3838,7 +3838,7 @@ impl Canvas {
     /// applied already) composited as they show, and blended into layer `into` with the base's
     /// opacity and mode.
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn draw_clip_group_onto(
+    pub(super) fn draw_clip_group_onto(
         &self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
@@ -3906,7 +3906,7 @@ impl Canvas {
     /// `upper` blended into layer `lower` (through `clip`, as `uniform` says), by way of the
     /// scratch texture.
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn blend_down(
+    pub(super) fn blend_down(
         &self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
@@ -3936,7 +3936,7 @@ impl Canvas {
 
     /// Layer `layer` multiplied by mask `mask` (its brightness), by way of the scratch texture;
     /// returns what the layer was.
-    pub(crate) fn masked_in_place(
+    pub(super) fn masked_in_place(
         &self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
@@ -3951,7 +3951,7 @@ impl Canvas {
 
     /// Layer `layer` drawn again in place through `mask` (its brightness), if any, and at
     /// `opacity`, by way of the scratch texture.
-    pub(crate) fn redraw_in_place(
+    pub(super) fn redraw_in_place(
         &self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
@@ -3985,7 +3985,7 @@ impl Canvas {
     }
 
     /// Group `group` of `doc` composited and copied into layer `into` (a new layer).
-    pub(crate) fn flatten(
+    pub(super) fn flatten(
         &self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
@@ -4008,7 +4008,7 @@ impl Canvas {
 
     /// Group `group` of `doc` composited and blended into layer `into` with the group's opacity
     /// and mode.
-    pub(crate) fn draw_group_onto(
+    pub(super) fn draw_group_onto(
         &self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
@@ -4028,7 +4028,7 @@ impl Canvas {
     }
 
     /// Makes sure there is a pair of group textures for each of `depth` levels.
-    pub(crate) fn make_groups(&mut self, device: &wgpu::Device, depth: usize) {
+    pub(super) fn make_groups(&mut self, device: &wgpu::Device, depth: usize) {
         while self.groups.len() < depth {
             let textures = [
                 texture(device, "group", self.width, self.height, LAYER_FORMAT),
@@ -4043,7 +4043,7 @@ impl Canvas {
     }
 
     /// Copies a region of a layer aside.
-    pub(crate) fn snapshot(
+    pub(super) fn snapshot(
         &self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
@@ -4163,7 +4163,7 @@ impl Canvas {
     }
 
     /// Draws `layers` mirrored (across when `horizontal`, else down) into themselves.
-    pub(crate) fn encode_flip(
+    pub(super) fn encode_flip(
         &self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
@@ -4194,7 +4194,7 @@ impl Canvas {
     }
 
     /// Draws the layer being edited from its copy through `filter`, kept to the selection.
-    pub(crate) fn filter(
+    pub(super) fn filter(
         &mut self,
         gpu: &Gpu,
         encoder: &mut wgpu::CommandEncoder,
@@ -4293,7 +4293,7 @@ impl Canvas {
     }
 
     /// Closes the liquify field's open step (see [`Canvas::liquify_mark`]).
-    pub(crate) fn mark_field(&mut self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder) {
+    pub(super) fn mark_field(&mut self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder) {
         let most = self.history_most() / 2;
         let Some(field) = self.liquify.as_mut() else { return };
         let (w, h) = (field.texture.width(), field.texture.height());
@@ -4323,7 +4323,7 @@ impl Canvas {
 
     /// Takes the liquify field's open step back (see [`Canvas::liquify_take_back`]): where it
     /// changed, the field as it was marked.
-    pub(crate) fn take_back_field(&mut self, encoder: &mut wgpu::CommandEncoder) {
+    pub(super) fn take_back_field(&mut self, encoder: &mut wgpu::CommandEncoder) {
         let Some(field) = self.liquify.as_mut() else { return };
         let (w, h) = (field.texture.width(), field.texture.height());
         let area = std::mem::replace(&mut field.changed, IRect::EMPTY).intersect(IRect::from_size(w, h));
@@ -4339,7 +4339,7 @@ impl Canvas {
 
     /// The liquify field's last closed step undone (`undo`), or the last undone done again: the
     /// part it changed swapped with how it was on the step's other side.
-    pub(crate) fn liquify_history(&mut self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder, undo: bool) {
+    pub(super) fn liquify_history(&mut self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder, undo: bool) {
         let Some(field) = self.liquify.as_mut() else { return };
         let step = if undo { field.undo.pop() } else { field.redo.pop() };
         let Some(FieldStep { area, pixels }) = step else { return };
@@ -4363,7 +4363,7 @@ impl Canvas {
 
     /// A step of the liquify brush: `stamps` added up over the part of the field they reach, the
     /// field there carried along by that and `keep` of it left. No stamps: the whole field.
-    pub(crate) fn liquify_step(
+    pub(super) fn liquify_step(
         &mut self,
         gpu: &Gpu,
         encoder: &mut wgpu::CommandEncoder,
@@ -4490,7 +4490,7 @@ impl Canvas {
 
     /// The edit's copy blurred by `sigma` canvas pixels, at a smaller size for wide blurs (halved
     /// until the blur is a few pixels wide where it runs); none when the blur is too small to do.
-    pub(crate) fn blur_copy(
+    pub(super) fn blur_copy(
         &self,
         gpu: &Gpu,
         encoder: &mut wgpu::CommandEncoder,
@@ -4577,7 +4577,7 @@ impl Canvas {
     }
 
     /// A new step: it joins the history and anything undone can no longer be redone.
-    pub(crate) fn push_step(&mut self, mut step: Step) {
+    pub(super) fn push_step(&mut self, mut step: Step) {
         // part of an edit held quietly: the step made as it is released holds it
         let held = self.held.as_ref().filter(|_| self.held_quietly).map(|h| h.layer);
         if let Some(layer) = held
@@ -4612,7 +4612,7 @@ impl Canvas {
     }
 
     /// A step let go: its textures the canvas's size kept as spares.
-    pub(crate) fn keep_spare_snapshot(&self, step: Step) {
+    pub(super) fn keep_spare_snapshot(&self, step: Step) {
         for s in step.pixels {
             if let Held::Texture(texture) = s.pixels {
                 self.keep_spare(texture);
@@ -4622,7 +4622,7 @@ impl Canvas {
 
     /// `texture` kept for reuse if it is the canvas's size and can be a layer, and fewer than
     /// [`SPARES_KEPT`] are kept.
-    pub(crate) fn keep_spare(&self, texture: wgpu::Texture) {
+    pub(super) fn keep_spare(&self, texture: wgpu::Texture) {
         let layer_like = wgpu::TextureUsages::TEXTURE_BINDING
             | wgpu::TextureUsages::RENDER_ATTACHMENT
             | wgpu::TextureUsages::COPY_SRC
@@ -4638,7 +4638,7 @@ impl Canvas {
     }
 
     /// A kept texture the canvas's size, if there is one (its pixels whatever they were).
-    pub(crate) fn take_spare(&self) -> Option<wgpu::Texture> {
+    pub(super) fn take_spare(&self) -> Option<wgpu::Texture> {
         self.spares.lock().unwrap_or_else(PoisonError::into_inner).pop()
     }
 }

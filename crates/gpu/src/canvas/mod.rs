@@ -4476,8 +4476,9 @@ mod readback;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use self::pipelines::buffer_init;
 #[allow(unused_imports)]
-pub(crate) use self::pipelines::*;
+use self::pipelines::*;
 
 /// What `textures` take on the GPU, bytes: every level and layer of each, as its format packs
 /// them (before the driver's own rounding up).
@@ -4508,8 +4509,8 @@ pub struct RemakeStats {
 /// A layer's pixels made ready to park: compressed, with its small pictures. Made on any thread
 /// (the slow part of [`Canvas::park_pixels`]), then given to [`Canvas::park_ready`].
 pub struct ReadyToPark {
-    pub(crate) parked: Parked,
-    pub(crate) pictures: Pictures,
+    parked: Parked,
+    pictures: Pictures,
 }
 
 impl ReadyToPark {

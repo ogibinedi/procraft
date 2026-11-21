@@ -16,17 +16,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import io.github.artcraftandroid.procraft.canvas.CanvasViewModel
-import io.github.artcraftandroid.procraft.canvas.ProjectionPresentation
-import io.github.artcraftandroid.procraft.canvas.PEN_DOUBLE_TAP_KEY
-import io.github.artcraftandroid.procraft.canvas.systemShortcutKeys
-import io.github.artcraftandroid.procraft.canvas.PenKeyAction
-import io.github.artcraftandroid.procraft.canvas.PenDoubleTaps
-import io.github.artcraftandroid.procraft.canvas.keyPress
-import io.github.artcraftandroid.procraft.canvas.KeysTold
-import io.github.artcraftandroid.procraft.canvas.maybePenKeys
-import io.github.artcraftandroid.procraft.canvas.penKeyButton
-import io.github.artcraftandroid.procraft.canvas.pointerKindOf
 import kotlinx.coroutines.launch
 import io.github.artcraftandroid.procraft.ui.AppRoot
 

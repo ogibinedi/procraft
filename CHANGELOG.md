@@ -2,9 +2,26 @@
 
 All notable changes in this Android Smartphone-focused fork (`ogibinedi/procraft`) are documented in this file.
 
-## [Unreleased] - Android Smartphone Edition
+## [Unreleased]
+
+### Changed & Optimized
+- **Zero-Recomposition Bottom Sheet Swipe-Down (`ui/components/BottomSheetPanel.kt`)**:
+  - Separated upward height-expansion state (`dragUpPx`) from downward dismiss translation (`dragDownPx`) so swiping down to dismiss a bottom sheet updates only Compose's layout placement phase (`.offset { ... }`) without recomposing heavy Brush/Layer/Color panel trees.
+  - Cached density-derived drag thresholds, pivot offsets, and spring specs with `remember`.
+- **Rust GPU Visibility Hygiene (`crates/gpu/src/canvas/`)**:
+  - Downgraded 238 internal `pub(crate)` helpers/methods in `pipelines.rs`, `ops.rs`, `composite.rs`, and `readback.rs` to `pub(super)` (keeping `Pipelines::new` and `buffer_init` as `pub(crate)`) and narrowed `ReadyToPark` internal fields, eliminating `private_interfaces` compiler warnings in `procraft-gpu`.
+- **Kotlin Import Hygiene**:
+  - Removed 1,489 unused and duplicate explicit imports across the 30 modularized Kotlin files, `MainActivity.kt`, and `BottomSheetPanel.kt`.
+- **Workspace Hygiene**:
+  - Cleaned up temporary local CI log notes and added `temuan.txt` to `.gitignore`.
+
+---
+
+## [0.0.1] - 2026-11-21 - Initial Android Smartphone Release
 
 ### Added
+- **Signed Release Pipeline & GitHub Releases (`.github/workflows/release.yml`)**:
+  - Configured single-job release builds publishing `procraft-0.0.1-android-arm64.apk`, `procraft-0.0.1-android-legacy-armeabi-v7a.apk`, and `SHA256SUMS.txt` directly to GitHub Releases with zero GitHub Actions artifact storage overhead.
 - **Smartphone Responsive Layout System (`ui/theme/ResponsiveLayout.kt`)**:
   - Added `ResponsiveLayout.isSmartphoneLayout(maxWidth, maxHeight)` to detect portrait smartphones (`< 600dp`), landscape smartphones (`height < 500dp`), and compact split-screen/foldable viewports.
   - Added `ResponsiveLayout.brushSetsColumnWidth(panelWidth)` and `ResponsiveLayout.colorPickerScale(panelWidth)` to scale the Brush Library sidebar and 364dp Color Disc/Classic square cleanly down to `320dp` screens.
@@ -15,10 +32,13 @@ All notable changes in this Android Smartphone-focused fork (`ogibinedi/procraft
   - Added a slide-out collapse toggle and edge pull-tab for the brush size/opacity/undo/redo sidebar on smartphones, plus automatic hiding while a bottom sheet panel is open.
 - **Smartphone Brush Studio Horizontal Tabs (`ui/studio/BrushStudio.kt`)**:
   - Added `StudioHorizontalTabs` (`54dp` bar with `44dp` pill tabs and a `1st Brush / 2nd Brush` switcher for dual brushes) placed between a full-width Drawing Pad and full-width Settings column on smartphones.
-- **CI/CD Automatic APK Artifact Upload (`.github/workflows/ci.yml`)**:
-  - Configured GitHub Actions CI to run on every `push` to `main`, `pull_request`, and `workflow_dispatch`, uploading `app-release.apk` as the `procraft-android-apk` build artifact.
 - **Unit Tests (`android/app/src/test/.../ui/SmartphoneResponsiveLayoutTest.kt`)**:
   - Added unit tests covering smartphone posture detection, adaptive brush set column widths, color picker scaling, and bottom sheet height fractions.
+
+### Fixed
+- Resolved Rust shader relative `include_str!("../shaders/...")` paths and redundant re-exports in `crates/gpu/src/canvas/`.
+- Fixed `follow_layers` visibility (`pub(crate)`) for `scene3d` re-export in `crates/core/src/scene3d/painting.rs`.
+- Resolved Kotlin cross-file visibility (`StudioKept`, `enumPref`, `FormatsPlace`, `awaitLibraryPinch`, `track`), package-scope collisions (`BrushSwipeGap`, `LibraryPickerInset`, `LibraryPickerMargin`, `CanvasViewModel.PEN_BUTTONS`), explicit `CanvasViewModel.Companion` imports across all 12 action files, bound references inside `withContext`, and `Modifier.horizontalScroll` chaining in `BrushStudio.kt`.
 
 ### Changed
 - **Focused Repository Exclusively on Android Smartphone + Rust Engine**:

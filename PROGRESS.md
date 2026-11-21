@@ -10,7 +10,8 @@ Dokumen ini mencatat progres pengembangan fork **ProCraft (`ogibinedi/procraft`)
 |---|---|---|---|
 | **Fase 1** | Pembersihan Platform Non-Android (`desktop/`, `ios/`, `packaging/`), Restrukturisasi Folder `canvas/` & `ui/`, dan Pemecahan God File `CanvasViewModel.kt` | ✅ Selesai | `58f1334` |
 | **Fase 2** | Desain Ulang Navigasi & Panel Utama Smartphone (*Procreate Pocket* Bottom Sheets, Collapsible SideBar, Responsive Pickers, Brush Studio Horizontal Tabs) + Pemecahan File UI & Crate `core`/`gpu` | ✅ Selesai | `a25d5ca`, `ef874b6` |
-| **Fase 3** | Adaptasi Secondary Tools & Editors untuk Semua Ukuran Smartphone, Modularisasi Crate Rust (`stroke/`, `scene3d/`, `touch/`), dan Pipeline Artifact APK di GitHub Actions CI/CD | ✅ Selesai | `e28d701`, `c2afb88` |
+| **Fase 3** | Adaptasi Secondary Tools & Editors untuk Semua Ukuran Smartphone, Modularisasi Crate Rust (`stroke/`, `scene3d/`, `touch/`), dan Rilis Signed APK `v0.0.1` ke GitHub Releases (0 Kuota Artifact) | ✅ Selesai | `e28d701`..`1052f52` |
+| **Fase 4** | Rapi-Rapi & Optimasi: Eliminasi Warning Visibilitas `procraft-gpu`, Pembersihan 1.489 Import Kotlin Tak Terpakai, Optimasi Zero-Recomposition Swipe-Down `SmartphoneBottomSheet`, & Pembaruan Dokumentasi | ✅ Selesai | *(terbaru)* |
 
 ---
 
@@ -45,4 +46,11 @@ Dokumen ini mencatat progres pengembangan fork **ProCraft (`ogibinedi/procraft`)
   - `crates/engine/src/stroke/` (`mod.rs`, `builder.rs`, `tests.rs`)
   - `crates/core/src/scene3d/` (`mod.rs`, `painting.rs`, `tests.rs`)
   - `crates/core/src/touch/` (`mod.rs`, `modes.rs`, `tests.rs`, `box_pinch.rs`, `pen.rs`)
-- [x] Memperbarui `.github/workflows/ci.yml` agar berjalan otomatis pada setiap `push` ke branch `main` (baik di repo publik maupun privat) dan mengunggah artifact `procraft-android-apk`.
+- [x] Mengonfigurasi *release keystore* (`.jks`), versi awal **`v0.0.1`** (`versionCode=199`), dan workflow `.github/workflows/release.yml` agar langsung menerbitkan APK bertanda tangan ke halaman **GitHub Releases** tanpa membebani kuota penyimpanan *Actions Artifact*.
+- [x] Menyelesaikan seluruh perbaikan kompilasi Rust & Kotlin hingga APK **`v0.0.1`** berhasil terbit dan berjalan lancar di smartphone Android.
+
+### Fase 4: Rapi-Rapi & Optimasi Pasca-Rilis `v0.0.1`
+- [x] Mengoptimalkan `SmartphoneBottomSheet` (`BottomSheetPanel.kt`): memisahkan state *drag-down* (`dragDownPx`) agar hanya dibaca pada fase *layout placement* (`.offset { ... }`) sehingga gestur *swipe-down* untuk menutup panel tidak memicu rekomposisi berulang pada daftar kuas/layer/warna, serta men-*cache* ambang gestur dan *spring spec* dengan `remember`.
+- [x] Menghilangkan ratusan peringatan kompiler Rust (`private_interfaces`) pada `crates/gpu/src/canvas/` dengan menurunkan 238 item internal `pub(crate)` menjadi `pub(super)` dan menjaga hanya `Pipelines::new` serta `buffer_init` sebagai `pub(crate)`.
+- [x] Membersihkan **1.489 baris import Kotlin** yang tidak terpakai/duplikat pada 30 file hasil modularisasi, `MainActivity.kt`, dan `BottomSheetPanel.kt`.
+- [x] Menghapus file log diagnostik sementara lokal (`ci_log.txt`, `temuan.txt`), menambahkan `temuan.txt` ke `.gitignore`, serta menyinkronkan `README.md`, `CHANGELOG.md`, dan `PROGRESS.md`.

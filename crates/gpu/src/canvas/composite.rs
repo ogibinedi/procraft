@@ -5,7 +5,7 @@ use super::*;
 impl Canvas {
     /// Composites the visible layers over the background inside `rect`, into `composite[0]`.
     /// Normal layers blend in place; other modes read what is below and write the other texture.
-    pub(crate) fn composite(
+    pub(super) fn composite(
         &self,
         device: &wgpu::Device,
         doc: &Document,
@@ -70,7 +70,7 @@ impl Canvas {
     /// current layer up to a run of plain items at the top: normal, the first not clipped to what
     /// is below the run), with every layer in them; none while something else is under way
     /// (Animation Assist's frames, an adjustment, liquify, a transform, a stroke elsewhere).
-    pub(crate) fn live_items(&self, doc: &Document) -> Option<(Vec<LayerId>, std::ops::Range<usize>)> {
+    pub(super) fn live_items(&self, doc: &Document) -> Option<(Vec<LayerId>, std::ops::Range<usize>)> {
         if doc.animation.is_some() {
             return None;
         }
@@ -118,7 +118,7 @@ impl Canvas {
     /// Makes (or keeps) the caches the composite is made around, while they are used: what is
     /// below the items worked on and what is above them, each remade only when what it was made
     /// from changed.
-    pub(crate) fn ensure_caches(
+    pub(super) fn ensure_caches(
         &mut self,
         gpu: &Gpu,
         doc: &Document,
@@ -289,7 +289,7 @@ impl Canvas {
 
     /// With Animation Assist on (and nothing else under way), the layers of the frames shown: the
     /// current (or played) one, its onion skins, and a background or foreground frame.
-    pub(crate) fn shown_frames(&self, doc: &Document) -> Option<HashSet<LayerId>> {
+    pub(super) fn shown_frames(&self, doc: &Document) -> Option<HashSet<LayerId>> {
         let a = doc.animation.as_ref()?;
         let busy =
             self.transforming.is_some() || self.liquify.is_some() || self.pencil.is_some() || self.held.is_some();
@@ -322,7 +322,7 @@ impl Canvas {
 
     /// Lets go of the textures of layers unchanged since parked (their compressed copies kept),
     /// but those in `keep`, as far as the next part of a remake wants room.
-    pub(crate) fn let_go_clean(&mut self, keep: &HashSet<LayerId>) {
+    pub(super) fn let_go_clean(&mut self, keep: &HashSet<LayerId>) {
         // only as many as the next part wants room for, needed least lately first: layers that
         // fit stay (letting many textures go at once holds a frame up)
         let most = self.most_resident();
@@ -343,7 +343,7 @@ impl Canvas {
 
     /// Puts `uniforms` in the uniform buffer for the work about to be sent; one that would not fit
     /// (the buffer sized for less) is said in the log, as the device refuses it.
-    pub(crate) fn write_uniforms(&self, gpu: &Gpu, uniforms: &UniformData) {
+    pub(super) fn write_uniforms(&self, gpu: &Gpu, uniforms: &UniformData) {
         if uniforms.data.is_empty() {
             return;
         }
@@ -355,7 +355,7 @@ impl Canvas {
 
     /// Sends the work recorded so far (with its uniforms), going on with a new encoder: what it
     /// was sent as.
-    pub(crate) fn send_now(
+    pub(super) fn send_now(
         &self,
         gpu: &Gpu,
         encoder: &mut wgpu::CommandEncoder,
@@ -375,7 +375,7 @@ impl Canvas {
     /// a list may: see [`rule_lists`]), each pixel going through the stamps over its tile in order
     /// as its own paint stands after each, then the part copied into the stroke. A part whose list
     /// couldn't be made (past the GPU's memory) is left out, and that said once.
-    pub(crate) fn lay_by_rule(
+    pub(super) fn lay_by_rule(
         &mut self,
         gpu: &Gpu,
         encoder: &mut wgpu::CommandEncoder,
@@ -439,7 +439,7 @@ impl Canvas {
     /// The bind group for the next part of this render's rule passes (see [`RuleLists`]), its list
     /// holding `words` (written through the queue, ahead of the work it is read by): a kept list,
     /// grown if it is too small, bound with `binds`. None if it couldn't be made, said once.
-    pub(crate) fn rule_list(
+    pub(super) fn rule_list(
         &mut self,
         gpu: &Gpu,
         words: &[u32],
@@ -504,7 +504,7 @@ impl Canvas {
 
     /// What `make` makes, unless the device refuses it (past its memory, or lost): then none, the
     /// work that wanted it left out, and the first such said in the log.
-    pub(crate) fn made_or_told<T>(
+    pub(super) fn made_or_told<T>(
         &mut self,
         device: &wgpu::Device,
         make: impl FnOnce(&wgpu::Device) -> T,
@@ -542,7 +542,7 @@ impl Canvas {
 
     /// Sends the work recorded so far with the three kinds of uniforms a render's painting uses,
     /// going on with a new encoder (see [`WORK_AT_ONCE`]).
-    pub(crate) fn send_piece(
+    pub(super) fn send_piece(
         &mut self,
         gpu: &Gpu,
         encoder: &mut wgpu::CommandEncoder,
@@ -565,7 +565,7 @@ impl Canvas {
     /// Goes on remaking the caches for a while (parts of whole items, each part's layers brought
     /// back, composited, sent, then let go before the next part's come back); once both are done,
     /// they are the caches and the whole composite is made again.
-    pub(crate) fn go_on_remaking(&mut self, gpu: &Gpu, doc: &Document) {
+    pub(super) fn go_on_remaking(&mut self, gpu: &Gpu, doc: &Document) {
         let Some(mut r) = self.remake.take() else { return };
         let device = &gpu.device;
         let full = self.full();
@@ -735,7 +735,7 @@ impl Canvas {
     /// The most uniform slots `op` takes in a render (among `ops`, the render's work): a liquify
     /// drag's stamps one each, a transform one for each layer it moves (those the same render adds
     /// too), a filter one for each halving of a wide blur and its passes; the rest one or none.
-    pub(crate) fn slots_for(&self, op: &Op, ops: &[Op]) -> usize {
+    pub(super) fn slots_for(&self, op: &Op, ops: &[Op]) -> usize {
         match op {
             Op::LiquifyStamps(stamps) => stamps.len() + 1,
             Op::TransformSet { .. } | Op::TransformMesh { .. } => {
@@ -749,7 +749,7 @@ impl Canvas {
 
     /// Whether work keeps the caches: it changes only the pixels of layers worked on (painting,
     /// transforms and adjustments, held edits, clearing, and undoing or redoing those).
-    pub(crate) fn keeps_caches(&self, op: &Op, live: &HashSet<LayerId>) -> bool {
+    pub(super) fn keeps_caches(&self, op: &Op, live: &HashSet<LayerId>) -> bool {
         let only_live = |step: Option<&Step>| {
             step.is_some_and(|s| {
                 s.doc.is_none() && s.flip.is_none() && s.pixels.iter().all(|p| live.contains(&p.layer))
@@ -806,7 +806,7 @@ impl Canvas {
     /// The members of `group` (None: the top level) bottom up onto `stack`; returns which of its
     /// textures holds the result.
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn composite_members(
+    pub(super) fn composite_members(
         &self,
         device: &wgpu::Device,
         doc: &Document,
@@ -834,7 +834,7 @@ impl Canvas {
     /// `items` (a level's members, bottom up; `top` the top level's) onto `stack`, whose result
     /// is in the stack's first texture (`current` 0) or its second (1).
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn composite_items(
+    pub(super) fn composite_items(
         &self,
         device: &wgpu::Device,
         doc: &Document,
@@ -924,7 +924,7 @@ impl Canvas {
 
     /// Group `id`'s members composited over transparency on the textures for its depth; returns
     /// the view holding the result.
-    pub(crate) fn composite_group(
+    pub(super) fn composite_group(
         &self,
         device: &wgpu::Device,
         doc: &Document,
@@ -946,7 +946,7 @@ impl Canvas {
     /// were opaque and shown as much as the base is (as alpha lock paints: no colour of the base
     /// shows at its soft edges), then the group onto the stack by the base's mode and opacity.
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn composite_clip_group(
+    pub(super) fn composite_clip_group(
         &self,
         device: &wgpu::Device,
         doc: &Document,
@@ -1000,7 +1000,7 @@ impl Canvas {
     /// layer clipped to it (CLIP_ATOP); else CLIP_NONE, and then a layer clipped to a base not
     /// shown goes through that base's alpha.
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn composite_layer(
+    pub(super) fn composite_layer(
         &self,
         device: &wgpu::Device,
         doc: &Document,
@@ -1082,7 +1082,7 @@ impl Canvas {
     /// layer in a clipping group, written as it is for the group's base), else blended with what
     /// is below into the stack's other texture.
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn draw_onto(
+    pub(super) fn draw_onto(
         &self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
@@ -1133,7 +1133,7 @@ impl Canvas {
         }
     }
 
-    pub(crate) fn display(
+    pub(super) fn display(
         &mut self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
@@ -1453,7 +1453,7 @@ impl Canvas {
 
     /// Frosted panels: the canvas and its surround (or what `other` draws) drawn again, small, and
     /// blurred, for [`draw_glass`]. Returns how many times smaller it is.
-    pub(crate) fn frost_ready(
+    pub(super) fn frost_ready(
         &mut self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
