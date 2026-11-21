@@ -98,7 +98,21 @@ import java.io.File
 import java.nio.ByteBuffer
 
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.*
-import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.*
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.ADVANCED_MESH
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.DROP_BAND_MS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.DROP_THRESHOLD
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.FILL_SAYS_MS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.FRAME_MS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.INTERPOLATION
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.MAGNETICS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.RECOLOR_THRESHOLD
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.SELECTION_KIND
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.SELECTION_THRESHOLD
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.SETTLE_MARGIN_NS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.SNAPPING
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.SNAP_DISTANCE
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.SNAP_VELOCITY
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.TRANSFORM_KIND
 
 // ---- selection ----
 

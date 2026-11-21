@@ -98,7 +98,13 @@ import java.io.File
 import java.nio.ByteBuffer
 
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.*
-import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.*
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.DEFAULT_FPS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.EXPORT_DONE_MS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.MAX_PICTURE
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.MAX_VIDEO_FRAMES
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.PICK_WINDOW_DP
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.REFERENCE_STEP_DP
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.TIME_LAPSE_MISSING
 
 /**
  * A photo or picture file comes in as a new layer, fitted to the canvas, ready to transform; a

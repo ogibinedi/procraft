@@ -98,7 +98,14 @@ import java.io.File
 import java.nio.ByteBuffer
 
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.*
-import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.*
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.PAD_BACK
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.PAD_BACK_LIGHT
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.PAD_BLACK
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.PAD_COLORS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.PAD_WHITE
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.SOURCE_BOX_PX
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.SOURCE_ROW_PX
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.STUDIO_PREVIEW_DELAY_MS
 
 // the brush studio
 

@@ -98,7 +98,35 @@ import java.io.File
 import java.nio.ByteBuffer
 
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.*
-import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.*
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.CANVAS_DRAWN_LIMIT_MS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.CANVAS_POLL_MS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.CLOSING_PICTURE_SIDE
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.COLOR_NAMES
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.COPY_ROOM_SPARE
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.EXPORT_DONE_MS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.EXPORT_POLL_MS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.FEEDBACK_SOUNDS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.FIT_INSIDE
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.GROUP_NAME
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.IMPORT_COPY_SHARE
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.IMPORT_CREEP
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.IMPORT_CREEP_TO
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.MODEL_EXTENSIONS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.NO_ROOM_TO_IMPORT
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.NO_TIME_LAPSE
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.ORIENTATION_MEMORY
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.OWN_EXTENSION
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.PACKAGE_EXTENSION
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.PACKAGE_LABEL
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.PDF_DPI
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.PDF_MOST_SIDE
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.PRESETS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.SIMPLIFIED_UNDOS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.SINGLE_TOUCH_COMPANION
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.SPEED_DISTANCE
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.TAP_ASSISTANCE
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.WIDE_COLOR
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.WINDOW_WAIT_MS
 
 fun CanvasViewModel.refreshGallery() {
     viewModelScope.launch {
@@ -432,8 +460,8 @@ internal suspend fun CanvasViewModel.openImported(dir: File) {
  */
 fun CanvasViewModel.importFiles(uris: List<android.net.Uri>) {
     viewModelScope.launch {
-        val names = withContext(Dispatchers.IO) { uris.map(this::fileName) }
-        val models = uris.indices.filter { i -> names[i]?.let(this::isModelName) == true }
+        val names = withContext(Dispatchers.IO) { uris.map { fileName(it) } }
+        val models = uris.indices.filter { i -> names[i]?.let { isModelName(it) } == true }
         // each one opened is kept (closed, so saved) as the next comes in
         if (models.isEmpty()) {
             for (uri in uris) {

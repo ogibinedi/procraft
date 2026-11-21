@@ -98,7 +98,6 @@ import java.io.File
 import java.nio.ByteBuffer
 
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.*
-import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.*
 
 /** The letters chosen in the text field as the core counts them (not UTF-16): first and last. */
 internal fun CanvasViewModel.textChosen(v: TextFieldValue = textField): Pair<UInt, UInt> =

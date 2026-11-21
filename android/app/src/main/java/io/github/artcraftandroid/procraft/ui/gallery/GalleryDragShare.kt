@@ -370,7 +370,7 @@ private val FormatsRow = 40.dp
 private val FormatsHeight = FormatsTitleHeight + FormatsRow * CanvasViewModel.SHARE_FORMATS.size + (CanvasViewModel.SHARE_FORMATS.size - 1).dp + 10.dp
 
 /** Where Share's formats go: their top left, the arrow's side and place, and where they grow from. */
-private class FormatsPlace(val left: Dp, val top: Dp, val side: ArrowSide, val arrowAt: Dp, val origin: androidx.compose.ui.graphics.TransformOrigin)
+internal class FormatsPlace(val left: Dp, val top: Dp, val side: ArrowSide, val arrowAt: Dp, val origin: androidx.compose.ui.graphics.TransformOrigin)
 
 /** Select's Share button's centre: left of Delete and More, in the capsule 77 from the right. */
 internal fun selectShareCentre(screenWidth: Dp): Dp = screenWidth - 20.dp - 44.dp - 13.dp - 61.dp - 70.dp - 65.dp / 2

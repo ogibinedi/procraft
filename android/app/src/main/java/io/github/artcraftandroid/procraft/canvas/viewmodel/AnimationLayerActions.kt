@@ -98,7 +98,9 @@ import java.io.File
 import java.nio.ByteBuffer
 
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.*
-import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.*
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.FRAME_THUMB_SIDE
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.MAX_HOLD
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.THUMB_SIDE
 
 fun CanvasViewModel.changeAnimationAssist(on: Boolean) {
     stopPlaying()

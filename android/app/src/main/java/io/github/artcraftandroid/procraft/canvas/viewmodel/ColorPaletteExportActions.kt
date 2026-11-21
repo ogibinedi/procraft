@@ -98,7 +98,15 @@ import java.io.File
 import java.nio.ByteBuffer
 
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.*
-import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.*
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.ANIMATION_FPS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.COLOR_NAME_GAP_MS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.EXPORT_DONE_MS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.EXPORT_POLL_MS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.MAX_VIDEO_SIDE
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.TURNTABLE_FPS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.TURNTABLE_SIZES
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.WEB_READY_SIDE
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.hsvToRgb
 
 fun CanvasViewModel.setColor(h: Float, s: Float, v: Float) {
     hue = h.coerceIn(0f, 1f)

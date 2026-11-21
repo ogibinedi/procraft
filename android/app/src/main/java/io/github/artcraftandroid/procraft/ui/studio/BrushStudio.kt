@@ -745,7 +745,7 @@ private fun StudioHorizontalTabs(vm: CanvasViewModel) {
             .fillMaxWidth()
             .height(54.dp)
             .background(StudioTabs)
-            .then(androidx.compose.foundation.horizontalScroll(rememberScrollState()))
+            .horizontalScroll(rememberScrollState())
             .padding(horizontal = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,

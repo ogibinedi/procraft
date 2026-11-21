@@ -98,7 +98,16 @@ import java.io.File
 import java.nio.ByteBuffer
 
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.*
-import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.*
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.BRUSHES_SEEN
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.BRUSH_CHANGES
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.BRUSH_CHOICES
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.BRUSH_LIBRARY
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.DEFAULT_ENVIRONMENT
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.ENVIRONMENTS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.MODIFY_TAP_MS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.QUICK_MENUS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.QUICK_MENU_ACTIVE
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.SELECTION_X_RAY
 
 /** The app is back in front: time on the open artwork counts again. */
 fun CanvasViewModel.resumeTracking() {

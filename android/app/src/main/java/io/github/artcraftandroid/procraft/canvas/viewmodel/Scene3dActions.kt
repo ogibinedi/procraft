@@ -98,7 +98,8 @@ import java.io.File
 import java.nio.ByteBuffer
 
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.*
-import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.*
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.SELECTION_X_RAY
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.THUMB_SIDE
 
 fun CanvasViewModel.changeModelFlat(on: Boolean) {
     val s = session ?: return
@@ -412,7 +413,7 @@ internal suspend fun CanvasViewModel.newFromModel(
             }
             val artwork = (title ?: name.substringBeforeLast('.')).ifBlank { "Untitled Artwork" }
             CanvasSession.openModel(file, name, files, artwork, 0u)
-                .also(this::loadModelTextures).also(this::loadBrushes)
+                .also { loadModelTextures(it) }.also { loadBrushes(it) }
         }.onFailure {
             AppLog.e("ProCraft", "opening a model", it)
             why = (it as? io.github.artcraftandroid.procraft.core.MobileException.File)?.reason?.substringAfter(": ", "")

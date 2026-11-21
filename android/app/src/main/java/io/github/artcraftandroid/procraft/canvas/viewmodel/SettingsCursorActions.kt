@@ -98,7 +98,36 @@ import java.io.File
 import java.nio.ByteBuffer
 
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.*
-import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.*
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.BRUSH_CURSOR
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.BRUSH_ON_SCREEN
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.COLOR_HISTORY_SHOWN
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.COLOUR_MODEL
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.CURSOR_FILL_FAINTEST
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.CURSOR_FILL_MOST
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.CURSOR_REREAD_MS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.CURSOR_SHOWS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.CURSOR_STYLE
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.INPUT_CURVE
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.INPUT_EXPRESSION
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.INPUT_MOTION
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.INPUT_PRESSURE_SMOOTHING
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.INPUT_STABILIZATION
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.INPUT_TIP_ATTACHED
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.KEPT_BRIGHTNESS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.KEPT_HUE
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.KEPT_MASK_BRIGHTNESS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.KEPT_MASK_HUE
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.KEPT_MASK_SATURATION
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.KEPT_SATURATION
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.LIGHT_INTERFACE
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.PALETTE_CARDS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.PROJECT_CANVAS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.RAPID_UNDO_DELAY
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.RAPID_UNDO_MAX_S
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.RAPID_UNDO_MIN_S
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.RIGHT_HANDED
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.SELECTION_VISIBILITY
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.WRONG_BUILD_SAID
 
 /**
  * What a save came to, told when it failed (the first time since one last succeeded: autosave

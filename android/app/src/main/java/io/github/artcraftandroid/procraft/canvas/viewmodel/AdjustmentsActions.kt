@@ -98,7 +98,6 @@ import java.io.File
 import java.nio.ByteBuffer
 
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.*
-import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.*
 
 fun CanvasViewModel.toggle(p: Panel) {
     // with a brush swiped open, its button only closes the swipe

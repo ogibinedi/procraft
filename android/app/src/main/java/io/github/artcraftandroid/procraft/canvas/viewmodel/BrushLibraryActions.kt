@@ -98,7 +98,11 @@ import java.io.File
 import java.nio.ByteBuffer
 
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.*
-import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.*
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.BRUSH_EXTENSION
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.BRUSH_LIBRARY_EXTENSION
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.EXPORT_POLL_MS
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.NO_ROOM_TO_IMPORT
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.OTHER_BRUSH_EXTENSIONS
 
 /** After a change to the library: read it again, keep it, and draw previews again (they go by place). */
 internal fun CanvasViewModel.libraryChanged() {
