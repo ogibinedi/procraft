@@ -303,12 +303,16 @@ private fun ValueGroup(modifier: Modifier = Modifier, height: Dp, gap: Dp, top: 
 /** One number slider: its letter, a track from 32 to 296 dp, and the value centred at 326.5. */
 @Composable
 private fun ValueRow(letter: String, value: Float, colours: List<Color>, shown: String, onChange: (Float) -> Unit) {
-    Box(Modifier.fillMaxWidth().height(44.dp)) {
-        Text(letter, color = Pc.PanelTitle, fontSize = 15.sp, modifier = Modifier.align(Alignment.CenterStart).padding(start = 13.dp))
-        Box(Modifier.padding(start = 32.dp).width(264.dp).align(Alignment.CenterStart)) {
+    Row(
+        Modifier.fillMaxWidth().height(44.dp).padding(start = 13.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(letter, color = Pc.PanelTitle, fontSize = 15.sp, modifier = Modifier.width(19.dp))
+        Box(Modifier.weight(1f)) {
             ColorSliderRow(value, colours, onChange)
         }
-        Box(Modifier.align(Alignment.CenterStart).padding(start = 304.dp).width(45.dp), contentAlignment = Alignment.Center) {
+        Spacer(Modifier.width(8.dp))
+        Box(Modifier.width(45.dp), contentAlignment = Alignment.Center) {
             Text(shown, color = Pc.PanelTitle, fontSize = 15.sp, maxLines = 1)
         }
     }
@@ -354,7 +358,7 @@ private fun HexRow(rgb: Int, fill: Color = Pc.HexRow, field: Color = Pc.HexField
 /** From the hex row to the keypad's right edge: the panel's padding, then a small gap. */
 private val HexPadGap = 12.dp
 
-/** Puts a popup to the left of the anchor, its middle level with the anchor's, inside the window. */
+/** Puts a popup to the left of the anchor (or above/below it on narrow smartphone screens), inside the window. */
 private class BesidePanel(private val gap: Int) : androidx.compose.ui.window.PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: androidx.compose.ui.unit.IntRect,
@@ -362,9 +366,15 @@ private class BesidePanel(private val gap: Int) : androidx.compose.ui.window.Pop
         layoutDirection: androidx.compose.ui.unit.LayoutDirection,
         popupContentSize: IntSize,
     ): IntOffset {
-        val x = (anchorBounds.left - gap - popupContentSize.width).coerceAtLeast(0)
-        val y = (anchorBounds.center.y - popupContentSize.height / 2).coerceIn(0, (windowSize.height - popupContentSize.height).coerceAtLeast(0))
-        return IntOffset(x, y)
+        val leftX = anchorBounds.left - gap - popupContentSize.width
+        if (leftX >= 0) {
+            val y = (anchorBounds.center.y - popupContentSize.height / 2).coerceIn(0, (windowSize.height - popupContentSize.height).coerceAtLeast(0))
+            return IntOffset(leftX, y)
+        }
+        val centeredX = ((windowSize.width - popupContentSize.width) / 2).coerceAtLeast(0)
+        val aboveY = anchorBounds.top - gap - popupContentSize.height
+        val y = if (aboveY >= 0) aboveY else (anchorBounds.bottom + gap).coerceIn(0, (windowSize.height - popupContentSize.height).coerceAtLeast(0))
+        return IntOffset(centeredX, y)
     }
 }
 

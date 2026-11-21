@@ -352,20 +352,34 @@ private fun SliderKeypad(
         onValue(typed.toValue(n))
     }
     val density = LocalDensity.current
-    val screen = with(density) { androidx.compose.ui.platform.LocalView.current.rootView.height.toDp() }
+    val rootView = androidx.compose.ui.platform.LocalView.current.rootView
+    val screen = with(density) { rootView.height.toDp() }
+    val screenW = with(density) { rootView.width.toDp() }
     val (top, arrowAt) = with(density) {
         val middle = (pill.top + pill.height / 2f).toDp()
         val top = (middle - height / 2).coerceIn(2.dp, (screen - height - 2.dp).coerceAtLeast(2.dp))
         top to (middle - top)
     }
-    // the arrow's tip a little into the pill, the body 3 past its end
-    val offset = with(density) { androidx.compose.ui.unit.IntOffset((pill.width - (Pc.ArrowHeight - 3.dp).toPx()).roundToInt(), (top.toPx() - pill.top).roundToInt()) }
+    val openOnRight = with(density) { pill.right + (KeypadWidth + Pc.ArrowHeight).toPx() <= rootView.width - 4.dp.toPx() }
+    val arrowSide = if (openOnRight) ArrowSide.LEFT else ArrowSide.RIGHT
+    // when there is room to the right of the pill, open on its right; on smartphones where the pill is at the right edge, open to its left
+    val offset = with(density) {
+        val rawX = if (openOnRight) {
+            (pill.width - (Pc.ArrowHeight - 3.dp).toPx()).roundToInt()
+        } else {
+            -((KeypadWidth + Pc.ArrowHeight - 3.dp).toPx()).roundToInt()
+        }
+        val minX = (4.dp.toPx() - pill.left).roundToInt()
+        val maxX = (screenW.toPx() - (KeypadWidth + Pc.ArrowHeight + 4.dp).toPx() - pill.left).roundToInt()
+        val clampedX = if (minX <= maxX) rawX.coerceIn(minX, maxX) else minX
+        androidx.compose.ui.unit.IntOffset(clampedX, (top.toPx() - pill.top).roundToInt())
+    }
     PcPopup(
         offset = offset,
         onDismissRequest = onDismiss,
         properties = androidx.compose.ui.window.PopupProperties(focusable = true, clippingEnabled = false),
     ) {
-        Popover(KeypadWidth, arrowAt, Modifier.height(height), fill = KeypadFill, corner = 22.dp, side = ArrowSide.LEFT) {
+        Popover(KeypadWidth, arrowAt, Modifier.height(height), fill = KeypadFill, corner = 22.dp, side = arrowSide) {
             Text(title, color = KeypadInk, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.padding(start = 25.dp, top = 19.dp).height(if (pages.size > 1) 43.dp else 51.dp))
             if (pages.size > 1) {
                 KeypadTabRow(pages, page) { page = it }

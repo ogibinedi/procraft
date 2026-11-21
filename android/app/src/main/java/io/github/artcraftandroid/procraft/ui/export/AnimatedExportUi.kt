@@ -297,8 +297,8 @@ private const val PREVIEW_FPS = 15
 @Composable
 private fun Segments(labels: List<String>, chosen: Int, onChoose: (Int) -> Unit) {
     Row(
-        Modifier.padding(start = 7.5.dp).width(384.dp).height(34.dp).clip(CircleShape).background(SegmentTrack).padding(2.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        Modifier.padding(horizontal = 7.5.dp).fillMaxWidth().height(34.dp).clip(CircleShape).background(SegmentTrack).padding(2.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         labels.forEachIndexed { i, label ->
             Box(
@@ -314,8 +314,8 @@ private fun Segments(labels: List<String>, chosen: Int, onChoose: (Int) -> Unit)
 /** A setting's name and its switch, 52 tall. */
 @Composable
 private fun SettingRow(label: String, on: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.height(52.dp).clickable { onChange(!on) }.padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, color = RowInk, fontSize = 17.sp, maxLines = 1, modifier = Modifier.width(307.dp))
+    Row(Modifier.fillMaxWidth().height(52.dp).clickable { onChange(!on) }.padding(start = 16.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = RowInk, fontSize = 17.sp, maxLines = 1, modifier = Modifier.weight(1f))
         Switch(on, enabled = true)
     }
 }

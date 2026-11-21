@@ -17,6 +17,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -186,17 +187,26 @@ fun CanvasInfo(vm: CanvasViewModel) {
     BackHandler { close() }
     // on a wide screen the pages are named on a card, the page and the name to its right
     val screen = androidx.compose.ui.platform.LocalConfiguration.current
-    val wide = screen.screenWidthDp > screen.screenHeightDp
+    val screenW = screen.screenWidthDp.dp
+    val wide = screen.screenWidthDp > screen.screenHeightDp && screen.screenWidthDp >= 820
+    val compact = !wide && screen.screenWidthDp < 500
+    val railW = if (compact) 64.dp else 81.dp
+    val contentStart = if (wide) WideContentStart else if (compact) 74.dp else 105.dp
+    val contentEnd = if (wide) WideContentEnd else if (compact) 12.dp else 24.dp
     Box(Modifier.fillMaxSize().background(ScreenFill).pointerInput(Unit) { detectTapGestures { } }) {
         if (wide) {
             InfoPagesCard(page) { page = it }
         } else {
             // the rail of pages
-            Column(Modifier.width(81.dp).fillMaxHeight().background(RailFill).padding(start = 8.dp, top = 46.dp)) {
+            Column(
+                Modifier.width(railW).fillMaxHeight().background(RailFill)
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = if (compact) 4.dp else 8.dp, top = 46.dp, bottom = 16.dp),
+            ) {
                 InfoTabs.forEachIndexed { i, tab ->
                     val chosen = i == page
                     Box(
-                        Modifier.size(65.dp, 53.dp).clip(CircleShape).background(if (chosen) Pc.Accent else Color.Transparent).clickable { page = i },
+                        Modifier.size(if (compact) 56.dp else 65.dp, 53.dp).clip(CircleShape).background(if (chosen) Pc.Accent else Color.Transparent).clickable { page = i },
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(tab.icon, contentDescription = tab.label, tint = if (chosen) Color.White else RailIdle, modifier = Modifier.requiredSize(tab.size))
@@ -206,30 +216,32 @@ fun CanvasInfo(vm: CanvasViewModel) {
             }
         }
         // the name (centred over the page when wide), Cancel and Done
+        val actionsReserve = if (page == 3) 235.dp else 160.dp
+        val nameW = (screenW - contentStart - actionsReserve).coerceIn(80.dp, 400.dp)
         BasicTextField(
             name,
             { name = it.take(256) },
             singleLine = true,
-            textStyle = TextStyle(color = Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold, textAlign = if (wide) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start),
+            textStyle = TextStyle(color = Ink, fontSize = if (compact) 16.sp else 18.sp, fontWeight = FontWeight.Bold, textAlign = if (wide) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start),
             cursorBrush = SolidColor(Color.White),
             modifier = if (wide) {
                 Modifier.padding(start = WideContentStart, end = WideContentEnd).offset(y = 30.dp).fillMaxWidth()
             } else {
-                Modifier.offset(x = 101.dp, y = 30.dp).width(400.dp)
+                Modifier.offset(x = contentStart, y = 30.dp).width(nameW)
             },
         )
-        Row(Modifier.align(Alignment.TopEnd).padding(top = 20.dp, end = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.align(Alignment.TopEnd).padding(top = 20.dp, end = if (compact) 12.dp else 20.dp), verticalAlignment = Alignment.CenterVertically) {
             // Cancel, with Import before it on the colour profile page
             Row(Modifier.height(43.dp).clip(CircleShape).background(CapsuleFill).border(1.dp, CapsuleEdge, CircleShape), verticalAlignment = Alignment.CenterVertically) {
                 if (page == 3) CapsuleText("Import") { importer.launch(arrayOf("*/*")) }
                 CapsuleText("Cancel") { close() }
             }
-            Spacer(Modifier.width(13.dp))
+            Spacer(Modifier.width(if (compact) 8.dp else 13.dp))
             Box(Modifier.size(44.dp, 45.dp).clip(CircleShape).background(DoneBlue).clickable { done() }, contentAlignment = Alignment.Center) {
                 Icon(PcIcons.DoneTick, contentDescription = "Done", tint = Color.White, modifier = Modifier.requiredSize(40.dp))
             }
         }
-        Column(Modifier.padding(start = if (wide) WideContentStart else 105.dp, end = if (wide) WideContentEnd else 24.dp, top = 100.dp).verticalScroll(rememberScrollState())) {
+        Column(Modifier.padding(start = contentStart, end = contentEnd, top = 100.dp).verticalScroll(rememberScrollState())) {
             when (page) {
                 0 -> {
                     AboutCard(photo, author, { author = it.take(256) }, { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, signature)
@@ -386,37 +398,43 @@ private fun AboutCard(photo: ImageBitmap?, author: String, onAuthor: (String) ->
             }
         }
         // the signature: drawn with a finger or pen over the dashed line
-        Box(Modifier.align(Alignment.TopCenter).padding(top = 180.dp).size(401.dp, 121.dp)) {
-            Canvas(
-                Modifier.fillMaxSize().pointerInput(Unit) {
-                    awaitEachGesture {
-                        val down = awaitFirstDown()
-                        down.consume()
-                        val line = mutableListOf(Offset(down.position.x / size.width, down.position.y / size.height))
-                        signature.add(line.toList())
-                        while (true) {
-                            val c = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
-                            if (!c.pressed) break
-                            line.add(Offset(c.position.x / size.width, c.position.y / size.height))
-                            signature[signature.size - 1] = line.toList()
-                            c.consume()
+        BoxWithConstraints(Modifier.align(Alignment.TopCenter).padding(top = 180.dp).fillMaxWidth().height(121.dp)) {
+            val boxW = minOf(401.dp, maxWidth)
+            val lineW = minOf(305.dp, (boxW - 56.dp).coerceAtLeast(140.dp))
+            val lineStart = (boxW - lineW) / 2
+            Box(Modifier.align(Alignment.TopCenter).size(boxW, 121.dp)) {
+                Canvas(
+                    Modifier.fillMaxSize().pointerInput(Unit) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown()
+                            down.consume()
+                            val line = mutableListOf(Offset(down.position.x / size.width, down.position.y / size.height))
+                            signature.add(line.toList())
+                            while (true) {
+                                val c = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                                if (!c.pressed) break
+                                line.add(Offset(c.position.x / size.width, c.position.y / size.height))
+                                signature[signature.size - 1] = line.toList()
+                                c.consume()
+                            }
                         }
+                    },
+                ) {
+                    val lineY = 82.dp.toPx()
+                    val span = lineW.toPx()
+                    val from = (size.width - span) / 2f
+                    drawLine(SignLine, Offset(from, lineY), Offset(from + span, lineY), 1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 4.dp.toPx())))
+                    for (stroke in signature) {
+                        val path = Path()
+                        stroke.forEachIndexed { i, p -> if (i == 0) path.moveTo(p.x * size.width, p.y * size.height) else path.lineTo(p.x * size.width, p.y * size.height) }
+                        drawPath(path, Ink, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
                     }
-                },
-            ) {
-                val lineY = 82.dp.toPx()
-                val from = (size.width - 305.dp.toPx()) / 2f
-                drawLine(SignLine, Offset(from, lineY), Offset(from + 305.dp.toPx(), lineY), 1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 4.dp.toPx())))
-                for (stroke in signature) {
-                    val path = Path()
-                    stroke.forEachIndexed { i, p -> if (i == 0) path.moveTo(p.x * size.width, p.y * size.height) else path.lineTo(p.x * size.width, p.y * size.height) }
-                    drawPath(path, Ink, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
                 }
-            }
-            Text("Sign here", color = SignInk, fontSize = 11.sp, modifier = Modifier.offset(x = 50.dp, y = 90.dp))
-            // always there, at the line's end
-            Box(Modifier.offset(x = 330.dp, y = 58.dp).size(22.dp).clip(CircleShape).background(SignClear).clickable { signature.clear() }, contentAlignment = Alignment.Center) {
-                Icon(PcIcons.Cross, contentDescription = "Clear the signature", tint = CardFill, modifier = Modifier.size(14.dp))
+                Text("Sign here", color = SignInk, fontSize = 11.sp, modifier = Modifier.offset(x = lineStart + 2.dp, y = 90.dp))
+                // always there, at the line's end
+                Box(Modifier.offset(x = (lineStart + lineW - 24.dp).coerceAtLeast(0.dp), y = 58.dp).size(22.dp).clip(CircleShape).background(SignClear).clickable { signature.clear() }, contentAlignment = Alignment.Center) {
+                    Icon(PcIcons.Cross, contentDescription = "Clear the signature", tint = CardFill, modifier = Modifier.size(14.dp))
+                }
             }
         }
     }

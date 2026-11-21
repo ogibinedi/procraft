@@ -168,17 +168,21 @@ fun GestureControls(vm: CanvasViewModel) {
     BackHandler { vm.gestureControlsOpen = false }
     // on a wide screen what gestures can do is named on a card, the page and its title to its right
     val screen = androidx.compose.ui.platform.LocalConfiguration.current
-    val wide = screen.screenWidthDp > screen.screenHeightDp
+    val wide = screen.screenWidthDp > screen.screenHeightDp && screen.screenWidthDp >= 820
+    val compact = !wide && screen.screenWidthDp < 500
+    val railW = if (compact) 64.dp else 81.dp
+    val contentStart = if (wide) WideContentStart else if (compact) 74.dp else 105.dp
+    val contentEnd = if (wide) WideContentEnd else if (compact) 12.dp else 24.dp
     Box(Modifier.fillMaxSize().background(ScreenFill).pointerInput(Unit) { detectTapGestures { } }) {
         if (wide) {
             GesturePagesCard(page) { page = it }
         } else {
             val rail = rememberScrollState()
-            Column(Modifier.width(81.dp).fillMaxHeight().background(RailFill).scrollHint(rail).verticalScroll(rail).padding(start = 8.dp, top = 46.dp, bottom = 20.dp)) {
+            Column(Modifier.width(railW).fillMaxHeight().background(RailFill).scrollHint(rail).verticalScroll(rail).padding(start = if (compact) 4.dp else 8.dp, top = 46.dp, bottom = 20.dp)) {
                 for (p in GesturePurpose.entries) {
                     val chosen = p == page
                     Box(
-                        Modifier.size(65.dp, 53.dp).clip(CircleShape).background(if (chosen) Pc.Accent else Color.Transparent).clickable { page = p },
+                        Modifier.size(if (compact) 56.dp else 65.dp, 53.dp).clip(CircleShape).background(if (chosen) Pc.Accent else Color.Transparent).clickable { page = p },
                         contentAlignment = Alignment.Center,
                     ) {
                         // each drawn in a padded frame, fitted 37 across
@@ -194,15 +198,15 @@ fun GestureControls(vm: CanvasViewModel) {
                 modifier = Modifier.padding(start = WideContentStart, end = WideContentEnd).offset(y = 28.dp).fillMaxWidth(),
             )
         } else {
-            Text(page.heading, color = Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.offset(x = 101.dp, y = 28.dp))
+            Text(page.heading, color = Ink, fontSize = if (compact) 18.sp else 20.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.offset(x = contentStart, y = 28.dp))
         }
         Box(
-            Modifier.align(Alignment.TopEnd).padding(top = 20.dp, end = 20.dp).size(44.dp, 45.dp).clip(CircleShape).background(DoneBlue).clickable { vm.gestureControlsOpen = false },
+            Modifier.align(Alignment.TopEnd).padding(top = 20.dp, end = if (compact) 12.dp else 20.dp).size(44.dp, 45.dp).clip(CircleShape).background(DoneBlue).clickable { vm.gestureControlsOpen = false },
             contentAlignment = Alignment.Center,
         ) {
             Icon(PcIcons.DoneTick, contentDescription = "Done", tint = Color.White, modifier = Modifier.requiredSize(40.dp))
         }
-        Column(Modifier.padding(start = if (wide) WideContentStart else 105.dp, end = if (wide) WideContentEnd else 24.dp, top = 100.dp).verticalScroll(rememberScrollState())) {
+        Column(Modifier.padding(start = contentStart, end = contentEnd, top = 100.dp).verticalScroll(rememberScrollState())) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(25.dp)).background(CardFill)) {
                 val options = GestureOptions[page].orEmpty()
                 options.forEachIndexed { i, o ->
@@ -241,10 +245,10 @@ fun GestureControls(vm: CanvasViewModel) {
 /** A way of touching: its name and what it does, and its switch. */
 @Composable
 private fun OptionRow(o: GestureOption, on: Boolean, height: Dp, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().height(height).clickable { onChange(!on) }.padding(start = 28.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(o.label, color = Ink, fontSize = 18.sp, fontWeight = FontWeight.Medium, maxLines = 1)
-            Text(o.detail, color = Detail, fontSize = 13.sp, maxLines = 1)
+    Row(Modifier.fillMaxWidth().height(height).clickable { onChange(!on) }.padding(start = 18.dp, end = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f).padding(end = 8.dp)) {
+            Text(o.label, color = Ink, fontSize = 17.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+            Text(o.detail, color = Detail, fontSize = 12.5.sp, maxLines = 1)
         }
         Switch(on, enabled = true)
     }
@@ -256,8 +260,8 @@ private fun DelayRow(seconds: Float, enabled: Boolean, onChange: (Float) -> Unit
     val change by rememberUpdatedState(onChange)
     val span = GestureSettings.MAX_DELAY_S - GestureSettings.MIN_DELAY_S
     val fraction = ((seconds - GestureSettings.MIN_DELAY_S) / span).coerceIn(0f, 1f)
-    Row(Modifier.fillMaxWidth().height(50.dp).padding(start = 28.dp, end = 24.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("Delay", color = Ink, fontSize = 15.sp, modifier = Modifier.width(74.dp))
+    Row(Modifier.fillMaxWidth().height(50.dp).padding(start = 18.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("Delay", color = Ink, fontSize = 15.sp, modifier = Modifier.width(56.dp))
         Box(
             Modifier.weight(1f).fillMaxHeight()
                 .then(

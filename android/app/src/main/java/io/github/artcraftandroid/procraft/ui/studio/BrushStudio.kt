@@ -465,9 +465,15 @@ private fun StudioParts(vm: CanvasViewModel) {
         }
     }
     if (cards) {
+        val screenW = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
+        val cardW = minOf(PartCardWidth, (screenW - 16.dp).coerceAtLeast(260.dp))
         val place = remember(at) {
             object : androidx.compose.ui.window.PopupPositionProvider {
-                override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize) = at
+                override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize) =
+                    IntOffset(
+                        at.x.coerceIn(8, (windowSize.width - popupContentSize.width - 8).coerceAtLeast(8)),
+                        at.y.coerceIn(8, (windowSize.height - popupContentSize.height - 8).coerceAtLeast(8)),
+                    )
             }
         }
         // a tap outside closes them, but for one on Combine Mode's own list
@@ -477,7 +483,7 @@ private fun StudioParts(vm: CanvasViewModel) {
             onDismissRequest = { if (!list && callout == null) cards = false },
             properties = androidx.compose.ui.window.PopupProperties(focusable = !list),
         ) {
-            Column(Modifier.width(PartCardWidth).clip(RoundedCornerShape(12.dp)).background(StudioTabs), verticalArrangement = Arrangement.spacedBy(PartGap)) {
+            Column(Modifier.width(cardW).clip(RoundedCornerShape(12.dp)).background(StudioTabs), verticalArrangement = Arrangement.spacedBy(PartGap)) {
                 PartCard(vm, 0, "Primary", second = false)
                 Row(
                     Modifier.fillMaxWidth().height(CombineRow).onGloballyPositioned { rowY = it.boundsInWindow().center.y }.tap { list = true }.padding(start = 11.dp, end = 12.dp),
@@ -577,8 +583,9 @@ private fun BlendModeList(modes: List<io.github.artcraftandroid.procraft.core.Bl
             override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize): IntOffset {
                 val margin = with(density) { 10.dp.roundToPx() }
                 val top = (centreY - (chosen - first + 0.5f) * pitch).roundToInt()
+                val maxLeft = (windowSize.width - margin - popupContentSize.width).coerceAtLeast(margin)
                 return IntOffset(
-                    left?.let { with(density) { it.roundToPx() } } ?: (windowSize.width - margin - popupContentSize.width),
+                    (left?.let { with(density) { it.roundToPx() } } ?: maxLeft).coerceIn(margin, maxLeft),
                     top.coerceIn(margin, (windowSize.height - margin - popupContentSize.height).coerceAtLeast(margin)),
                 )
             }
@@ -744,6 +751,29 @@ private fun StudioHorizontalTabs(vm: CanvasViewModel) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         STUDIO_TABS.forEachIndexed { i, tab ->
+            if (i == 0 && vm.studioDual) {
+                for ((partIdx, second) in listOf(false, true).withIndex()) {
+                    val activePart = vm.studioSecond == second
+                    Row(
+                        Modifier
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(22.dp))
+                            .background(if (activePart) Color(0xFF333333) else Color(0xFF1F1F1F))
+                            .border(1.5.dp, if (activePart) Pc.Accent else StudioButtonEdge, RoundedCornerShape(22.dp))
+                            .tap { vm.showStudioPart(second) }
+                            .padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            if (partIdx == 0) "1st Brush" else "2nd Brush",
+                            color = if (activePart) Color.White else StudioPageInk,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
             if (vm.studioSecond && tab.name !in SecondPages) return@forEachIndexed
             val on = vm.studioTab == i
             Row(
@@ -829,7 +859,7 @@ private fun StudioPad(vm: CanvasViewModel, modifier: Modifier, compact: Boolean 
             verticalAlignment = Alignment.CenterVertically) {
             Icon(PcIcons.StudioPad, contentDescription = null, tint = StudioButtonInk, modifier = Modifier.size(26.dp))
             Spacer(Modifier.width(6.dp))
-            Text("Drawing Pad", color = StudioButtonInk, fontSize = if (compact) 15.sp else 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text(if (compact && vm.randomisesBrushes) "Pad" else "Drawing Pad", color = StudioButtonInk, fontSize = if (compact) 15.sp else 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
         }
         Row(Modifier.align(Alignment.TopEnd).padding(top = inset, end = inset), verticalAlignment = Alignment.CenterVertically) {
             // a plugin's: the brush set at random

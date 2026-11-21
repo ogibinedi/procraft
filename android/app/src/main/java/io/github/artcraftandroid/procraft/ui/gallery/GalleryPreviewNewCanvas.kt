@@ -575,35 +575,44 @@ internal fun AboutApp(onRecover: () -> Unit, onClose: () -> Unit) {
             "Version ${info.versionName} Build ${androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(info)}"
         }.getOrDefault("")
     }
-    Box(Modifier.fillMaxSize().background(AboutVeil).pointerInput(Unit) { awaitEachGesture { awaitFirstDown().consume() } }) {
-        Column(Modifier.fillMaxWidth().padding(top = 95.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(AboutVeil).pointerInput(Unit) { awaitEachGesture { awaitFirstDown().consume() } }) {
+        val compact = maxHeight < 680.dp || maxWidth < 400.dp
+        val iconSide = minOf(300.dp, maxWidth - 64.dp, (maxHeight * 0.38f).coerceAtLeast(120.dp))
+        val markSide = iconSide * 1.5f
+        val cornerRadius = iconSide * (67f / 300f)
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = if (compact) 48.dp else 95.dp, bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
             // the launcher icon: its field, and its picture drawn at the adaptive icon's full size
-            Box(Modifier.size(300.dp).clip(RoundedCornerShape(67.dp)).background(AboutIconField), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(iconSide).clip(RoundedCornerShape(cornerRadius)).background(AboutIconField), contentAlignment = Alignment.Center) {
                 androidx.compose.foundation.Image(
                     androidx.compose.ui.res.painterResource(io.github.artcraftandroid.procraft.R.drawable.procraft_mark),
                     contentDescription = null,
-                    modifier = Modifier.requiredSize(450.dp),
+                    modifier = Modifier.requiredSize(markSide),
                 )
             }
-            Text("ProCraft", color = Color.White, fontSize = 64.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.padding(top = 12.dp))
+            Text("ProCraft", color = Color.White, fontSize = if (compact) 44.sp else 64.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.padding(top = 12.dp))
             Text(version, color = AboutInk, fontSize = 13.sp, maxLines = 1, modifier = Modifier.padding(top = 14.dp))
+            Spacer(Modifier.height(if (compact) 28.dp else 80.dp))
+            Box(
+                Modifier.size(220.dp, 44.dp).clip(RoundedCornerShape(10.dp))
+                    .background(AboutButtonFill).clickable(onClick = onRecover),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("Start Gallery Recovery", color = AboutButtonInk, fontSize = 15.sp, maxLines = 1)
+            }
         }
         Box(
-            Modifier.align(Alignment.TopCenter).padding(top = AboutButtonTop).size(220.dp, 38.dp).clip(RoundedCornerShape(8.dp))
-                .background(AboutButtonFill).clickable(onClick = onRecover),
+            Modifier.align(Alignment.TopEnd).padding(top = 20.dp, end = 20.dp).size(44.dp).clickable(onClick = onClose),
             contentAlignment = Alignment.Center,
         ) {
-            Text("Start Gallery Recovery", color = AboutButtonInk, fontSize = 15.sp, maxLines = 1)
-        }
-        Box(
-            Modifier.align(Alignment.TopEnd).padding(top = 31.dp, end = 31.5.dp).size(22.5.dp).clip(CircleShape).background(AboutClose)
-                .clickable(onClick = onClose),
-            contentAlignment = Alignment.Center,
-        ) {
-            androidx.compose.foundation.Canvas(Modifier.size(8.dp)) {
-                val w = 1.8.dp.toPx()
-                drawLine(AboutCloseInk, androidx.compose.ui.geometry.Offset.Zero, androidx.compose.ui.geometry.Offset(size.width, size.height), w, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-                drawLine(AboutCloseInk, androidx.compose.ui.geometry.Offset(size.width, 0f), androidx.compose.ui.geometry.Offset(0f, size.height), w, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            Box(Modifier.size(26.dp).clip(CircleShape).background(AboutClose), contentAlignment = Alignment.Center) {
+                androidx.compose.foundation.Canvas(Modifier.size(9.dp)) {
+                    val w = 1.8.dp.toPx()
+                    drawLine(AboutCloseInk, androidx.compose.ui.geometry.Offset.Zero, androidx.compose.ui.geometry.Offset(size.width, size.height), w, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                    drawLine(AboutCloseInk, androidx.compose.ui.geometry.Offset(size.width, 0f), androidx.compose.ui.geometry.Offset(0f, size.height), w, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                }
             }
         }
     }
