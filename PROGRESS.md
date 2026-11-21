@@ -11,7 +11,7 @@ Dokumen ini mencatat progres pengembangan fork **ProCraft (`ogibinedi/procraft`)
 | **Fase 1** | Pembersihan Platform Non-Android (`desktop/`, `ios/`, `packaging/`), Restrukturisasi Folder `canvas/` & `ui/`, dan Pemecahan God File `CanvasViewModel.kt` | ✅ Selesai | `58f1334` |
 | **Fase 2** | Desain Ulang Navigasi & Panel Utama Smartphone (*Procreate Pocket* Bottom Sheets, Collapsible SideBar, Responsive Pickers, Brush Studio Horizontal Tabs) + Pemecahan File UI & Crate `core`/`gpu` | ✅ Selesai | `a25d5ca`, `ef874b6` |
 | **Fase 3** | Adaptasi Secondary Tools & Editors untuk Semua Ukuran Smartphone, Modularisasi Crate Rust (`stroke/`, `scene3d/`, `touch/`), dan Rilis Signed APK `v0.0.1` ke GitHub Releases (0 Kuota Artifact) | ✅ Selesai | `e28d701`..`1052f52` |
-| **Fase 4** | Rapi-Rapi & Optimasi: Eliminasi Warning Visibilitas `procraft-gpu`, Pembersihan 1.489 Import Kotlin Tak Terpakai, Optimasi Zero-Recomposition Swipe-Down `SmartphoneBottomSheet`, & Pembaruan Dokumentasi | ✅ Selesai | *(terbaru)* |
+| **Fase 4** | Rapi-Rapi & Optimasi (`v0.0.2`): Eliminasi Warning Visibilitas `procraft-gpu`, Pembersihan 1.489 Import Kotlin Tak Terpakai, Optimasi Zero-Recomposition Swipe-Down `SmartphoneBottomSheet`, & Pembaruan Dokumentasi | ✅ Selesai | `eb223f9` |
 
 ---
 

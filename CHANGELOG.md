@@ -2,7 +2,7 @@
 
 All notable changes in this Android Smartphone-focused fork (`ogibinedi/procraft`) are documented in this file.
 
-## [Unreleased]
+## [0.0.2] - 2026-11-21 - Cleanup & Smartphone Optimization
 
 ### Changed & Optimized
 - **Zero-Recomposition Bottom Sheet Swipe-Down (`ui/components/BottomSheetPanel.kt`)**:
