@@ -437,7 +437,7 @@ fun BrushLibrary(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier,
                     }
                 }
             }
-            LibraryGrabber(vm, floating)
+            if (!LocalCompactSheet.current) LibraryGrabber(vm, floating)
         }
         // the search field scrolls away with the lists: out of sight at first, it comes down as a
         // list is pulled down past its top, and goes again as the lists scroll up. Two fingers
@@ -501,9 +501,10 @@ fun BrushLibrary(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier,
         if (searching || query.isNotEmpty()) {
             SearchResults(vm, query)
         } else {
+        val adaptiveSetsWidth = ResponsiveLayout.brushSetsColumnWidth(LocalSheetWidth.current)
         Row(Modifier.fillMaxSize()) {
             LazyColumn(
-                Modifier.width(SetsWidth).fillMaxHeight().background(Pc.SetColumn),
+                Modifier.width(adaptiveSetsWidth).fillMaxHeight().background(Pc.SetColumn),
                 contentPadding = PaddingValues(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -1189,7 +1190,7 @@ private fun LibrariesPanel(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier, 
                     }
                 }
             }
-            LibraryGrabber(vm, floating)
+            if (!LocalCompactSheet.current) LibraryGrabber(vm, floating)
         }
         if (showing) {
             LazyVerticalGrid(

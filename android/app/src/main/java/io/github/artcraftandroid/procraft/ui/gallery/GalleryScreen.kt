@@ -584,11 +584,12 @@ fun GalleryScreen(vm: CanvasViewModel) {
 
         if (newCanvas) Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { newCanvas = false } })
         // hangs from the + button, 2 dp from the screen's edge, and grows out of its arrow
-        val newLeft = maxWidth - 2.dp - NewCanvasWidth
+        val newCanvasMenuWidth = minOf(NewCanvasWidth, maxWidth - 12.dp)
+        val newLeft = (maxWidth - 2.dp - newCanvasMenuWidth).coerceAtLeast(6.dp)
         val newArrow = maxWidth - 49.dp - newLeft
-        MenuPresence(newCanvas, androidx.compose.ui.graphics.TransformOrigin(newArrow / NewCanvasWidth, 0f)) { look ->
+        MenuPresence(newCanvas, androidx.compose.ui.graphics.TransformOrigin(newArrow / newCanvasMenuWidth, 0f)) { look ->
             NewCanvasPanel(
-                Modifier.offset(x = newLeft, y = 56.5.dp).then(look), arrowX = newArrow, presets = vm.canvasPresets,
+                Modifier.offset(x = newLeft, y = 56.5.dp).then(look), arrowX = newArrow, presets = vm.canvasPresets, width = newCanvasMenuWidth,
                 // Custom Canvas opens over the list, which is still there when it closes
                 onCustom = { vm.openCustomCanvas() },
                 onEdit = { vm.openCustomCanvas(it) },
@@ -1820,6 +1821,7 @@ private fun NewCanvasPanel(
     modifier: Modifier,
     arrowX: Dp,
     presets: List<CanvasPreset>,
+    width: Dp = NewCanvasWidth,
     onCustom: () -> Unit,
     onEdit: (Int) -> Unit,
     onDelete: (Int) -> Unit,
@@ -1833,7 +1835,7 @@ private fun NewCanvasPanel(
     val (sw, sh) = root.width.coerceAtLeast(1) to root.height.coerceAtLeast(1)
     // the row swiped open, if one is
     var opened by remember { mutableStateOf<Int?>(null) }
-    Popover(NewCanvasWidth, arrowX, modifier, fill = Pc.LightPanel, corner = 32.dp) {
+    Popover(width, arrowX, modifier, fill = Pc.LightPanel, corner = 32.dp) {
         Box(Modifier.fillMaxWidth()) {
             Text(
                 "New canvas",

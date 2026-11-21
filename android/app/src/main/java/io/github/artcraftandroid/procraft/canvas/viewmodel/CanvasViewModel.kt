@@ -191,6 +191,10 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
     /** Whether the size and opacity side bar shows. */
     var showSideBar by mutableStateOf(true)
 
+    /** Whether the side bar is tucked into an edge pull tab on smartphone screens. */
+    var sideBarCollapsed by mutableStateOf(false)
+        internal set
+
     internal val interfacePrefs = app.getSharedPreferences("interface", android.content.Context.MODE_PRIVATE)
 
     /** Whether a mask is current, the colour then the one masks paint with. */

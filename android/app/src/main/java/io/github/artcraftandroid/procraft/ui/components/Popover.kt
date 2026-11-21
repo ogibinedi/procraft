@@ -156,6 +156,11 @@ fun Popover(
     side: ArrowSide = ArrowSide.TOP,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val compactSheet = LocalCompactSheet.current && side == ArrowSide.TOP && fill == null
+    val sheetWidth = LocalSheetWidth.current
+    val effectiveWidth = if (compactSheet && sheetWidth != Dp.Unspecified) sheetWidth else width
+    val effectiveSide = if (compactSheet) ArrowSide.NONE else side
+    val effectiveCorner = if (compactSheet) ResponsiveLayout.BottomSheetCorner else corner
     val backdrops = LocalBackdrops.current.takeIf { fill == null && Pc.PopoverFrost.alpha < 1f }
     val paint = fill ?: if (backdrops != null) Pc.PopoverFrost else Pc.PopoverFill
     val key = remember { Any() }
@@ -177,26 +182,26 @@ fun Popover(
             // by the screen, as a bar's (see rememberFrost)
             val at = backdrops.onCanvas(c.positionOnScreen())
             val k = look.scale
-            val (arrowH, radius) = with(density) { Pc.ArrowHeight.toPx() to corner.toPx() }
-            val (l, t, r) = Triple(if (side == ArrowSide.LEFT) arrowH else 0f, if (side == ArrowSide.TOP) arrowH else 0f, if (side == ArrowSide.RIGHT) arrowH else 0f)
-            val b = if (side == ArrowSide.BOTTOM) arrowH else 0f
+            val (arrowH, radius) = with(density) { Pc.ArrowHeight.toPx() to effectiveCorner.toPx() }
+            val (l, t, r) = Triple(if (effectiveSide == ArrowSide.LEFT) arrowH else 0f, if (effectiveSide == ArrowSide.TOP) arrowH else 0f, if (effectiveSide == ArrowSide.RIGHT) arrowH else 0f)
+            val b = if (effectiveSide == ArrowSide.BOTTOM) arrowH else 0f
             body = floatArrayOf(at.x + l * k, at.y + t * k, at.x + (c.size.width - r) * k, at.y + (c.size.height - b) * k, radius * k)
         }
     }
-    val sideways = side == ArrowSide.LEFT || side == ArrowSide.RIGHT
+    val sideways = effectiveSide == ArrowSide.LEFT || effectiveSide == ArrowSide.RIGHT
     Box(
-        modifier.width(if (sideways) width + Pc.ArrowHeight else width).then(frost).drawBehind {
+        modifier.width(if (sideways) effectiveWidth + Pc.ArrowHeight else effectiveWidth).then(frost).drawBehind {
             val arrowH = Pc.ArrowHeight.toPx()
             val at = arrowX.toPx()
             val half = arrowH
             val tip = 2.dp.toPx()
-            val radius = CornerRadius(corner.toPx())
+            val radius = CornerRadius(effectiveCorner.toPx())
             // a corner the arrow comes near is rounded less, so that the arrow rises from a
             // straight edge rather than hanging over the curve (at a small interface size, or a
             // button near the screen's edge)
-            val near = { from: Float -> CornerRadius((from - half - tip).coerceIn(0f, corner.toPx())) }
+            val near = { from: Float -> CornerRadius((from - half - tip).coerceIn(0f, effectiveCorner.toPx())) }
             val outline = Path().apply {
-                when (side) {
+                when (effectiveSide) {
                     ArrowSide.TOP -> {
                         addRoundRect(RoundRect(0f, arrowH, size.width, size.height, near(at), near(size.width - at), radius, radius))
                         moveTo(at - half - tip, arrowH + 0.5f)
@@ -231,7 +236,11 @@ fun Popover(
                         lineTo(w - arrowH - 0.5f, at + half + tip)
                         close()
                     }
-                    ArrowSide.NONE -> addRoundRect(RoundRect(0f, 0f, size.width, size.height, radius))
+                    ArrowSide.NONE -> if (compactSheet) {
+                        addRoundRect(RoundRect(0f, 0f, size.width, size.height, radius, radius, CornerRadius.Zero, CornerRadius.Zero))
+                    } else {
+                        addRoundRect(RoundRect(0f, 0f, size.width, size.height, radius))
+                    }
                 }
             }
             drawIntoCanvas { canvas ->
@@ -248,14 +257,19 @@ fun Popover(
             drawPath(outline, paint)
         },
     ) {
-        val inset = when (side) {
+        val inset = when (effectiveSide) {
             ArrowSide.TOP -> Modifier.padding(top = Pc.ArrowHeight)
             ArrowSide.BOTTOM -> Modifier.padding(bottom = Pc.ArrowHeight)
             ArrowSide.LEFT -> Modifier.padding(start = Pc.ArrowHeight)
             ArrowSide.RIGHT -> Modifier.padding(end = Pc.ArrowHeight)
             ArrowSide.NONE -> Modifier
         }
-        Column(inset.clip(RoundedCornerShape(corner)), content = content)
+        val clipShape = if (compactSheet) {
+            RoundedCornerShape(topStart = effectiveCorner, topEnd = effectiveCorner)
+        } else {
+            RoundedCornerShape(effectiveCorner)
+        }
+        Column(inset.clip(clipShape), content = content)
     }
 }
 

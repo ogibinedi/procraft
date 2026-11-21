@@ -87,13 +87,26 @@ private fun Modifier.tap(enabled: Boolean = true, onClick: () -> Unit): Modifier
 fun TopBar(vm: CanvasViewModel, modifier: Modifier = Modifier) {
     BoxWithConstraints(modifier.fillMaxWidth().height(Pc.BarHeight).background(Pc.Bar)) {
         val fit = Pc.barFit(maxWidth)
+        val compactGallery = maxWidth < 430.dp
         Row(
             Modifier.align(Alignment.CenterStart).padding(start = fit.margin),
             horizontalArrangement = Arrangement.spacedBy(fit.actionGap),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(Modifier.size(Pc.GalleryWidth, Pc.BarButtonHeight).tap { vm.closeArtwork() }, contentAlignment = Alignment.CenterStart) {
-                Text("Gallery", color = Pc.BarText, fontSize = 18.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false, modifier = Modifier.offset(y = (-1).dp))
+            Box(
+                Modifier.size(if (compactGallery) maxOf(fit.button, 40.dp) else Pc.GalleryWidth, Pc.BarHeight).tap { vm.closeArtwork() },
+                contentAlignment = if (compactGallery) Alignment.Center else Alignment.CenterStart,
+            ) {
+                if (compactGallery) {
+                    Icon(
+                        PcIcons.ChevronLeft,
+                        contentDescription = "Gallery",
+                        tint = Pc.BarText,
+                        modifier = Modifier.size(22.dp),
+                    )
+                } else {
+                    Text("Gallery", color = Pc.BarText, fontSize = 18.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false, modifier = Modifier.offset(y = (-1).dp))
+                }
             }
             ActionButton(PcIcons.Actions, "Actions", fit.button, selected = vm.panel == Panel.ACTIONS) { vm.toggle(Panel.ACTIONS) }
             ActionButton(PcIcons.Adjustments, "Adjustments", fit.button, selected = vm.panel == Panel.ADJUSTMENTS || vm.adjustment != null || vm.opacityLayer != null || vm.recoloring) { vm.adjustmentsPressed() }
@@ -135,7 +148,7 @@ fun TopBar(vm: CanvasViewModel, modifier: Modifier = Modifier) {
 private fun ActionButton(icon: ImageVector, label: String, width: Dp, selected: Boolean = false, glyph: Dp = 36.dp, onClick: () -> Unit = {}) {
     val lit = animateHighlight(selected)
     val k = Pc.barGlyphScale(width)
-    Box(Modifier.size(width, Pc.BarButtonHeight).tap(onClick = onClick), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(width, Pc.BarHeight).tap(onClick = onClick), contentAlignment = Alignment.Center) {
         Box(Modifier.size(Pc.ActionDiscSize * k).clip(CircleShape).background(lerp(Pc.ActionDisc, Pc.BarGlyphSelected, lit)))
         // the glyphs are drawn in a 44 frame, shown [glyph] across (most 36)
         Icon(icon, contentDescription = label, tint = lerp(Pc.ActionGlyph, Color.White, lit), modifier = Modifier.requiredSize(glyph * k))
@@ -153,8 +166,8 @@ private fun Modifier.tapOrHold(onClick: () -> Unit, onHold: () -> Unit): Modifie
 @Composable
 private fun ToolButton(icon: ImageVector, label: String, width: Dp, selected: Boolean, onHold: (() -> Unit)? = null, onClick: () -> Unit) {
     val touch = if (onHold != null) Modifier.tapOrHold(onClick, onHold) else Modifier.tap(onClick = onClick)
-    Box(Modifier.size(width, Pc.BarButtonHeight).then(touch), contentAlignment = Alignment.Center) {
-        // a 44 frame shown as it is, over the 38 tall button
+    Box(Modifier.size(width, Pc.BarHeight).then(touch), contentAlignment = Alignment.Center) {
+        // a 44 frame shown as it is, over the 44 tall button
         Icon(icon, contentDescription = label, tint = lerp(Pc.BarGlyph, Pc.BarGlyphSelected, animateHighlight(selected)), modifier = Modifier.requiredSize(44.dp * Pc.barGlyphScale(width)))
     }
 }
@@ -168,7 +181,7 @@ private fun ColorButton(vm: CanvasViewModel, width: Dp) {
     // held a moment, the previous colour (and held again, back)
     // dragged out onto the canvas, it fills there (ColorDrop)
     val hold = io.github.artcraftandroid.procraft.core.colourHoldMs().toLong()
-    Box(Modifier.size(width, Pc.BarButtonHeight).dropSource(vm, holdMs = hold, onHold = { vm.previousColor() }) { vm.toggle(Panel.COLOR) }, contentAlignment = Alignment.Center) {
+    Box(Modifier.size(width, Pc.BarHeight).dropSource(vm, holdMs = hold, onHold = { vm.previousColor() }) { vm.toggle(Panel.COLOR) }, contentAlignment = Alignment.Center) {
         val dot = Modifier.size(Pc.ColorDot * Pc.barGlyphScale(width)).clip(CircleShape).background(CanvasSpace.color(rgb))
         Box(if (ringed) dot.border(1.dp, Pc.ColorRing, CircleShape) else dot)
     }
@@ -186,19 +199,20 @@ private const val LIGHT_RING_ABOVE = 0.85f
  * mirrored but the glyphs.
  */
 @Composable
-fun SideBar(vm: CanvasViewModel, modifier: Modifier = Modifier, right: Boolean = false, trackHeight: Dp = Pc.SliderHeight, shown: Float = 1f) {
+fun SideBar(vm: CanvasViewModel, modifier: Modifier = Modifier, right: Boolean = false, trackHeight: Dp = Pc.SliderHeight, shown: Float = 1f, collapsible: Boolean = false) {
     // a control's left edge, mirrored on the right
     fun x(left: Dp, width: Dp) = if (right) Pc.SideBarWidth - left - width else left
     // shorter tracks bring what is under each up with them
     val shorter = Pc.SliderHeight - trackHeight
     val opacityTop = OpacityTrackTop - shorter
+    val extraCollapse = if (collapsible) 36.dp else 0.dp
     // its glass slides out with it as the interface hides, its screen side's corners off the screen
     val aside = with(androidx.compose.ui.platform.LocalDensity.current) { Pc.SideBarWidth.toPx() } * (1f - shown) * if (right) 1f else -1f
     val moved = Offset(aside, 0f)
     val body = BarGlass(shown, moved, pastLeft = if (right) 0.dp else Pc.SideBarCorner, pastRight = if (right) Pc.SideBarCorner else 0.dp)
     val track = BarGlass(shown, moved, window = true)
     Box(
-        Modifier.then(rememberFrost(Pc.SideBarCorner, body)).then(modifier).size(Pc.SideBarWidth, Pc.SideBarHeight - shorter * 2)
+        Modifier.then(rememberFrost(Pc.SideBarCorner, body)).then(modifier).size(Pc.SideBarWidth, Pc.SideBarHeight - shorter * 2 + extraCollapse)
             // a touch on it keeps a slider's panel up
             .onGloballyPositioned { vm.sideBarOnWindow = it.boundsInWindow() }
             .drawBehind {
@@ -268,6 +282,59 @@ fun SideBar(vm: CanvasViewModel, modifier: Modifier = Modifier, right: Boolean =
         }
         SideButton(PcIcons.Undo, "Undo", vm.canUndo, Modifier.offset(x(5.dp, 40.dp), 430.5.dp - shorter * 2)) { vm.undo() }
         SideButton(PcIcons.Redo, "Redo", vm.canRedo, Modifier.offset(x(5.dp, 40.dp), 472.5.dp - shorter * 2)) { vm.redo() }
+        if (collapsible) {
+            Box(
+                Modifier
+                    .offset(x(3.dp, 44.dp), 511.dp - shorter * 2)
+                    .size(44.dp, 40.dp)
+                    .tap { vm.toggleSideBarCollapsed() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    PcIcons.ChevronLeft,
+                    contentDescription = "Collapse side bar",
+                    tint = Pc.SideGlyph,
+                    modifier = Modifier
+                        .size(18.dp)
+                        .then(if (right) Modifier.drawBehind {} else Modifier),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Compact edge handle shown on smartphone screens when the side bar is collapsed: maintains a
+ * 44.dp x 56.dp touch target while only occupying a 22.dp frosted tab visually.
+ */
+@Composable
+fun SideBarCollapsedHandle(right: Boolean, modifier: Modifier = Modifier, onExpand: () -> Unit) {
+    val tabShape = if (right) {
+        RoundedCornerShape(topStart = 14.dp, bottomStart = 14.dp)
+    } else {
+        RoundedCornerShape(topEnd = 14.dp, bottomEnd = 14.dp)
+    }
+    Box(
+        modifier
+            .size(44.dp, 64.dp)
+            .tap(onClick = onExpand),
+        contentAlignment = if (right) Alignment.CenterEnd else Alignment.CenterStart,
+    ) {
+        Box(
+            Modifier
+                .size(22.dp, 56.dp)
+                .clip(tabShape)
+                .background(Pc.SideBar)
+                .border(0.5.dp, Pc.GlassMenuEdge, tabShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                Modifier
+                    .size(4.dp, 22.dp)
+                    .clip(CircleShape)
+                    .background(Pc.SideGlyph),
+            )
+        }
     }
 }
 

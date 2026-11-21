@@ -167,12 +167,13 @@ private fun ExportScreen(
 ) {
     var settingsOpen by remember { mutableStateOf(false) }
     BoxWithConstraints(Modifier.fillMaxSize().background(ScreenFill).pointerInput(Unit) { detectTapGestures { } }) {
-        val wide = maxWidth > maxHeight
+        val wide = maxWidth > maxHeight && maxWidth >= 820.dp
+        val effectivePanelWidth = minOf(PanelWidth, maxWidth - 20.dp)
         BackHandler { if (settingsOpen && !wide) settingsOpen = false else onCancel() }
-        val left = if (wide) PanelWidth + 10.dp else 0.dp
+        val left = if (wide) effectivePanelWidth + 10.dp else 0.dp
         val inset = if (wide) 41.dp else 24.dp
         val boxWidth = maxWidth - left - inset * 2
-        val boxHeight = if (wide) minOf(boxWidth, maxHeight - 104.dp) else boxWidth
+        val boxHeight = if (wide) minOf(boxWidth, maxHeight - 104.dp) else minOf(boxWidth, maxHeight - 134.dp)
         val side = with(LocalDensity.current) { minOf(boxWidth, boxHeight).roundToPx() }
         Box(Modifier.offset(x = left + inset, y = 110.dp).size(boxWidth, boxHeight), contentAlignment = Alignment.Center) { preview(side) }
         if (wide) {
@@ -213,7 +214,7 @@ private fun ExportScreen(
             // upright, a tap outside the panel closes it
             if (!wide) Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { settingsOpen = false } })
             Column(
-                Modifier.padding(10.dp).width(PanelWidth).fillMaxHeight().clip(RoundedCornerShape(20.dp)).background(PanelFill).border(1.dp, PanelEdge, RoundedCornerShape(20.dp))
+                Modifier.padding(10.dp).width(effectivePanelWidth).fillMaxHeight().clip(RoundedCornerShape(20.dp)).background(PanelFill).border(1.dp, PanelEdge, RoundedCornerShape(20.dp))
                     .pointerInput(Unit) { detectTapGestures { } },
             ) {
                 Text(title, color = TitleInk, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.padding(start = 24.dp, top = 19.dp).height(36.dp))

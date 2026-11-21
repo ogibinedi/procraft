@@ -594,6 +594,10 @@ fun CanvasViewModel.changeRightHanded(on: Boolean) {
     interfacePrefs.edit().putBoolean(RIGHT_HANDED, on).apply()
 }
 
+fun CanvasViewModel.toggleSideBarCollapsed() {
+    sideBarCollapsed = !sideBarCollapsed
+}
+
 internal fun CanvasViewModel.readGradients(): List<GradientPreset> = gradientLibrary.list().map { g ->
     GradientPreset(g.name, g.stops.map { it.position to (0xFF000000 or it.rgb.toLong()) })
 }

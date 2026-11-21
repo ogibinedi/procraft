@@ -304,8 +304,10 @@ fun ColorPanel(vm: CanvasViewModel, arrowX: Dp, screenHeight: Dp, modifier: Modi
                     }
                 }
             }
-            Box(Modifier.align(Alignment.TopCenter).padding(top = 4.dp).size(40.dp, 4.dp).clip(CircleShape).background(Pc.Grabber))
-            if (!background) UndockHandle(vm, Modifier.align(Alignment.TopCenter))
+            if (!LocalCompactSheet.current) {
+                Box(Modifier.align(Alignment.TopCenter).padding(top = 4.dp).size(40.dp, 4.dp).clip(CircleShape).background(Pc.Grabber))
+                if (!background) UndockHandle(vm, Modifier.align(Alignment.TopCenter))
+            }
             if (vm.colorMode == ColorMode.HARMONY) HarmonyKindButton(vm)
         }
         if (vm.colorMode == ColorMode.PALETTES) {
@@ -786,27 +788,29 @@ private fun ModelSquare(m: ModelColor, coords: FloatArray, compact: Boolean, hei
     val model = m.model
     val now by rememberUpdatedState(coords)
     val pick by rememberUpdatedState(m)
-    val width = if (compact) 248.dp else 344.dp
+    val width = if (compact) 248.dp else 344.dp * ResponsiveLayout.colorPickerScale(LocalSheetWidth.current)
     val side = colourModelSquareSide(with(LocalDensity.current) { width.roundToPx() }.coerceAtLeast(1).toUInt()).toInt()
     val hue = coords[0]
     val picture = rememberPickerPicture(model to hue, side, CanvasSpace.p3) { n -> colourModelSquarePicture(model, hue, n.toUInt()) }
     val current = rgbColor(m.c.rgb())
-    Box(
-        Modifier.padding(horizontal = if (compact) 6.dp else 16.dp).size(width, if (compact) 248.dp else height).drawWithContent {
-            drawContent()
-            // the knob may hang over the square's edge
-            knob(Offset(coords[1] * size.width, (1f - coords[2]) * size.height), 10.75.dp.toPx(), current)
-        },
-    ) {
+    Box(Modifier.fillMaxWidth().padding(horizontal = if (compact) 6.dp else 16.dp), contentAlignment = Alignment.Center) {
         Box(
-            Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp))
-                .pointerInput(model) { track { x, y -> pick.set(floatArrayOf(now[0], x, 1f - y)) } }
-                .drawBehind {
-                    // read, so a new picture draws
-                    picture.version
-                    drawImage(picture.image, dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()))
-                },
-        )
+            Modifier.size(width, if (compact) 248.dp else height).drawWithContent {
+                drawContent()
+                // the knob may hang over the square's edge
+                knob(Offset(coords[1] * size.width, (1f - coords[2]) * size.height), 10.75.dp.toPx(), current)
+            },
+        ) {
+            Box(
+                Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp))
+                    .pointerInput(model) { track { x, y -> pick.set(floatArrayOf(now[0], x, 1f - y)) } }
+                    .drawBehind {
+                        // read, so a new picture draws
+                        picture.version
+                        drawImage(picture.image, dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()))
+                    },
+            )
+        }
     }
 }
 
@@ -879,8 +883,9 @@ private fun Disc(c: ColorPick, compact: Boolean = false, short: Boolean = false,
     // skins' second colour does)
     val pick by rememberUpdatedState(c)
     val density = LocalDensity.current
+    val sheetScale = ResponsiveLayout.colorPickerScale(LocalSheetWidth.current)
     // compact, the whole picker is 240 across instead of 364
-    val k = if (compact) 240f / 364f else 1f
+    val k = if (compact) 240f / 364f else sheetScale
     val discRadius = DiscRadius * k
     val ringInner = RingInner * k
     val ringOuter = RingOuter * k
@@ -893,13 +898,17 @@ private fun Disc(c: ColorPick, compact: Boolean = false, short: Boolean = false,
         Brush.sweepGradient(*stops.reversedArray())
     }
     Box(
-        Modifier.then(
+        Modifier.fillMaxWidth().then(
             when {
-                compact -> Modifier.padding(start = 10.dp, top = 4.dp, bottom = 6.dp)
-                short -> Modifier.padding(start = 6.dp, bottom = 3.dp)
-                else -> Modifier.padding(start = 6.dp, top = 8.dp, bottom = 17.dp)
+                compact -> Modifier.padding(top = 4.dp, bottom = 6.dp)
+                short -> Modifier.padding(bottom = 3.dp)
+                else -> Modifier.padding(top = 8.dp, bottom = 17.dp)
             },
-        ).size(364.dp * k)
+        ),
+        contentAlignment = Alignment.Center,
+    ) {
+    Box(
+        Modifier.size(364.dp * k)
             .pointerInput(Unit) {
                 awaitEachGesture {
                     val down = awaitFirstDown()
@@ -946,6 +955,7 @@ private fun Disc(c: ColorPick, compact: Boolean = false, short: Boolean = false,
                 knob(o + Offset(p.x * r, p.y * r), 10.75.dp.toPx(), rgbColor(c.rgb()))
             },
     )
+    }
 }
 
 /**
@@ -961,8 +971,9 @@ private fun ModelDisc(m: ModelColor, compact: Boolean, short: Boolean) {
     val now by rememberUpdatedState(coords)
     val pick by rememberUpdatedState(m)
     val density = LocalDensity.current
+    val sheetScale = ResponsiveLayout.colorPickerScale(LocalSheetWidth.current)
     // compact, the whole picker is 240 across instead of 364
-    val k = if (compact) 240f / 364f else 1f
+    val k = if (compact) 240f / 364f else sheetScale
     val discRadius = DiscRadius * k
     val ringInner = RingInner * k
     val ringOuter = RingOuter * k
@@ -981,55 +992,60 @@ private fun ModelDisc(m: ModelColor, compact: Boolean, short: Boolean) {
     val current = rgbColor(m.c.rgb())
     val luma = model == ColourModel.HSY && !compact
     Box(
-        Modifier.then(
+        Modifier.fillMaxWidth().then(
             when {
-                compact -> Modifier.padding(start = 10.dp, top = 4.dp, bottom = 6.dp)
+                compact -> Modifier.padding(top = 4.dp, bottom = 6.dp)
                 // HSY′'s sliders start 4 under the picker
-                short -> Modifier.padding(start = 6.dp, bottom = if (luma) 4.dp else 3.dp)
-                else -> Modifier.padding(start = 6.dp, top = 8.dp, bottom = if (luma) 4.dp else 17.dp)
+                short -> Modifier.padding(bottom = if (luma) 4.dp else 3.dp)
+                else -> Modifier.padding(top = 8.dp, bottom = if (luma) 4.dp else 17.dp)
             },
-        ).size(364.dp * k)
-            .pointerInput(model) {
-                awaitEachGesture {
-                    val down = awaitFirstDown()
-                    down.consume()
-                    val centre = Offset(size.width / 2f, size.height / 2f)
-                    val onRing = (down.position - centre).getDistance() > ((discRadius + ringInner) / 2).toPx()
-                    fun send(p: Offset) {
-                        val d = p - centre
-                        val was = now
-                        if (onRing) {
-                            val turnAt = (atan2(-d.y, d.x) / (2f * PI.toFloat()) + 1f) % 1f
-                            pick.set(floatArrayOf(colourModelRingHue(model, turnAt), was[1], was[2]))
-                        } else {
-                            val r = discRadius.toPx()
-                            pick.set(colourModelDiscPick(model, was[0], was[1], was[2], d.x / r, d.y / r).toFloatArray())
+        ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier.size(364.dp * k)
+                .pointerInput(model) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown()
+                        down.consume()
+                        val centre = Offset(size.width / 2f, size.height / 2f)
+                        val onRing = (down.position - centre).getDistance() > ((discRadius + ringInner) / 2).toPx()
+                        fun send(p: Offset) {
+                            val d = p - centre
+                            val was = now
+                            if (onRing) {
+                                val turnAt = (atan2(-d.y, d.x) / (2f * PI.toFloat()) + 1f) % 1f
+                                pick.set(floatArrayOf(colourModelRingHue(model, turnAt), was[1], was[2]))
+                            } else {
+                                val r = discRadius.toPx()
+                                pick.set(colourModelDiscPick(model, was[0], was[1], was[2], d.x / r, d.y / r).toFloatArray())
+                            }
+                        }
+                        send(down.position)
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val ch = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (!ch.pressed) break
+                            send(ch.position)
+                            ch.consume()
                         }
                     }
-                    send(down.position)
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        val ch = event.changes.firstOrNull { it.id == down.id } ?: break
-                        if (!ch.pressed) break
-                        send(ch.position)
-                        ch.consume()
-                    }
                 }
-            }
-            .drawBehind {
-                val o = center
-                val inner = ringInner.toPx()
-                val outer = ringOuter.toPx()
-                drawCircle(ring, (inner + outer) / 2f, o, style = Stroke(outer - inner))
-                val r = discRadius.toPx()
-                disc.version
-                drawImage(disc.image, topLeft = Offset(o.x - r, o.y - r))
-                // the ring knob sits on the middle of the ring, where the hue is
-                val mid = (inner + outer) / 2f
-                knob(o + Offset(cos(turn) * mid, -sin(turn) * mid), 26.2.dp.toPx() * k, pure)
-                knob(o + Offset(at[0] * r, at[1] * r), 10.75.dp.toPx(), current)
-            },
-    )
+                .drawBehind {
+                    val o = center
+                    val inner = ringInner.toPx()
+                    val outer = ringOuter.toPx()
+                    drawCircle(ring, (inner + outer) / 2f, o, style = Stroke(outer - inner))
+                    val r = discRadius.toPx()
+                    disc.version
+                    drawImage(disc.image, topLeft = Offset(o.x - r, o.y - r))
+                    // the ring knob sits on the middle of the ring, where the hue is
+                    val mid = (inner + outer) / 2f
+                    knob(o + Offset(cos(turn) * mid, -sin(turn) * mid), 26.2.dp.toPx() * k, pure)
+                    knob(o + Offset(at[0] * r, at[1] * r), 10.75.dp.toPx(), current)
+                },
+        )
+    }
     if (luma) {
         LumaSliders(m, coords)
         Spacer(Modifier.height(if (short) 3.dp else 17.dp))
@@ -1080,21 +1096,24 @@ private fun SaturationBrightness(c: ColorPick, compact: Boolean, height: Dp = 34
     val pick by rememberUpdatedState(c)
     val pure = hsvColor(c.hue, 1f, 1f)
     val current = rgbColor(c.rgb())
-    Box(
-        Modifier.padding(horizontal = if (compact) 6.dp else 16.dp).size(if (compact) 248.dp else 344.dp, if (compact) 248.dp else height).drawWithContent {
-            drawContent()
-            // the knob may hang over the square's edge
-            knob(Offset(c.saturation * size.width, (1f - c.brightness) * size.height), 10.75.dp.toPx(), current)
-        },
-    ) {
+    val squareWidth = if (compact) 248.dp else 344.dp * ResponsiveLayout.colorPickerScale(LocalSheetWidth.current)
+    Box(Modifier.fillMaxWidth().padding(horizontal = if (compact) 6.dp else 16.dp), contentAlignment = Alignment.Center) {
         Box(
-            Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp))
-                .pointerInput(Unit) { track { x, y -> pick.setHsv(hue, x, 1f - y) } }
-                .drawBehind {
-                    drawRect(Brush.horizontalGradient(oneSpace(listOf(Color.White, pure))))
-                    drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color.Black)))
-                },
-        )
+            Modifier.size(squareWidth, if (compact) 248.dp else height).drawWithContent {
+                drawContent()
+                // the knob may hang over the square's edge
+                knob(Offset(c.saturation * size.width, (1f - c.brightness) * size.height), 10.75.dp.toPx(), current)
+            },
+        ) {
+            Box(
+                Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp))
+                    .pointerInput(Unit) { track { x, y -> pick.setHsv(hue, x, 1f - y) } }
+                    .drawBehind {
+                        drawRect(Brush.horizontalGradient(oneSpace(listOf(Color.White, pure))))
+                        drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color.Black)))
+                    },
+            )
+        }
     }
 }
 
@@ -1302,27 +1321,32 @@ private fun Harmony(vm: CanvasViewModel, c: ColorPick, compact: Boolean = false,
     // the header is 78 tall here, with the kind under the title; the wheel starts 88 down (short, 82)
     Column(Modifier.padding(top = if (short) 4.dp else 10.dp)) {
         Box(
-            Modifier.padding(start = if (compact) CompactWidth / 2 - radius else PanelWidth / 2 - radius).size(radius * 2)
-                .pointerInput(Unit) {
-                    track { x, y ->
-                        val u = x * 2f - 1f
-                        val w = y * 2f - 1f
-                        val h = (atan2(-w, u) / (2f * PI.toFloat()) + 1f) % 1f
-                        set(h, sqrt(u * u + w * w).coerceAtMost(1f), state[2])
+            Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                Modifier.size(radius * 2)
+                    .pointerInput(Unit) {
+                        track { x, y ->
+                            val u = x * 2f - 1f
+                            val w = y * 2f - 1f
+                            val h = (atan2(-w, u) / (2f * PI.toFloat()) + 1f) % 1f
+                            set(h, sqrt(u * u + w * w).coerceAtMost(1f), state[2])
+                        }
                     }
-                }
-                .drawBehind {
-                    wheel.version
-                    drawImage(wheel.image, dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()))
-                    val r = size.width / 2f
-                    fun at(turn: Float) = center + Offset(cos(turn) * hsv[1] * r, -sin(turn) * hsv[1] * r)
-                    for (t in vm.harmonyKind.turns) {
-                        val h = ((hsv[0] + t / 360f) % 1f + 1f) % 1f
-                        knob(at(h * 2f * PI.toFloat()), 10.75.dp.toPx(), rgbColor(p3HsvToRgb(h, hsv[1], hsv[2])))
-                    }
-                    knob(at(hsv[0] * 2f * PI.toFloat()), 14.5.dp.toPx(), rgbColor(rgb))
-                },
-        )
+                    .drawBehind {
+                        wheel.version
+                        drawImage(wheel.image, dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()))
+                        val r = size.width / 2f
+                        fun at(turn: Float) = center + Offset(cos(turn) * hsv[1] * r, -sin(turn) * hsv[1] * r)
+                        for (t in vm.harmonyKind.turns) {
+                            val h = ((hsv[0] + t / 360f) % 1f + 1f) % 1f
+                            knob(at(h * 2f * PI.toFloat()), 10.75.dp.toPx(), rgbColor(p3HsvToRgb(h, hsv[1], hsv[2])))
+                        }
+                        knob(at(hsv[0] * 2f * PI.toFloat()), 14.5.dp.toPx(), rgbColor(rgb))
+                    },
+            )
+        }
         Box(Modifier.padding(start = if (compact) 10.dp else 20.dp, end = if (compact) 10.dp else 20.dp, top = if (compact) 8.dp else if (short) 10.dp else 31.dp)) {
             SliderRow(hsv[2], BrightnessTrack) { set(state[0], state[1], it) }
         }
