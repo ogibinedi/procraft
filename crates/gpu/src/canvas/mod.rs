@@ -4476,10 +4476,6 @@ mod readback;
 #[cfg(test)]
 mod tests;
 
-pub use self::pipelines::{
-    PendingAlphas, Readback, ReadyToPark, RemakeStats, TipKind, most_resident, read_texture,
-    start_reading, textures_bytes,
-};
 #[allow(unused_imports)]
 pub(crate) use self::pipelines::*;
 

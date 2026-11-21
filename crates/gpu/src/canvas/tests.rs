@@ -852,7 +852,7 @@ fn probe_on_gpu(gpu: &Gpu, expr: &str, inputs: &[[f32; 4]]) -> Vec<f32> {
         "    }",
         "}",
     ];
-    let source = format!("{}\n{}\n", include_str!("shaders/blend.wgsl"), probe.join("\n"));
+    let source = format!("{}\n{}\n", include_str!("../shaders/blend.wgsl"), probe.join("\n"));
     let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("shader probe"),
         source: wgpu::ShaderSource::Wgsl(source.into()),

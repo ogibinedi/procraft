@@ -117,14 +117,14 @@ impl Pipelines {
             })
         };
         let stamp_module =
-            module("stamp", concat!(include_str!("shaders/blend.wgsl"), include_str!("shaders/stamp.wgsl")));
+            module("stamp", concat!(include_str!("../shaders/blend.wgsl"), include_str!("../shaders/stamp.wgsl")));
         let composite_module =
-            module("composite", concat!(include_str!("shaders/blend.wgsl"), include_str!("shaders/composite.wgsl")));
-        let display_module = module("display", include_str!("shaders/display.wgsl"));
-        let surround_module = module("surround", include_str!("shaders/surround.wgsl"));
-        let backdrop_module = module("backdrop", include_str!("shaders/backdrop.wgsl"));
-        let transform_module = module("transform", include_str!("shaders/transform.wgsl"));
-        let selection_module = module("selection", include_str!("shaders/selection.wgsl"));
+            module("composite", concat!(include_str!("../shaders/blend.wgsl"), include_str!("../shaders/composite.wgsl")));
+        let display_module = module("display", include_str!("../shaders/display.wgsl"));
+        let surround_module = module("surround", include_str!("../shaders/surround.wgsl"));
+        let backdrop_module = module("backdrop", include_str!("../shaders/backdrop.wgsl"));
+        let transform_module = module("transform", include_str!("../shaders/transform.wgsl"));
+        let selection_module = module("selection", include_str!("../shaders/selection.wgsl"));
         let layout = |label, groups: &[Option<&wgpu::BindGroupLayout>]| {
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some(label),
@@ -204,7 +204,7 @@ impl Pipelines {
             label: Some("bounds"),
             entries: &[tex_entry(0)],
         });
-        let bounds_module = module("bounds", include_str!("shaders/bounds.wgsl"));
+        let bounds_module = module("bounds", include_str!("../shaders/bounds.wgsl"));
         let changed_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("changed"),
             entries: &[tex_entry(0), tex_entry(1)],
@@ -219,7 +219,7 @@ impl Pipelines {
             bounds_pipeline(&changed_layout, "fs_changed_rows"),
             bounds_pipeline(&changed_layout, "fs_changed_columns"),
         );
-        let flip_module = module("flip", include_str!("shaders/flip.wgsl"));
+        let flip_module = module("flip", include_str!("../shaders/flip.wgsl"));
         let flip_layout = layout("flip", &[Some(&bounds_layout)]);
         let flip_pipeline =
             |fs| blended_pipeline(device, kept, &flip_layout, &flip_module, fs, ("vs_full", fs), LAYER_FORMAT, None);
@@ -241,7 +241,7 @@ impl Pipelines {
                 },
             ],
         });
-        let crop_module = module("crop", include_str!("shaders/crop.wgsl"));
+        let crop_module = module("crop", include_str!("../shaders/crop.wgsl"));
         let crop = blended_pipeline(
             device,
             kept,
@@ -252,7 +252,7 @@ impl Pipelines {
             LAYER_FORMAT,
             None,
         );
-        let filter_module = module("filter", include_str!("shaders/filter.wgsl"));
+        let filter_module = module("filter", include_str!("../shaders/filter.wgsl"));
         let filters = FILTER_PASSES
             .iter()
             .map(|&fs| {
@@ -270,7 +270,7 @@ impl Pipelines {
             })
             .collect();
         let liquify = abilities.liquify_format.map(|format| {
-            let liquify_module = module("liquify", include_str!("shaders/liquify.wgsl"));
+            let liquify_module = module("liquify", include_str!("../shaders/liquify.wgsl"));
             let stamp = blended_pipeline(
                 device,
                 kept,
@@ -360,9 +360,9 @@ impl Pipelines {
             let smudge_module = module(
                 "smudge",
                 concat!(
-                    include_str!("shaders/blend.wgsl"),
-                    include_str!("shaders/smudge.wgsl"),
-                    include_str!("shaders/smudge_compute.wgsl")
+                    include_str!("../shaders/blend.wgsl"),
+                    include_str!("../shaders/smudge.wgsl"),
+                    include_str!("../shaders/smudge_compute.wgsl")
                 ),
             );
             let smudge_pipeline_layout = layout("smudge", &[Some(&smudge_layout), Some(&brush_layout)]);
@@ -418,10 +418,10 @@ impl Pipelines {
             let rule_module = module(
                 "stamp rule",
                 concat!(
-                    include_str!("shaders/blend.wgsl"),
-                    include_str!("shaders/stamp.wgsl"),
-                    include_str!("shaders/stamp_rule.wgsl"),
-                    include_str!("shaders/stamp_rule_compute.wgsl")
+                    include_str!("../shaders/blend.wgsl"),
+                    include_str!("../shaders/stamp.wgsl"),
+                    include_str!("../shaders/stamp_rule.wgsl"),
+                    include_str!("../shaders/stamp_rule_compute.wgsl")
                 ),
             );
             let stamp_rule = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
@@ -452,7 +452,7 @@ impl Pipelines {
             let liquify_with = liquify.is_none().then_some((&uniform_layout, &transform_layout, &filter_module));
             fragments::FragmentPipelines::new(device, kept, &brush_layout, abilities.stroke_format, liquify_with)
         });
-        let overlay_module = module("overlay", include_str!("shaders/overlay.wgsl"));
+        let overlay_module = module("overlay", include_str!("../shaders/overlay.wgsl"));
         let stamp_pipeline = |label, blend| {
             device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some(label),
@@ -1721,7 +1721,7 @@ pub(crate) fn write_image_levels(gpu: &Gpu, texture: &wgpu::Texture, layer: u32,
 }
 
 /// [`write_image_levels`] for an image of `channels` bytes a pixel.
-pub(super) fn write_image_levels_of(gpu: &Gpu, texture: &wgpu::Texture, layer: u32, n: u32, pixels: &[u8], channels: u32) {
+pub(crate) fn write_image_levels_of(gpu: &Gpu, texture: &wgpu::Texture, layer: u32, n: u32, pixels: &[u8], channels: u32) {
     let mut level = pixels.to_vec();
     let mut size = n;
     for mip in 0..n.ilog2() + 1 {
