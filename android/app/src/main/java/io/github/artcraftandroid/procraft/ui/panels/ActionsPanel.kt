@@ -337,7 +337,15 @@ fun ActionsPanel(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier)
         )
         else -> listOf(
             listOf(
-                Act("About ProCraft") { dialog = "ProCraft" to "Version ${versionName(context)}" },
+                Act("About ProCraft") {
+                    dialog = "ProCraft" to buildString {
+                        appendLine("Android Smartphone Edition")
+                        appendLine("Version ${versionName(context)}")
+                        appendLine()
+                        appendLine("Smartphone Fork by Igoy Creative Lab.")
+                        append("Based on ProCraft by ArtCraft Team & contributors (MIT / Apache-2.0)")
+                    }
+                },
                 Act("Check for Updates", value = vm.activeUpdateRelease()?.tagName) {
                     vm.closePanels()
                     vm.openUpdateSheet()

@@ -568,8 +568,24 @@ internal fun AboutApp(
                 )
             }
             Text("ProCraft", color = Color.White, fontSize = if (compact) 44.sp else 64.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.padding(top = 12.dp))
-            Text(version, color = AboutInk, fontSize = 13.sp, maxLines = 1, modifier = Modifier.padding(top = 14.dp))
-            Spacer(Modifier.height(if (compact) 28.dp else 80.dp))
+            Text("Android Smartphone Edition", color = AboutInk, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
+            Text(version, color = AboutInk, fontSize = 13.sp, maxLines = 1, modifier = Modifier.padding(top = 8.dp))
+            Text(
+                "Smartphone Fork by Igoy Creative Lab.",
+                color = AboutCreditInk,
+                fontSize = 13.5.sp,
+                fontWeight = FontWeight.Medium,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.padding(top = 14.dp, start = 24.dp, end = 24.dp),
+            )
+            Text(
+                "Based on ProCraft by ArtCraft Team & contributors (MIT / Apache-2.0)",
+                color = AboutSubtleInk,
+                fontSize = 12.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.padding(top = 4.dp, start = 24.dp, end = 24.dp),
+            )
+            Spacer(Modifier.height(if (compact) 24.dp else 56.dp))
             Box(
                 Modifier.size(220.dp, 44.dp).clip(RoundedCornerShape(10.dp))
                     .background(AboutButtonFill).clickable(onClick = onRecover),
@@ -613,6 +629,8 @@ internal fun AboutApp(
 private val AboutVeil = Color(0xD90B0B0B)
 private val AboutIconField = Color(0xFF0B0B0C)
 private val AboutInk = Color(0xFFBDBDBD)
+private val AboutCreditInk = Color(0xFFE5E5E5)
+private val AboutSubtleInk = Color(0xFF949494)
 private val AboutClose = Color(0xFFE3E3E3)
 private val AboutCloseInk = Color(0xFF1C1C1C)
 // the button 520 under the icon's top, 220 x 38
