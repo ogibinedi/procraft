@@ -1,6 +1,20 @@
 # Changelog
 
-All notable changes in this Android Smartphone-focused fork (`ogibinedi/procraft`) are documented in this file.
+All notable changes in this Android Smartphone-focused fork (`ogibinedi/procraft`, maintained by **Igoy Creative Lab.**) are documented in this file.
+
+## [0.0.5] - 2026-11-22 - Procreate Pocket Expansion, In-App Updater & Smartphone Polish (Stable Release)
+
+Promotes all `v0.0.5-rc.1` through `v0.0.5-rc.4` milestones from `development` into `main`, plus About attribution for **Igoy Creative Lab.** alongside upstream **ArtCraft Team & contributors** (MIT / Apache-2.0).
+
+### Highlights
+- **Gallery Upgrade & Safety**: Multi-token search, 5 persisted sort orders, 30-day **Recently Deleted (Trash)** with one-tap collision-safe restore, full **Backup & Restore** (`.procraft-backup` ZIP via SAF covering artworks, brushes, fonts, ICC profiles, palettes, gradients, and presets), and compact `52×52dp` icon-only gallery swipe actions (*Share*, *Duplicate*, *Delete*).
+- **Canvas Feel & Smartphone Ergonomics**: Permission-free **Haptic Feedback**, configurable **Volume buttons** shortcuts (*Undo/Redo*, *Brush Size*, *Flip/Fit*), auto-fading **Zoom % & Rotation ° HUD** + optional pinned **Quick flip button**, **Auto-hide UI while drawing**, `44dp` collapsed **Undo/Redo edge dock**, simultaneous **Color History + Active Palette** in smartphone bottom sheets, smartphone **Floating Color** button, **Recolor** in 2D Adjustments, 1-tap **Save to Gallery** (*PNG*, *JPEG*, transparent lossless *WebP*), and an in-panel **Gesture guide**.
+- **Layer & Rename Polish**: Consistent `Trash` icon on default-layer swipe actions, keyboard-aware `SmartphoneBottomSheet` (`rememberKeyboardReach()` on Android 8–16), and a dedicated pinned **Layer / Group / Mask Rename Bar** that stays cleanly above the soft keyboard.
+- **GitHub Releases In-App Updater**: Rate-limit-resistant update checking via GitHub's public `releases.atom` feed with automatic REST API fallback, accurate HTTP 403/429 classification with reset countdown, persistent failure backoff, ABI-matched APK download with **SHA-256 verification** (`SHA256SUMS.txt`), `FileProvider` install handoff, and Stable / Pre-release channel toggles.
+- **About Attribution (`GalleryPreviewNewCanvas.kt`, `ActionsPanel.kt`)**: Added **Android Smartphone Edition** subtitle and open-source fork credit for **Igoy Creative Lab.** while preserving upstream **ArtCraft Team & contributors (MIT / Apache-2.0)** attribution.
+- **Verification**: 46 unit test suites / 196 unit tests passing with 0 failures and clean `:app:lintRelease`.
+
+---
 
 ## [0.0.5-rc.4] - 2026-11-22 - Icon-Only Gallery Swipe Actions & Keyboard-Safe Layer/Group Rename
 

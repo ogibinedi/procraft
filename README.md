@@ -110,16 +110,17 @@ See [PROGRESS.md](PROGRESS.md) and [CHANGELOG.md](CHANGELOG.md) for the complete
 
 | Area | Status on Android Smartphone |
 |---|---|
-| **Canvas & Gestures**: adaptive top bar, collapsible sidebar (size, opacity, modify, undo, redo), full-screen mode, multi-touch gestures (pinch, rotate, quick fit, two/three-finger taps, three-finger scrub to clear) | ✅ Ready |
+| **Canvas & Gestures**: adaptive top bar, collapsible sidebar with `44dp` Undo/Redo edge dock, auto-hide UI while drawing, haptic feedback, hardware volume button shortcuts, auto-fading Zoom % / Rotation ° HUD & optional Quick Flip button, multi-touch gestures, and built-in Gesture Guide | ✅ Ready |
 | **Drawing Tablets & Styluses**: universal USB OTG & Bluetooth drawing tablet support (XP-Pen, Huion, Wacom, Gaomon, Veikk, Ugee, Parblo, Xencelabs, etc.), per-device auto-gain pressure calibration (`PenPressureLearner`), one-tap **Calibrate pressure**, live pressure test bar, and top-level navigation pointer overlay | ✅ Ready |
 | **Brush Engine & Brush Studio**: shape and grain sources, stroke path, stabilization, taper, rendering and glazes, wet mix, colour dynamics, pressure and tilt; horizontal-tab smartphone Brush Studio and responsive Source Editor | ✅ Ready |
-| **Layers**: blend modes, opacity, alpha lock, clipping masks, layer masks, groups, merge, reference layer, icon-only compact swipe actions, cross-artwork drag & drop, and off-GPU LZ4 layer parking for large artworks | ✅ Ready |
-| **Colour**: responsive disc, classic, harmony, value sliders (with smart-positioned hex keypad), palettes, history, eyedropper loupe, and ColorDrop / Recolor fill | ✅ Ready |
-| **Adjustments**: HSB, colour balance, curves, gradient map, Gaussian/motion/perspective blurs, noise, sharpen, bloom, glitch, halftone, chromatic aberration, liquify, and clone | ✅ Ready |
+| **Layers**: blend modes, opacity, alpha lock, clipping masks, layer masks, groups, merge, reference layer, keyboard-safe pinned rename bar (layers/groups/masks), icon-only compact swipe actions, cross-artwork drag & drop, and off-GPU LZ4 layer parking for large artworks | ✅ Ready |
+| **Colour**: responsive disc, classic, harmony, value sliders (with smart-positioned hex keypad), simultaneous Color History + Active Palette on smartphone sheets, draggable smartphone **Floating Color** companion, eyedropper loupe, and ColorDrop / Recolor fill | ✅ Ready |
+| **Adjustments**: HSB, colour balance, curves, gradient map, Gaussian/motion/perspective blurs, noise, sharpen, bloom, glitch, halftone, chromatic aberration, liquify, clone, and interactive **Recolor** | ✅ Ready |
 | **Selection & Transform**: automatic, freehand, rectangle, ellipse selection with feather; freeform, uniform, distort, and warp transform with snapping and numeric keypad | ✅ Ready |
 | **Guides, QuickShape, & Text**: shapes that snap clean, 2D/isometric/perspective/symmetry drawing guides with Assisted Drawing, and rich on-canvas text with responsive style sheet | ✅ Ready |
 | **Animation Assist, Page Assist, & PiP Reference**: frame timeline with onion skins, animated GIF/PNG/MP4/HEVC export, and compact Picture-in-Picture Reference Window | ✅ Ready |
-| **Gallery & Time-Lapse**: 2-column smartphone grid, stacks, custom canvas presets, import/share (ProCraft, Procreate, PSD, PDF, PNG, JPEG, TIFF, GIF, MP4), and 1080p/4K time-lapse replay/export | ✅ Ready |
+| **Gallery, Backup & Time-Lapse**: 2-column smartphone grid, search & 5 sort modes, icon-only swipe actions, 30-day **Recently Deleted (Trash)**, full `.procraft-backup` ZIP backup/restore, stacks, custom presets, 1-tap Save to Gallery (PNG/JPEG/lossless WebP), import/share (ProCraft, Procreate, PSD, PDF, PNG, JPEG, WebP, TIFF, GIF, MP4), and 1080p/4K time-lapse replay/export | ✅ Ready |
+| **In-App Updates**: rate-limit-resistant GitHub Releases updater (Atom feed + REST fallback), SHA-256 verification (`SHA256SUMS.txt`), ABI auto-detection (`ARM64` / `ARMv7`), and optional Beta/RC channel | ✅ Ready |
 | **3D Painting**: OBJ and USDZ models, texture sets, mesh painting, responsive Lighting Studio, and animated turntable export | ✅ Ready |
 | **Plugins**: `.procraft-plugin` WGSL filters, sandboxed WebAssembly hooks, and custom brush engines ([docs/plugins.md](docs/plugins.md)) | ✅ Ready |
 
@@ -138,7 +139,8 @@ procraft/
 │       │   ├── surface/          # Vulkan/GLES canvas & drawing pad SurfaceViews
 │       │   ├── util/             # Async polling and color space utilities
 │       │   └── viewmodel/        # Modularized CanvasViewModel + 13 domain action files
-│       ├── gallery/              # ArtworkStore, presets, and palettes persistence
+│       ├── gallery/              # ArtworkStore, search/sort, 30-day trash, backup/restore, WebP, presets, palettes
+│       ├── update/               # GitHub Releases in-app updater (Atom feed + REST fallback, SHA-256, installer)
 │       └── ui/
 │           ├── chrome/           # AppRoot, TopBar, collapsible SideBar, QuickMenu, Companion
 │           ├── components/       # SmartphoneBottomSheet, Popover, ToolHeader, AlertUi
@@ -192,4 +194,5 @@ Run `cargo test --workspace` to execute the Rust unit test suites across `procra
 
 [MIT](LICENSE-MIT) OR [Apache-2.0](LICENSE-APACHE), at your option.
 
+- **Smartphone Fork:** Maintained by **Igoy Creative Lab.** Based on upstream ProCraft by **ArtCraft Team & contributors**.
 - **Third-party material:** the Inter font, Lucide icons, and bundled lighting panoramas are listed in [NOTICE](NOTICE) and [ATTRIBUTION.md](ATTRIBUTION.md).
