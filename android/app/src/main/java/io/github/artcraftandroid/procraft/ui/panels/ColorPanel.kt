@@ -244,9 +244,22 @@ fun ColorPanel(vm: CanvasViewModel, arrowX: Dp, screenHeight: Dp, modifier: Modi
                     }
                 }
             } else if (vm.colorMode == ColorMode.PALETTES) {
-                PanelHeader("Palettes", start = 20.dp, end = 17.dp, chevron = false) { NewPaletteButton(vm) }
+                PanelHeader("Palettes", start = 20.dp, end = 17.dp, chevron = false) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        if (LocalCompactSheet.current) {
+                            FloatColorButton(vm, Modifier.padding(top = 12.dp))
+                        }
+                        NewPaletteButton(vm)
+                    }
+                }
             } else PanelHeader("Colors", start = 20.dp, end = 20.dp, height = headerHeight, chevron = false) {
-                Row(Modifier.padding(top = 21.5.dp)) {
+                Row(
+                    Modifier.padding(top = if (LocalCompactSheet.current) 12.dp else 21.5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (LocalCompactSheet.current) {
+                        FloatColorButton(vm, Modifier.padding(end = 6.dp))
+                    }
                     // the colour model, 8 left of the swatches, for the pages that work in one
                     if (showsModelButton(vm.colorMode)) {
                         ColourModelButton(vm)
@@ -356,7 +369,8 @@ fun FloatingColors(vm: CanvasViewModel, maxWidth: Dp, maxHeight: Dp) {
     val c: ColorPick = remember(vm) { BrushColor(vm) }
     // the disc and Classic in the panel's colour model (Value stays HSB or RGB, as its switch picks)
     val m = remember(c, vm.colourModel) { ModelColor(c, vm.colourModel, vm.colourPlace) }
-    val k = Pc.partScale(io.github.artcraftandroid.procraft.core.InterfacePart.FLOATING)
+    val pluginScale = Pc.partScale(io.github.artcraftandroid.procraft.core.InterfacePart.FLOATING)
+    val k = AutoHideUiPolicy.floatingColorScale(maxWidth.value, pluginScale)
     if (Pc.floatingPickerOnly) {
         FloatingPicker(vm, c, m, maxWidth, maxHeight, at)
         return
@@ -364,8 +378,11 @@ fun FloatingColors(vm: CanvasViewModel, maxWidth: Dp, maxHeight: Dp) {
     val height = if (vm.colorMode == ColorMode.DISC) 351.dp else 390.dp
     // kept on the screen, and clear of the side bar as the panels are
     val (x, y) = floatingPlace(vm, at, FloatingWidth * k, height * k, maxWidth, maxHeight)
+    val baseDensity = LocalDensity.current
     // all of it drawn at the floating windows' size, placed in the window's pixels
-    PartScaled(io.github.artcraftandroid.procraft.core.InterfacePart.FLOATING) {
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalDensity provides androidx.compose.ui.unit.Density(baseDensity.density * k, baseDensity.fontScale),
+    ) {
     Popover(
         FloatingWidth,
         0.dp,
@@ -423,9 +440,49 @@ fun FloatingColors(vm: CanvasViewModel, maxWidth: Dp, maxHeight: Dp) {
  * and clear of the side bar as the panels are.
  */
 @Composable
+private fun FloatColorButton(vm: CanvasViewModel, modifier: Modifier = Modifier) {
+    val density = LocalDensity.current
+    val config = androidx.compose.ui.platform.LocalConfiguration.current
+    Box(
+        modifier
+            .height(44.dp)
+            .clickable {
+                val k = AutoHideUiPolicy.floatingColorScale(config.screenWidthDp.toFloat(), Pc.partScale(io.github.artcraftandroid.procraft.core.InterfacePart.FLOATING))
+                val (x, y) = with(density) {
+                    AutoHideUiPolicy.initialFloatingOrigin(
+                        screenWidthPx = config.screenWidthDp.dp.toPx(),
+                        topBarBottomPx = Pc.barShown.toPx(),
+                        floatingWidthPx = (FloatingWidth * k).toPx(),
+                        marginPx = 12.dp.toPx(),
+                        rightHanded = vm.rightHanded,
+                    )
+                }
+                vm.floatingColorsAt = Offset(x, y)
+                vm.closePanels()
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier
+                .height(28.dp)
+                .clip(RoundedCornerShape(7.dp))
+                .background(Pc.ModelButton)
+                .padding(horizontal = 9.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("Float", color = Pc.PanelTitle, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        }
+    }
+}
+
+@Composable
 private fun floatingPlace(vm: CanvasViewModel, at: Offset, width: Dp, height: Dp, maxWidth: Dp, maxHeight: Dp): Pair<Int, Int> {
     val density = LocalDensity.current
-    val clear = if (vm.showSideBar) Pc.sideBarShown + Pc.PopoverGap else 0.dp
+    val clear = when {
+        !vm.showSideBar -> 0.dp
+        vm.sideBarCollapsed -> 44.dp + 8.dp
+        else -> Pc.sideBarShown + Pc.PopoverGap
+    }
     val least = if (vm.rightHanded) 0.dp else clear
     val most = (maxWidth - width - if (vm.rightHanded) clear else 0.dp).coerceAtLeast(least)
     val x = with(density) { at.x.toDp() }.coerceIn(least, most)

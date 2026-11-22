@@ -155,6 +155,7 @@ fun BoxScope.CanvasViewHud(vm: CanvasViewModel) {
 fun BoxScope.QuickFlipButton(vm: CanvasViewModel) {
     val shown = vm.quickFlipButton &&
         !vm.barsHidden &&
+        !vm.autoHidingBars &&
         vm.panel == Panel.NONE &&
         !vm.transforming &&
         !vm.selecting &&

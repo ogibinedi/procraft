@@ -154,10 +154,11 @@ private fun Screens(vm: CanvasViewModel, keptClear: Clearance) {
                 Loupe(pick, CanvasSpace.color(vm.colorRgb()), Modifier.zIndex(pickingZ))
                 if (!vm.barsHidden) PickingBar(Modifier.offset(y = Pc.barShown).zIndex(pickingZ), pick.fromReference)
             }
-            // the bars fade out as the interface hides, and back
-            val barsShown = androidx.compose.animation.core.animateFloatAsState(if (vm.barsHidden) 0f else 1f, Motion.bars(), label = "bars").value
-            // with the interface hidden, a button in the top left brings it back
-            if (barsShown < 1f) {
+            // the bars fade out as the interface hides (manual full-screen or auto-hide while stroking), and back
+            val effectiveBarsHidden = vm.barsHidden || vm.autoHidingBars
+            val barsShown = androidx.compose.animation.core.animateFloatAsState(if (effectiveBarsHidden) 0f else 1f, Motion.bars(), label = "bars").value
+            // with the interface manually hidden, a button in the top left brings it back
+            if (vm.barsHidden && barsShown < 1f) {
                 Box(
                     Modifier.offset(x = 20.dp).size(44.dp).graphicsLayer { alpha = 1f - barsShown }
                         .pointerInput(Unit) { detectTapGestures { if (vm.barsHidden) vm.toggleBars() } },

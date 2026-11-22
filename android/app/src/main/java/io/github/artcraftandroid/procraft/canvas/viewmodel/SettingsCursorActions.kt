@@ -882,6 +882,42 @@ fun CanvasViewModel.changeQuickFlipButton(on: Boolean) {
     interfacePrefs.edit().putBoolean(CanvasViewModel.QUICK_FLIP_BUTTON, on).apply()
 }
 
+fun CanvasViewModel.changeAutoHideUi(on: Boolean) {
+    autoHideUi = on
+    interfacePrefs.edit().putBoolean(CanvasViewModel.AUTO_HIDE_UI, on).apply()
+    if (!on) cancelAutoHideBars()
+}
+
+/** Called when a drawing stroke begins on the canvas; hides chrome when Auto-hide UI is enabled. */
+fun CanvasViewModel.onCanvasStrokeStarted() {
+    val modeActive = transforming || selecting || adjustment != null || opacityLayer != null ||
+        recoloring || guideEditing || cropRect != null || textInfo != null ||
+        quickShape != null || dropBand != CanvasViewModel.DropBand.NONE || picking != null
+    if (!AutoHideUiPolicy.shouldAutoHide(autoHideUi, strokeActive = true, manualBarsHidden = barsHidden, panelOpen = panel != Panel.NONE, modeActive = modeActive)) {
+        return
+    }
+    autoHideRestoreJob?.cancel()
+    autoHideRestoreJob = null
+    autoHidingBars = true
+}
+
+/** Called when a drawing stroke finishes; smoothly restores auto-hidden chrome after a short grace period. */
+fun CanvasViewModel.onCanvasStrokeFinished() {
+    if (!autoHidingBars) return
+    autoHideRestoreJob?.cancel()
+    autoHideRestoreJob = viewModelScope.launch {
+        kotlinx.coroutines.delay(AUTO_HIDE_RESTORE_DELAY_MS)
+        autoHidingBars = false
+    }
+}
+
+/** Immediately restores any auto-hidden chrome without waiting for the debounce timer. */
+fun CanvasViewModel.cancelAutoHideBars() {
+    autoHideRestoreJob?.cancel()
+    autoHideRestoreJob = null
+    if (autoHidingBars) autoHidingBars = false
+}
+
 /** Triggers a rate-limited, permission-free tactile cue when haptic feedback is enabled. */
 fun CanvasViewModel.haptic(cue: HapticCue) {
     if (!hapticFeedback) return

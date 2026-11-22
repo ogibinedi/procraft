@@ -255,6 +255,16 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
     var quickFlipButton by mutableStateOf(interfacePrefs.getBoolean(QUICK_FLIP_BUTTON, false))
         internal set
 
+    /** Automatically fades out top and side bars while actively stroking the canvas. */
+    var autoHideUi by mutableStateOf(interfacePrefs.getBoolean(AUTO_HIDE_UI, false))
+        internal set
+
+    /** True while [autoHideUi] has temporarily tucked the bars away for an active stroke. */
+    var autoHidingBars by mutableStateOf(false)
+        internal set
+
+    internal var autoHideRestoreJob: Job? = null
+
     /** Activity-supplied permission-free haptic trigger (`decorView.performHapticFeedback`). */
     internal var performHaptic: ((Int) -> Unit)? = null
     internal val hapticGate = HapticGate()
@@ -2242,7 +2252,7 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
         const val GROUP_NAME = "Artworks"
 
         /** What the gallery's Share offers, in order: still pictures, then animations. */
-        val SHARE_FORMATS = listOf(OWN_LABEL, PACKAGE_LABEL, "PSD", "PDF", "JPEG", "PNG", "TIFF") + Animated.entries.map { it.title }
+        val SHARE_FORMATS = listOf(OWN_LABEL, PACKAGE_LABEL, "PSD", "PDF", "JPEG", "PNG", "WebP", "TIFF") + Animated.entries.map { it.title }
 
         /** How often, and for how long at most, opening waits for the canvas's first frame, milliseconds. */
         const val CANVAS_POLL_MS = 32L
@@ -2290,6 +2300,7 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
         const val VOLUME_KEY_MODE = "volume_key_mode"
         const val CANVAS_VIEW_HUD = "canvas_view_hud"
         const val QUICK_FLIP_BUTTON = "quick_flip_button"
+        const val AUTO_HIDE_UI = "auto_hide_ui"
         /** Frames a second an animation plays at (Animation Assist's own when it is on). */
         const val ANIMATION_FPS = 15
         /** The timeline's frame pictures' longest side, pixels; a frame's longest hold. */

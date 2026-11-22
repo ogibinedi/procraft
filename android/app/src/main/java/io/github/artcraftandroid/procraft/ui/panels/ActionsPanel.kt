@@ -161,14 +161,20 @@ fun ActionsPanel(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier)
             vm.exportImage(jpeg)?.let { runCatching { shareFile(context, it, PocketErgonomics.directGalleryMime(jpeg)) } }
         }
     }
-    fun saveImageToGallery(jpeg: Boolean) {
+    fun shareWebp() {
         vm.viewModelScope.launch {
-            vm.exportImage(jpeg)?.let { file ->
-                val intent = io.github.artcraftandroid.procraft.SaveToGalleryActivity.intent(
-                    context,
-                    listOf(file),
-                    PocketErgonomics.directGalleryMime(jpeg),
-                )
+            vm.exportWebp()?.let { runCatching { shareFile(context, it, io.github.artcraftandroid.procraft.gallery.StillImageFormat.WEBP.mime) } }
+        }
+    }
+    fun saveImageToGallery(format: io.github.artcraftandroid.procraft.gallery.StillImageFormat) {
+        vm.viewModelScope.launch {
+            val file = when (format) {
+                io.github.artcraftandroid.procraft.gallery.StillImageFormat.PNG -> vm.exportImage(jpeg = false)
+                io.github.artcraftandroid.procraft.gallery.StillImageFormat.JPEG -> vm.exportImage(jpeg = true)
+                io.github.artcraftandroid.procraft.gallery.StillImageFormat.WEBP -> vm.exportWebp()
+            }
+            file?.let {
+                val intent = io.github.artcraftandroid.procraft.SaveToGalleryActivity.intent(context, listOf(it), format.mime)
                 runCatching { context.startActivity(intent) }
             }
         }
@@ -251,8 +257,9 @@ fun ActionsPanel(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier)
         2 -> listOf(
             listOf(
                 Heading("Save to Gallery"),
-                Act("Save PNG to Gallery") { saveImageToGallery(jpeg = false) },
-                Act("Save JPEG to Gallery") { saveImageToGallery(jpeg = true) },
+                Act("Save PNG to Gallery") { saveImageToGallery(io.github.artcraftandroid.procraft.gallery.StillImageFormat.PNG) },
+                Act("Save JPEG to Gallery") { saveImageToGallery(io.github.artcraftandroid.procraft.gallery.StillImageFormat.JPEG) },
+                Act("Save WebP to Gallery") { saveImageToGallery(io.github.artcraftandroid.procraft.gallery.StillImageFormat.WEBP) },
             ),
             listOfNotNull(
                 Heading("Share Image"),
@@ -263,6 +270,7 @@ fun ActionsPanel(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier)
                 Act("PDF") { pdfAsking = CanvasViewModel.Export.PDF },
                 Act("JPEG") { share(jpeg = true) },
                 Act("PNG") { share(jpeg = false) },
+                Act("WebP") { shareWebp() },
                 Act("TIFF") { share(CanvasViewModel.Export.TIFF) },
                 // a plugin's artwork, its shapes kept
                 Act("SVG") { share(CanvasViewModel.Export.SVG) }.takeIf { vm.session?.exportsSvg() == true },
@@ -320,6 +328,7 @@ fun ActionsPanel(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier)
             ),
             listOf(
                 Toggle("Size & Opacity sidebar", vm.showSideBar) { vm.showSideBar = it },
+                Toggle("Auto-hide UI while drawing", vm.autoHideUi) { vm.changeAutoHideUi(it) },
                 Toggle("Haptic feedback", vm.hapticFeedback) { vm.changeHapticFeedback(it) },
                 Act("Volume buttons", value = vm.volumeKeyMode.label) { volumeMenu = true },
                 Toggle("Zoom & rotation HUD", vm.canvasViewHud) { vm.changeCanvasViewHud(it) },
@@ -457,7 +466,7 @@ fun ActionsPanel(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier)
                                     look,
                                     VolumeKeyMode.entries.map { it.label },
                                     vm.volumeKeyMode.ordinal,
-                                    offsetY = 82.dp,
+                                    offsetY = 126.dp,
                                     onPick = { idx ->
                                         VolumeKeyMode.entries.getOrNull(idx)?.let(vm::changeVolumeKeyMode)
                                         volumeMenu = false

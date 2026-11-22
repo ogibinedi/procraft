@@ -59,12 +59,13 @@ class DragProvider : ContentProvider() {
     override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<out String>?) = 0
 
     companion object {
-        private val Extensions = mapOf(CanvasViewModel.OWN_LABEL to CanvasViewModel.OWN_EXTENSION, "PSD" to "psd", "JPEG" to "jpg", "PNG" to "png", "TIFF" to "tif")
+        private val Extensions = mapOf(CanvasViewModel.OWN_LABEL to CanvasViewModel.OWN_EXTENSION, "PSD" to "psd", "JPEG" to "jpg", "PNG" to "png", "WebP" to "webp", "TIFF" to "tif")
 
         fun mime(format: String): String = when (format) {
             "PSD" -> "image/vnd.adobe.photoshop"
             "JPEG" -> "image/jpeg"
             "PNG" -> "image/png"
+            "WebP" -> "image/webp"
             "TIFF" -> "image/tiff"
             else -> "application/octet-stream"
         }
@@ -102,6 +103,15 @@ fun exportArtwork(dir: File, format: String, out: File, pdfQuality: Int = 100): 
             "TIFF" -> s.exportTiff(out.path)
             "PNG" -> s.exportPng(out.path)
             "JPEG" -> s.exportJpeg(out.path)
+            "WebP" -> {
+                val tmpPng = File(out.parentFile, ".${out.name}.${System.nanoTime()}.tmp.png")
+                try {
+                    s.exportPng(tmpPng.path)
+                    if (!WebpExport.transcodePngToWebp(tmpPng, out)) return@runCatching false
+                } finally {
+                    tmpPng.delete()
+                }
+            }
             else -> return@runCatching false
         }
     }

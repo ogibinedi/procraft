@@ -755,6 +755,7 @@ suspend fun CanvasViewModel.shareableFiles(list: List<Artwork>, format: String, 
         "PDF" -> "pdf" to "application/pdf"
         "JPEG" -> "jpg" to "image/jpeg"
         "PNG" -> "png" to "image/png"
+        "WebP" -> "webp" to "image/webp"
         "TIFF" -> "tif" to "image/tiff"
         PACKAGE_LABEL -> PACKAGE_EXTENSION to "application/octet-stream"
         else -> OWN_EXTENSION to "application/octet-stream"

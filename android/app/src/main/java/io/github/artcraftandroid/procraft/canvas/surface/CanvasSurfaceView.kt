@@ -256,6 +256,8 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
                     // the system took the pointer back (a palm): what it did is undone, not ended
                     cancelled -> s.touchCancelOne(pid.toULong())
                     else -> s.touchUp(pid.toULong(), samples(e, i))
+                }.also {
+                    if (e.actionMasked == MotionEvent.ACTION_UP) vm.onCanvasStrokeFinished()
                 }
             }
             MotionEvent.ACTION_CANCEL -> {
@@ -265,6 +267,7 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
                 penStrokes.lifted()?.let { AppLog.i(TAG, "$it (called off by the system)") }
                 cancelStrokePeak()
                 palms.clear()
+                vm.onCanvasStrokeFinished()
                 s.touchCancel()
             }
             else -> emptyList()
@@ -386,6 +389,7 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
     private fun prepareStrokeSession(e: MotionEvent, s: CanvasSession): Boolean {
         // the strokes' sound, resting while none was drawn, wakes for this one
         vm.canvasTouched()
+        vm.onCanvasStrokeStarted()
         // Continue filling on a layer that takes no fill: the dialog says why, and the touch does nothing
         if (vm.dropBand == CanvasViewModel.DropBand.FILLING && !vm.currentTakesChanges(paint = true)) {
             return false

@@ -421,6 +421,25 @@ suspend fun CanvasViewModel.exportImage(jpeg: Boolean): File? = withExportCard("
     }
 }
 
+/** Exports the open artwork as a transparent lossless WebP in cache for sharing or saving. */
+suspend fun CanvasViewModel.exportWebp(): File? = withExportCard("The picture couldn't be exported.") { s ->
+    withContext(Dispatchers.IO) {
+        val dir = File(getApplication<Application>().cacheDir, "exports").apply { mkdirs() }
+        val base = io.github.artcraftandroid.procraft.core.exportFileName(s.name(), false)
+        val tmpPng = File(dir, ".$base.${System.nanoTime()}.tmp.png")
+        val outWebp = File(dir, "$base.webp")
+        try {
+            s.exportPng(tmpPng.path)
+            if (io.github.artcraftandroid.procraft.gallery.WebpExport.transcodePngToWebp(tmpPng, outWebp)) outWebp else null
+        } catch (e: MobileException) {
+            AppLog.e(TAG, "exporting webp", e)
+            null
+        } finally {
+            tmpPng.delete()
+        }
+    }
+}
+
 // ---- palettes ----
 
 /** The palettes as the core keeps them now. */

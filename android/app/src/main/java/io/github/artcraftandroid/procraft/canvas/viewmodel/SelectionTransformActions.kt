@@ -662,12 +662,14 @@ fun CanvasViewModel.refreshView() {
 /** The interface hidden or shown again (not while transforming). */
 fun CanvasViewModel.toggleBars() {
     if (!switchModes(ModeButton.Bars)) return
+    cancelAutoHideBars()
     barsHidden = !barsHidden
     if (barsHidden) panel = Panel.NONE
 }
 
 /** A stroke finished: its layer's thumbnail and the undo state changed. */
 fun CanvasViewModel.strokeEnded() {
+    onCanvasStrokeFinished()
     // a snapped shape the pen moved: its handles where it now is
     if (quickShape != null) quickShape = session?.quickshapeInfo() ?: quickShape
     // a stroke on a locked or hidden layer, or a group, drew nothing: say why (text layers ask to rasterize instead)
