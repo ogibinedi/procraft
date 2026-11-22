@@ -1,8 +1,10 @@
 name: CI
 
-# Runs on pull requests and manual dispatch (Actions > CI > Run workflow).
+# Runs on pushes to development, pull requests, and manual dispatch (Actions > CI > Run workflow).
 # Does not upload APK artifacts to preserve GitHub Actions storage quota; APK builds are published via Release tags.
 on:
+  push:
+    branches: [development]
   pull_request:
   workflow_dispatch:
 

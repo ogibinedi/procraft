@@ -2,6 +2,33 @@
 
 All notable changes in this Android Smartphone-focused fork (`ogibinedi/procraft`) are documented in this file.
 
+## [0.0.5-rc.1] - 2026-11-22 - Procreate Pocket Feature Expansion (Gallery Safety, Haptics, One-Handed Ergonomics & WebP)
+
+### Added
+- **Gallery Search, Sort, 30-Day Recently Deleted & Full Backup/Restore (`GalleryQuery.kt`, `GalleryTrash.kt`, `GalleryBackup.kt`, `GalleryManagementUi.kt`, `GalleryManagementActions.kt`)**:
+  - Added multi-token case-insensitive gallery search (including inside stacks) with empty-state reset and 5 persisted sort orders (*Manual Order*, *Recently Modified*, *Name A–Z*, *Name Z–A*, *Largest Canvas*); drag-to-reorder automatically locks when searching/sorting to keep `order.txt` intact.
+  - Added **Recently Deleted (Trash)** stored separately in `filesDir/trash` with 30-day automatic expiration, item badge count, one-tap restore back to original stack or root gallery (collision-safe), permanent delete, and Empty Trash.
+  - Added **Full Backup & Restore Archive** (`.procraft-backup` ZIP via Android SAF) archiving `artworks/`, `brushes/`, `fonts/`, `icc/`, `palettes.json`, `gradients.json`, and `presets.json` with manifest inspection, Zip-Slip protection, atomic staging, safe Merge restore, and live reload without restarting.
+- **Canvas Haptic Feedback, Hardware Volume Shortcuts & Zoom/Flip HUD (`CanvasHaptics.kt`, `VolumeShortcut.kt`, `CanvasViewMetrics.kt`, `CanvasViewHud.kt`)**:
+  - Added permission-free tactile haptic feedback (`decorView.performHapticFeedback`) with cooldown & snap-transition tracking for QuickShape snap, Transform guide snap, Slider notch snap, Eyedropper pick, ColorDrop fill, Undo/Redo, and Flip/Fit Canvas (configurable in *Actions → Prefs*).
+  - Added configurable **Volume buttons** canvas shortcuts (*Off*, *Undo / Redo*, *Brush Size*, *Flip / Fit Canvas*) in `MainActivity` that automatically yield while typing, in Gallery, in modals/studios, or during Time-lapse Replay.
+  - Added auto-fading **Zoom % & Rotation ° HUD** pill with 1-tap Fit-to-Screen and Flip Horizontal, plus an optional pinned **Quick flip button** in *Actions → Prefs*.
+- **One-Handed Smartphone Ergonomics & Discoverability (`Chrome.kt`, `ColorPanel.kt`, `AdjustmentsUi.kt`, `ActionsPanel.kt`, `GestureGuideUi.kt`, `PocketErgonomics.kt`)**:
+  - Upgraded the collapsed smartphone SideBar handle into a `44dp` edge dock keeping **Expand**, **Undo**, and **Redo** always one tap away.
+  - Made **Color History** and **Active Palette** visible together in smartphone Color bottom sheets without toggling behind `"•••"`.
+  - Exposed built-in interactive **Recolor** directly in the **Adjustments** menu on 2D canvases.
+  - Added 1-tap **Save to Gallery** (*PNG*, *JPEG*, *WebP*) in *Actions → Share* and an in-panel **Gesture guide** under *Actions → Help*.
+- **Auto-Hide UI While Drawing, Smartphone Floating Color & Lossless WebP Export (`AutoHideUiPolicy.kt`, `WebpExport.kt`)**:
+  - Added **Auto-hide UI while drawing** toggle in *Actions → Prefs* that smoothly tucks top/side chrome while actively stroking and restores after a `550ms` grace period.
+  - Added a smartphone **Float** button in the Color Panel header to detach the compact draggable **Floating Color** companion with responsive phone scaling and collapsed-sidebar clearance.
+  - Added transparent lossless **WebP** export (`image/webp`) across *Save to Gallery*, *Share Image*, and Gallery batch sharing.
+- **CI/Release Pre-release Support (`.github/workflows/ci.yml`, `.github/workflows/release.yml`)**:
+  - Enabled CI validation on pushes to `development` and automatic `--prerelease` tagging on GitHub Releases for pre-release tags (`v*-rc.*`, `v*-beta.*`).
+- **Unit Tests**:
+  - Added 9 new test suites (`GalleryQueryTest`, `GalleryTrashTest`, `GalleryBackupTest`, `CanvasHapticsTest`, `VolumeShortcutTest`, `CanvasViewMetricsTest`, `PocketErgonomicsTest`, `AutoHideAndFloatTest`, `WebpExportTest`) bringing total coverage to 45 suites / 184 unit tests.
+
+---
+
 ## [0.0.4] - 2026-11-22 - Drawing Tablet Auto-Gain Pressure Calibration, Navigation Pointer & Multi-Vendor Hardening
 
 ### Added

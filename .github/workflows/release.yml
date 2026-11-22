@@ -121,10 +121,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
+          PRERELEASE_FLAG=""
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" --clobber -- dist/*
           else
-            gh release create "$GITHUB_REF_NAME" --verify-tag --title "ProCraft $GITHUB_REF_NAME (Android Smartphone)" --generate-notes -- dist/*
+            gh release create "$GITHUB_REF_NAME" $PRERELEASE_FLAG --verify-tag --title "ProCraft $GITHUB_REF_NAME (Android Smartphone)" --generate-notes -- dist/*
           fi
           echo "Published **$GITHUB_REF_NAME** to GitHub Releases." >>"$GITHUB_STEP_SUMMARY"
 
