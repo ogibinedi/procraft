@@ -536,7 +536,7 @@ private fun Chip(text: String, modifier: Modifier = Modifier) {
  * its version; a round button at the top right closes it, as back does.
  */
 @Composable
-internal fun AboutApp(onRecover: () -> Unit, onClose: () -> Unit) {
+internal fun AboutApp(onRecover: () -> Unit, onBackup: () -> Unit = {}, onClose: () -> Unit) {
     BackHandler(onBack = onClose)
     val context = androidx.compose.ui.platform.LocalContext.current
     val version = remember {
@@ -571,6 +571,14 @@ internal fun AboutApp(onRecover: () -> Unit, onClose: () -> Unit) {
                 contentAlignment = Alignment.Center,
             ) {
                 Text("Start Gallery Recovery", color = AboutButtonInk, fontSize = 15.sp, maxLines = 1)
+            }
+            Spacer(Modifier.height(10.dp))
+            Box(
+                Modifier.size(220.dp, 44.dp).clip(RoundedCornerShape(10.dp))
+                    .background(AboutButtonFill).clickable(onClick = onBackup),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("Backup & Restore", color = AboutButtonInk, fontSize = 15.sp, maxLines = 1)
             }
         }
         Box(

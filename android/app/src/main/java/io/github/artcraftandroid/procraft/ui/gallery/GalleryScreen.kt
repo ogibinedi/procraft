@@ -129,6 +129,8 @@ fun GalleryScreen(vm: CanvasViewModel) {
     var selecting by remember { mutableStateOf(false) }
     val selected = remember { mutableStateListOf<String>() }
     var moreOpen by remember { mutableStateOf(false) }
+    var sortOpen by remember { mutableStateOf(false) }
+    var sortCentre by remember { mutableStateOf(240.dp) }
     // Share's formats, open for these artworks
     var sharing by remember { mutableStateOf<GalleryShare?>(null) }
     // artworks waiting for their PDF's quality (several go into one, named as the share says)
@@ -162,7 +164,8 @@ fun GalleryScreen(vm: CanvasViewModel) {
     val photo = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let(vm::newFromPicture)
     }
-    if (vm.openStack != null && !selecting) BackHandler { vm.showStack(null) }
+    if (vm.openStack != null && !selecting && !vm.trashOpen && !vm.backupOpen) BackHandler { vm.showStack(null) }
+    val dragAllowed = io.github.artcraftandroid.procraft.gallery.canDragReorderGallery(vm.galleryQuery, vm.gallerySort)
     // the band kept clear of the status bar and camera in the gallery's own colour
     ClearBandShows(Pc.GalleryBackground)
     BoxWithConstraints(Modifier.fillMaxSize().background(Pc.GalleryBackground)) {
@@ -257,12 +260,35 @@ fun GalleryScreen(vm: CanvasViewModel) {
                     onImport = { importFile.launch(arrayOf("*/*")) },
                     onPhoto = { photo.launch(androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                 )
+                GalleryUtilityBar(
+                    query = vm.galleryQuery,
+                    stackName = vm.openStack?.name,
+                    sort = vm.gallerySort,
+                    trashCount = vm.trashCount,
+                    screenWidth = screenWidth,
+                    onQueryChange = { vm.galleryQuery = it },
+                    onSortClick = { sortOpen = !sortOpen },
+                    onSortCentreChanged = { sortCentre = it },
+                    onTrashClick = {
+                        moreOpen = false
+                        sortOpen = false
+                        vm.trashOpen = true
+                    },
+                    onBackupClick = {
+                        moreOpen = false
+                        sortOpen = false
+                        vm.backupOpen = true
+                    },
+                )
             }
             // into a stack the gallery goes at once and the stack's artworks fly out of its cell to
             // their places; back out, they fly back into it as the gallery grows back into place
             // under them, fading in
+            val shownEntries = remember(vm.galleryEntries, vm.galleryQuery, vm.gallerySort) {
+                io.github.artcraftandroid.procraft.gallery.filterAndSortGallery(vm.galleryEntries, vm.galleryQuery, vm.gallerySort)
+            }
             androidx.compose.animation.AnimatedContent(
-                targetState = vm.openStack to vm.galleryEntries,
+                targetState = vm.openStack to shownEntries,
                 contentKey = { it.first?.dir?.path },
                 transitionSpec = {
                     if (targetState.first != null && initialState.first == null) {
@@ -284,8 +310,26 @@ fun GalleryScreen(vm: CanvasViewModel) {
                 val stackFrom = remember(stack) { stack?.let { stackCellAt[it.dir.name] } }
                 val leaving = transition.targetState == androidx.compose.animation.EnterExitState.PostExit
                 if (entries.isEmpty()) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Tap + to start a new canvas", color = Pc.GalleryText, fontSize = 17.sp)
+                    Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+                        if (vm.galleryQuery.isNotBlank()) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)) {
+                                Text("No artworks match “${vm.galleryQuery.trim()}”", color = Pc.GalleryText, fontSize = 17.sp)
+                                Box(
+                                    Modifier
+                                        .height(44.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Pc.Capsule)
+                                        .border(1.dp, Pc.CapsuleEdge, RoundedCornerShape(12.dp))
+                                        .clickable { vm.galleryQuery = "" }
+                                        .padding(horizontal = 18.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text("Clear search", color = Pc.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                        } else {
+                            Text("Tap + to start a new canvas", color = Pc.GalleryText, fontSize = 17.sp)
+                        }
                     }
                 } else {
                     val cell = cellSize(screenWidth, columns)
@@ -329,7 +373,7 @@ fun GalleryScreen(vm: CanvasViewModel) {
                                             // its top artwork's picture, lifted, held where the finger is on it
                                             val placed = stackCellAt[entry.dir.name]
                                             val top = entry.artworks.firstOrNull()
-                                            if (!selecting && placed != null && top != null) {
+                                            if (!selecting && dragAllowed && placed != null && top != null) {
                                                 val box = with(density) {
                                                     androidx.compose.ui.geometry.Rect(
                                                         placed.center.x - cell.width.toPx() / 2f, placed.top + 39.dp.toPx(),
@@ -475,7 +519,7 @@ fun GalleryScreen(vm: CanvasViewModel) {
                                                     }
                                                     return@awaitEachGesture
                                                 }
-                                                if (selecting) return@awaitEachGesture
+                                                if (selecting || !dragAllowed) return@awaitEachGesture
                                                 view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
                                                 cellScope.launch { lift.animateTo(Motion.ARTWORK_LIFTED, Motion.artworkLift()) }
                                                 while (true) {
@@ -579,14 +623,39 @@ fun GalleryScreen(vm: CanvasViewModel) {
             }
         }
         if (moreOpen) Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { moreOpen = false } })
+        if (sortOpen) Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { sortOpen = false } })
         // under More, kept 4 from the screen's edge: what the title row has no room for
         val morePlace = popoverPlace(250.dp, moreCentre, maxWidth, minRight = 4.dp)
+        val sortPlace = popoverPlace(240.dp, sortCentre, maxWidth, minRight = 4.dp)
+        MenuPresence(sortOpen && !selecting, androidx.compose.ui.graphics.TransformOrigin(sortPlace.arrowX / 240.dp, 0f)) { look ->
+            GallerySortPopover(
+                Modifier.offset(x = sortPlace.left, y = 112.dp).then(look),
+                sortPlace.arrowX,
+                vm.gallerySort,
+            ) { pickedSort ->
+                sortOpen = false
+                vm.setGallerySort(pickedSort)
+            }
+        }
         // Share's formats under Select's Share, or under More when Share is in its list
         val shareCentre = if (fit.buttons.any { it.action == GalleryAction.SHARE }) selectShareCentre(maxWidth) else moreCentre
         MenuPresence(moreOpen && fit.more.isNotEmpty(), androidx.compose.ui.graphics.TransformOrigin(morePlace.arrowX / 250.dp, 0f)) { look ->
             val place = morePlace
             val pick = picked()
             val any = pick.entries.isNotEmpty()
+            val extraRows = if (!selecting) listOf(
+                MoreRow(
+                    if (vm.trashCount > 0) "Recently Deleted (${vm.trashCount})" else "Recently Deleted",
+                    true,
+                ) {
+                    moreOpen = false
+                    vm.trashOpen = true
+                },
+                MoreRow("Backup & Restore", true) {
+                    moreOpen = false
+                    vm.backupOpen = true
+                },
+            ) else emptyList()
             val rows = fit.more.map { action ->
                 val label = when (action) {
                     GalleryAction.SELECT -> "Select"
@@ -627,7 +696,7 @@ fun GalleryScreen(vm: CanvasViewModel) {
                         GalleryAction.MORE -> {}
                     }
                 }
-            }
+            } + extraRows
             MoreOptions(Modifier.offset(x = place.left, y = 60.dp).then(look), place.arrowX, rows)
         }
         // Share's formats: beside a swiped artwork's Share, or under Select's
@@ -719,14 +788,6 @@ fun GalleryScreen(vm: CanvasViewModel) {
                 renamingStack = null
             }
         }
-        FadingValue(vm.message, Motion.message()) { text, shown ->
-            Text(
-                text,
-                color = Pc.Text,
-                modifier = Modifier.align(Alignment.BottomCenter).graphicsLayer { alpha = shown }.padding(32.dp).clip(RoundedCornerShape(10.dp))
-                    .background(Pc.Panel).padding(horizontal = 18.dp, vertical = 12.dp),
-            )
-        }
         androidx.compose.animation.AnimatedVisibility(
             about,
             enter = androidx.compose.animation.fadeIn(tween(300)),
@@ -749,17 +810,42 @@ fun GalleryScreen(vm: CanvasViewModel) {
                         }
                     }
                 },
+                onBackup = {
+                    about = false
+                    vm.backupOpen = true
+                },
             ) { about = false }
+        }
+        androidx.compose.animation.AnimatedVisibility(
+            vm.trashOpen,
+            enter = androidx.compose.animation.slideInVertically(Motion.studioIn()) { it },
+            exit = androidx.compose.animation.slideOutVertically(Motion.studioOut()) { it },
+        ) { GalleryTrashScreen(vm) { vm.trashOpen = false } }
+        androidx.compose.animation.AnimatedVisibility(
+            vm.backupOpen,
+            enter = androidx.compose.animation.slideInVertically(Motion.studioIn()) { it },
+            exit = androidx.compose.animation.slideOutVertically(Motion.studioOut()) { it },
+        ) { GalleryBackupScreen(vm) { vm.backupOpen = false } }
+        FadingValue(vm.message, Motion.message()) { text, shown ->
+            Text(
+                text,
+                color = Pc.Text,
+                modifier = Modifier.align(Alignment.BottomCenter).graphicsLayer { alpha = shown }.padding(32.dp).clip(RoundedCornerShape(10.dp))
+                    .background(Pc.Panel).padding(horizontal = 18.dp, vertical = 12.dp),
+            )
         }
         RecoveryProgress(recovery, recovered)
     }
 
-    // deleting what Select picked (a stack with its artworks), or one swiped to
+    // moving what Select picked (a stack with its artworks), or one swiped to, into Recently Deleted
     Alert(
         deletingSelected,
-        title = { p -> p.deleteTitle },
-        message = { p -> p.deleteMessage },
-        action = "Delete",
+        title = { p ->
+            val n = p.entries.size
+            if (n == 1) "Move “${p.entries.single().name}” to Trash?" else "Move $n items to Trash?"
+        },
+        message = { "You can restore them from Recently Deleted within 30 days." },
+        action = "Move to Trash",
         icon = PcIcons.Trash,
         onCancel = { deletingSelected = null },
         onAction = { p ->
@@ -770,9 +856,9 @@ fun GalleryScreen(vm: CanvasViewModel) {
     )
     Alert(
         deletingStack,
-        title = { st -> "Delete “${st.name}”?" },
-        message = { st -> "Its ${st.artworks.size} artworks go with it. This can't be undone." },
-        action = "Delete",
+        title = { st -> "Move “${st.name}” to Trash?" },
+        message = { st -> "Its ${st.artworks.size} artworks will stay in Recently Deleted for 30 days." },
+        action = "Move to Trash",
         icon = PcIcons.Trash,
         onCancel = { deletingStack = null },
         onAction = { st ->
@@ -782,9 +868,9 @@ fun GalleryScreen(vm: CanvasViewModel) {
     )
     Alert(
         deleting,
-        title = { a -> "Delete “${a.name}”?" },
-        message = { "This can't be undone." },
-        action = "Delete",
+        title = { a -> "Move “${a.name}” to Trash?" },
+        message = { "You can restore it from Recently Deleted within 30 days." },
+        action = "Move to Trash",
         icon = PcIcons.Trash,
         onCancel = { deleting = null },
         onAction = { a ->

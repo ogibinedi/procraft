@@ -99,18 +99,25 @@ fun CanvasViewModel.duplicateEntries(entries: List<io.github.artcraftandroid.pro
     }
 }
 
-/** [entries] deleted, a stack with every artwork in it (Delete asks first). */
+/** [entries] moved to Recently Deleted (falling back to immediate delete only if move fails). */
 fun CanvasViewModel.deleteEntries(entries: List<io.github.artcraftandroid.procraft.gallery.GalleryEntry>) {
     viewModelScope.launch {
+        var moved = 0
         withContext(Dispatchers.IO) {
             for (e in entries) {
-                when (e) {
-                    is Artwork -> store.delete(e)
-                    is io.github.artcraftandroid.procraft.gallery.Stack -> store.deleteStack(e)
+                if (trash.moveToTrash(e) != null) {
+                    moved++
+                } else {
+                    when (e) {
+                        is Artwork -> store.delete(e)
+                        is io.github.artcraftandroid.procraft.gallery.Stack -> store.deleteStack(e)
+                    }
                 }
             }
         }
         refreshGallery()
+        refreshTrash()
+        if (moved > 0) message = if (moved == 1) "Moved to Recently Deleted" else "Moved $moved items to Recently Deleted"
     }
 }
 
@@ -806,8 +813,15 @@ fun CanvasViewModel.openForAnimatedExport(a: Artwork, kind: Animated) {
 
 fun CanvasViewModel.deleteArtwork(a: Artwork) {
     viewModelScope.launch {
-        withContext(Dispatchers.IO) { store.delete(a) }
+        val trashed = withContext(Dispatchers.IO) {
+            if (trash.moveToTrash(a) != null) true else {
+                store.delete(a)
+                false
+            }
+        }
         refreshGallery()
+        refreshTrash()
+        if (trashed) message = "Moved to Recently Deleted"
     }
 }
 
@@ -818,11 +832,18 @@ fun CanvasViewModel.duplicateArtwork(a: Artwork) {
     }
 }
 
-/** Stack [s] deleted, with every artwork in it. */
+/** Stack [s] moved to Recently Deleted, with every artwork in it. */
 fun CanvasViewModel.deleteStack(s: io.github.artcraftandroid.procraft.gallery.Stack) {
     viewModelScope.launch {
-        withContext(Dispatchers.IO) { store.deleteStack(s) }
+        val trashed = withContext(Dispatchers.IO) {
+            if (trash.moveToTrash(s) != null) true else {
+                store.deleteStack(s)
+                false
+            }
+        }
         refreshGallery()
+        refreshTrash()
+        if (trashed) message = "Moved “${s.name}” to Recently Deleted"
     }
 }
 

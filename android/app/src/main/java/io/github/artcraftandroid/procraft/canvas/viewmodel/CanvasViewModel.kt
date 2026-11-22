@@ -84,12 +84,43 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
         internal set
 
     val store = ArtworkStore(File(app.filesDir, "artworks"))
+    val trash = io.github.artcraftandroid.procraft.gallery.GalleryTrash(File(app.filesDir, "trash"), store.root)
     var artworks by mutableStateOf<List<Artwork>>(emptyList())
         internal set
 
     /** What the gallery shows: artworks and stacks (in the stack open, only its artworks). */
     var galleryEntries by mutableStateOf<List<io.github.artcraftandroid.procraft.gallery.GalleryEntry>>(emptyList())
         internal set
+
+    /** Active search filter in the gallery (trimmed and matched against artwork/stack names). */
+    var galleryQuery by mutableStateOf("")
+
+    /** Active sort order in the gallery, persisted across sessions. */
+    var gallerySort by mutableStateOf(io.github.artcraftandroid.procraft.gallery.GallerySort.CUSTOM)
+        internal set
+
+    /** Items currently in Recently Deleted, newest-deleted first. */
+    var trashEntries by mutableStateOf<List<io.github.artcraftandroid.procraft.gallery.TrashedEntry>>(emptyList())
+        internal set
+
+    /** Number of active items in Recently Deleted, shown as a badge on the gallery trash control. */
+    var trashCount by androidx.compose.runtime.mutableIntStateOf(0)
+        internal set
+
+    /** Recently Deleted full-screen view is open over the gallery. */
+    var trashOpen by mutableStateOf(false)
+
+    /** Backup & Restore full-screen view is open over the gallery. */
+    var backupOpen by mutableStateOf(false)
+
+    /** Live progress while creating or restoring a full backup archive; null when idle. */
+    data class BackupProgress(val label: String, val progress: Float, val restoring: Boolean)
+
+    var backupProgress by mutableStateOf<BackupProgress?>(null)
+        internal set
+
+    @Volatile
+    internal var backupCancelled = false
 
     /** The stack open in the gallery, if any. */
     var openStack by mutableStateOf<io.github.artcraftandroid.procraft.gallery.Stack?>(null)
@@ -635,7 +666,7 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
     var gradientIndex by mutableStateOf(0)
         internal set
     /** The gradient library, kept by the shared core (crates/core gradients.rs), each change written at once. */
-    internal val gradientLibrary = io.github.artcraftandroid.procraft.core.Gradients.open(File(app.filesDir, "gradients.json").path)
+    internal var gradientLibrary = io.github.artcraftandroid.procraft.core.Gradients.open(File(app.filesDir, "gradients.json").path)
     /** The gradient library: ours, and those made or changed here. */
     var gradients by mutableStateOf(readGradients())
         internal set
@@ -694,7 +725,7 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
     internal var pendingPick: Pair<Float, Float>? = null
 
     // the palettes, kept by the shared core
-    internal val paletteStore = io.github.artcraftandroid.procraft.core.Palettes.open(File(app.filesDir, "palettes.json").path)
+    internal var paletteStore = io.github.artcraftandroid.procraft.core.Palettes.open(File(app.filesDir, "palettes.json").path)
     var palettes by mutableStateOf<List<Palette>>(emptyList())
         internal set
 
@@ -899,7 +930,9 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
     val combineBlendModeList: List<BlendModeInfo> = io.github.artcraftandroid.procraft.core.combineBlendModes()
 
     init {
+        gallerySort = io.github.artcraftandroid.procraft.gallery.GallerySort.fromKey(interfacePrefs.getString(GALLERY_SORT, null))
         refreshGallery()
+        refreshTrash()
         // the GPU made while the gallery shows, so the first artwork opens at once
         viewModelScope.launch(Dispatchers.Default) { io.github.artcraftandroid.procraft.core.warmGpu() }
         // and the brushes read (with many imported, reading them took seconds at each open)
@@ -2231,6 +2264,7 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
         const val PEN_PRESSURE_MIN = "pen_pressure_min"
         const val HIDE_TABLET_ARROW = "hide_tablet_arrow"
         const val SHOW_TABLET_NAV_POINTER = "show_tablet_nav_pointer"
+        const val GALLERY_SORT = "gallery_sort"
         /** Frames a second an animation plays at (Animation Assist's own when it is on). */
         const val ANIMATION_FPS = 15
         /** The timeline's frame pictures' longest side, pixels; a frame's longest hold. */
