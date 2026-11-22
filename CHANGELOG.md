@@ -2,6 +2,23 @@
 
 All notable changes in this Android Smartphone-focused fork (`ogibinedi/procraft`) are documented in this file.
 
+## [0.0.5-rc.2] - 2026-11-22 - GitHub Releases In-App Updater & Consistent Layer Trash Icon
+
+### Added
+- **GitHub Releases In-App Updater (`AppUpdater.kt`, `AppUpdateInstaller.kt`, `AppUpdateActions.kt`, `AppUpdateUi.kt`)**:
+  - Added automatic rate-limited (12-hour interval) update checks in the Gallery against GitHub Releases (`ogibinedi/procraft`) with a dismissible update banner and full **Software Update** sheet showing release notes, device ABI (`ARM64` / `ARMv7`), and APK size.
+  - Added direct in-app APK download with live progress bar, cancel support, HTTPS GitHub host allowlist validation, **SHA-256 verification** against `SHA256SUMS.txt`, automatic `FileProvider` handoff to the Android installer (plus one-time "Install unknown apps" permission flow with auto-resume), and a browser fallback button (*Open on GitHub*).
+  - Added opt-in **Auto-check in Gallery** and **Include pre-release (Beta / RC)** toggles (defaulting to enabled on RC/beta builds and disabled on stable builds) synced across the Software Update sheet and `SettingsActivity`.
+  - Added **Check for Updates** entry points in Gallery *More*, Gallery *About ProCraft*, and Canvas *Actions → Help*.
+- **Unit Tests (`AppUpdaterTest.kt`)**:
+  - Added 7 unit tests covering SemVer ordering, pre-release channel defaults, GitHub Releases JSON parsing, ABI selection, SHA-256 parsing/verification, HTTPS host allowlist enforcement, and auto-check cooldown (46 suites / 191 tests total).
+
+### Changed
+- **Default Layer Swipe Icon (`LayersPanel.kt`)**:
+  - Replaced the broom (`SwipeClear`) icon on the default/sole layer's swipe action with the standard `Trash` icon so it visually matches additional layers while safely preserving clear-instead-of-delete behavior when only one layer exists.
+
+---
+
 ## [0.0.5-rc.1] - 2026-11-22 - Procreate Pocket Feature Expansion (Gallery Safety, Haptics, One-Handed Ergonomics & WebP)
 
 ### Added
