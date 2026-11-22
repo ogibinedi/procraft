@@ -61,6 +61,9 @@ class SettingsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val prefs = getSharedPreferences("interface", Context.MODE_PRIVATE)
+        val defaultPreRelease = io.github.artcraftandroid.procraft.update.AppUpdater.defaultIncludePreReleases(
+            runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull(),
+        )
         val plugins = keptPlugins(this, prefs)
         Pc.accentGiven = Pc.accentOf(plugins)
         setContent {
@@ -71,7 +74,7 @@ class SettingsActivity : ComponentActivity() {
                 LocalDensity provides Density(density.density * size, density.fontScale),
                 androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr,
             ) {
-                SettingsScreen(prefs) { finish() }
+                SettingsScreen(prefs, defaultPreRelease) { finish() }
             }
         }
     }
@@ -131,17 +134,33 @@ private val Groups: List<Pair<String, List<Setting>>> = listOf(
     ),
 )
 
+private fun settingsGroups(defaultPreRelease: Boolean): List<Pair<String, List<Setting>>> = Groups + listOf(
+    "Updates" to listOf(
+        Toggle(
+            CanvasViewModel.UPDATE_AUTO_CHECK, "Auto-check for Updates",
+            "Quietly check GitHub Releases for newer ProCraft builds when opening the Gallery.",
+            true,
+        ),
+        Toggle(
+            CanvasViewModel.UPDATE_INCLUDE_PRE, "Include Pre-release Updates",
+            "Offer beta and release candidate builds before they reach the stable channel.",
+            defaultPreRelease,
+        ),
+    ),
+)
+
 @Composable
-private fun SettingsScreen(prefs: android.content.SharedPreferences, onDone: () -> Unit) {
+private fun SettingsScreen(prefs: android.content.SharedPreferences, defaultPreRelease: Boolean, onDone: () -> Unit) {
     var licences by remember { mutableStateOf(false) }
     if (licences) return Licences { licences = false }
+    val groups = remember(defaultPreRelease) { settingsGroups(defaultPreRelease) }
     Box(Modifier.fillMaxSize().background(Back).safeDrawingPadding(), contentAlignment = Alignment.TopCenter) {
         Column(Modifier.widthIn(max = 640.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("ProCraft", color = Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 Text("Done", color = Blue, fontSize = 17.sp, modifier = Modifier.clickable(onClick = onDone).padding(8.dp))
             }
-            for ((heading, rows) in Groups) {
+            for ((heading, rows) in groups) {
                 Text(heading.uppercase(), color = Dim, fontSize = 13.sp, modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 6.dp))
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Group)) {
                     rows.forEachIndexed { i, s ->

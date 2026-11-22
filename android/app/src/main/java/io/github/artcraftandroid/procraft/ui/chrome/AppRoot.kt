@@ -63,6 +63,11 @@ fun AppRoot(vm: CanvasViewModel) {
         ) {
             // layers lifted out of the panel stay held across the gallery and into another artwork
             HoldingLayers(vm) { Screens(vm, keptClear) }
+            androidx.compose.animation.AnimatedVisibility(
+                vm.updateSheetOpen,
+                enter = androidx.compose.animation.slideInVertically(Motion.studioIn()) { it },
+                exit = androidx.compose.animation.slideOutVertically(Motion.studioOut()) { it },
+            ) { AppUpdateSheet(vm) { vm.closeUpdateSheet() } }
             // top-level external drawing tablet pointer over gallery, bars, panels, sheets, studios & dialogs
             TabletPointerOverlay(vm, rootOffset)
         }

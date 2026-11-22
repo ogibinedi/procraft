@@ -669,10 +669,10 @@ private fun SwipeRow(
                         onOpen(false)
                     }
                 }
-                // the only layer can't go: it is cleared instead
+                // the only layer can't go: it is cleared instead, using the same Trash icon as other layers
                 val alone = vm.layers.count { it.kind != LayerType.MASK } == 1
                 SwipeAction(
-                    icon = if (alone) PcIcons.SwipeClear else PcIcons.Trash,
+                    icon = PcIcons.Trash,
                     contentDescription = if (alone) "Clear" else "Delete",
                     fill = SwipeDelete,
                     ink = Color.White,

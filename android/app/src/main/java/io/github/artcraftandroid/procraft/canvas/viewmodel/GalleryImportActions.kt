@@ -238,6 +238,11 @@ fun CanvasViewModel.readAppSettings() {
     orientationMemory = interfacePrefs.getBoolean(ORIENTATION_MEMORY, true)
     fitInside = interfacePrefs.getBoolean(FIT_INSIDE, false)
     timeLapseDisabled = interfacePrefs.getBoolean(NO_TIME_LAPSE, false)
+    updateAutoCheck = interfacePrefs.getBoolean(CanvasViewModel.UPDATE_AUTO_CHECK, true)
+    updateIncludePreReleases = interfacePrefs.getBoolean(
+        CanvasViewModel.UPDATE_INCLUDE_PRE,
+        io.github.artcraftandroid.procraft.update.AppUpdater.defaultIncludePreReleases(appVersion()),
+    )
     session?.let(this::applyAppSettings)
     applyFitInsets()
 }

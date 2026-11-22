@@ -265,6 +265,33 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
 
     internal var autoHideRestoreJob: Job? = null
 
+    /** Quietly checks GitHub Releases for newer builds when opening the Gallery. */
+    var updateAutoCheck by mutableStateOf(interfacePrefs.getBoolean(UPDATE_AUTO_CHECK, true))
+        internal set
+
+    /** Opt-in to beta/RC pre-releases on GitHub (defaults to true when running a pre-release build). */
+    var updateIncludePreReleases by mutableStateOf(
+        interfacePrefs.getBoolean(UPDATE_INCLUDE_PRE, io.github.artcraftandroid.procraft.update.AppUpdater.defaultIncludePreReleases(appVersion())),
+    )
+        internal set
+
+    /** Release tag dismissed from the Gallery banner until a newer version arrives. */
+    var dismissedUpdateTag by mutableStateOf(interfacePrefs.getString(UPDATE_DISMISSED_TAG, null))
+        internal set
+
+    /** Live state of the GitHub Releases in-app updater. */
+    var updateState by mutableStateOf<UpdateUiState>(UpdateUiState.Idle)
+        internal set
+
+    /** Full-screen Software Update sheet open over Gallery or Canvas. */
+    var updateSheetOpen by mutableStateOf(false)
+        internal set
+
+    internal var updateDownloadJob: Job? = null
+
+    @Volatile
+    internal var updateDownloadCancelled = false
+
     /** Activity-supplied permission-free haptic trigger (`decorView.performHapticFeedback`). */
     internal var performHaptic: ((Int) -> Unit)? = null
     internal val hapticGate = HapticGate()
@@ -2301,6 +2328,10 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
         const val CANVAS_VIEW_HUD = "canvas_view_hud"
         const val QUICK_FLIP_BUTTON = "quick_flip_button"
         const val AUTO_HIDE_UI = "auto_hide_ui"
+        const val UPDATE_AUTO_CHECK = "update_auto_check"
+        const val UPDATE_INCLUDE_PRE = "update_include_prerelease"
+        const val UPDATE_LAST_CHECK_MS = "update_last_check_ms"
+        const val UPDATE_DISMISSED_TAG = "update_dismissed_tag"
         /** Frames a second an animation plays at (Animation Assist's own when it is on). */
         const val ANIMATION_FPS = 15
         /** The timeline's frame pictures' longest side, pixels; a frame's longest hold. */

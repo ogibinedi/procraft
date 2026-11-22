@@ -338,6 +338,10 @@ fun ActionsPanel(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier)
         else -> listOf(
             listOf(
                 Act("About ProCraft") { dialog = "ProCraft" to "Version ${versionName(context)}" },
+                Act("Check for Updates", value = vm.activeUpdateRelease()?.tagName) {
+                    vm.closePanels()
+                    vm.openUpdateSheet()
+                },
                 Act("Licences") { dialog = "Licences" to licences(context) },
             ),
             listOf(

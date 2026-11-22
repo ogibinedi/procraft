@@ -164,7 +164,8 @@ fun GalleryScreen(vm: CanvasViewModel) {
     val photo = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let(vm::newFromPicture)
     }
-    if (vm.openStack != null && !selecting && !vm.trashOpen && !vm.backupOpen) BackHandler { vm.showStack(null) }
+    if (vm.openStack != null && !selecting && !vm.trashOpen && !vm.backupOpen && !vm.updateSheetOpen) BackHandler { vm.showStack(null) }
+    LaunchedEffect(Unit) { vm.maybeAutoCheckForUpdates() }
     val dragAllowed = io.github.artcraftandroid.procraft.gallery.canDragReorderGallery(vm.galleryQuery, vm.gallerySort)
     // the band kept clear of the status bar and camera in the gallery's own colour
     ClearBandShows(Pc.GalleryBackground)
@@ -280,6 +281,18 @@ fun GalleryScreen(vm: CanvasViewModel) {
                         vm.backupOpen = true
                     },
                 )
+                androidx.compose.animation.AnimatedVisibility(visible = vm.shouldShowUpdateBanner()) {
+                    GalleryUpdateBanner(
+                        vm = vm,
+                        screenWidth = screenWidth,
+                        onOpen = {
+                            moreOpen = false
+                            sortOpen = false
+                            vm.openUpdateSheet(autoCheckIfIdle = false)
+                        },
+                        onDismiss = vm::dismissUpdateBanner,
+                    )
+                }
             }
             // into a stack the gallery goes at once and the stack's artworks fly out of its cell to
             // their places; back out, they fly back into it as the gallery grows back into place
@@ -655,6 +668,13 @@ fun GalleryScreen(vm: CanvasViewModel) {
                     moreOpen = false
                     vm.backupOpen = true
                 },
+                MoreRow(
+                    vm.activeUpdateRelease()?.let { "Update Available (${it.tagName})" } ?: "Check for Updates",
+                    true,
+                ) {
+                    moreOpen = false
+                    vm.openUpdateSheet()
+                },
             ) else emptyList()
             val rows = fit.more.map { action ->
                 val label = when (action) {
@@ -813,6 +833,10 @@ fun GalleryScreen(vm: CanvasViewModel) {
                 onBackup = {
                     about = false
                     vm.backupOpen = true
+                },
+                onCheckUpdates = {
+                    about = false
+                    vm.openUpdateSheet()
                 },
             ) { about = false }
         }
