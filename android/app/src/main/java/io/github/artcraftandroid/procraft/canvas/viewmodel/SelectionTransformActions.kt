@@ -290,7 +290,9 @@ fun CanvasViewModel.pourBegin(p: Offset): Boolean {
     val c = dropSwatch ?: colorRgb()
     val t = dropThreshold
     // made at once, and shown spreading in from where it landed
-    return pourNow { s.pourDrop(p.x, p.y, ((c shr 16) and 0xFF) / 255f, ((c shr 8) and 0xFF) / 255f, (c and 0xFF) / 255f, t) }
+    val poured = pourNow { s.pourDrop(p.x, p.y, ((c shr 16) and 0xFF) / 255f, ((c shr 8) and 0xFF) / 255f, (c and 0xFF) / 255f, t) }
+    if (poured) haptic(HapticCue.PICK)
+    return poured
 }
 
 /** Continue filling: the colour and threshold the canvas's (shared) touches fill with; none when not filling. */
@@ -304,6 +306,7 @@ fun CanvasViewModel.touchFill(): io.github.artcraftandroid.procraft.core.Fill? {
 fun CanvasViewModel.filled() {
     if (dropSliding) transformPrefs.edit().putFloat(DROP_THRESHOLD, dropThreshold).apply()
     dropSliding = false
+    haptic(HapticCue.PICK)
     refresh()
 }
 
@@ -568,6 +571,7 @@ fun CanvasViewModel.endTransform(commit: Boolean) {
     transformBox = null
     transformPopup = TransformPopup.NONE
     transformNumeric = null
+    transformSnapTracker.clear()
     refresh()
     if (layersShown) refreshThumbnails()
 }
@@ -613,7 +617,10 @@ fun CanvasViewModel.transformAction(action: TransformAction) {
 
 /** The box after a drag step on the canvas. */
 fun CanvasViewModel.transformMoved(box: TransformBox?) {
-    if (box != null) transformBox = box
+    if (box != null) {
+        transformBox = box
+        if (transformSnapTracker.update(box.snapLines)) haptic(HapticCue.SNAP)
+    }
 }
 
 fun CanvasViewModel.transformSetSize(width: Float, height: Float) = transformMoved(session?.transformSetSize(width, height))
@@ -624,6 +631,7 @@ fun CanvasViewModel.transformSetAngle(degrees: Float) = transformMoved(session?.
 /** Fits the canvas to the screen, settling into place; what is drawn over it follows each frame. */
 fun CanvasViewModel.settleToFit() {
     session?.settleToFit()
+    haptic(HapticCue.FLIP)
     followView()
 }
 

@@ -256,6 +256,7 @@ fun CanvasViewModel.quickShapeSnapped() {
     val info = session?.quickshapeInfo() ?: return
     quickShape = info
     quickShapeEditing = false
+    haptic(HapticCue.SNAP)
     showDone(snappedTo(info.kind))
 }
 

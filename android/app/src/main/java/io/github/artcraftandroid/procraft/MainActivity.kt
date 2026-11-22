@@ -34,6 +34,9 @@ class MainActivity : ComponentActivity() {
     /** Hides the system's bars, as the model asks (let go as this activity goes: the model outlives it). */
     private val barsHider: () -> Unit = { hideSystemBars() }
 
+    /** Permission-free haptic performer bound to the activity's decor view. */
+    private val hapticPerformer: (Int) -> Unit = { code -> window.decorView.performHapticFeedback(code) }
+
     // Project canvas: the presentation on a second display, and the displays coming and going
     private var projection: ProjectionPresentation? = null
     private val displays by lazy { getSystemService(DisplayManager::class.java) }
@@ -54,6 +57,7 @@ class MainActivity : ComponentActivity() {
         hideSystemBars()
         // a colour dragged down from the top bar puts back the bars the drag showed
         vm.hideSystemBars = barsHider
+        vm.performHaptic = hapticPerformer
         // which graphics backend the app is trying, kept before the model makes the GPU device: a
         // driver that crashes the app then sends the next start to the next backend (one that drew
         // is trusted until the app or the system is updated)
@@ -362,6 +366,15 @@ class MainActivity : ComponentActivity() {
         // typing in a text field (a name, the text tool's words): what the field leaves (Ctrl+J,
         // Alt) is still typing, not the canvas's
         if (typing()) return super.onKeyDown(keyCode, event)
+        resolveVolumeKey(
+            mode = vm.volumeKeyMode,
+            keyCode = keyCode,
+            onCanvas = vm.screen == Screen.CANVAS,
+            typing = false,
+            uiCoveringCanvas = vm.isUiCoveringCanvas() || vm.timeLapseReplaying,
+        )?.let { action ->
+            return vm.handleVolumeAction(action, repeat = event.repeatCount > 0)
+        }
         if (isAltKey(keyCode) && event.repeatCount == 0 && !event.isCtrlPressed && vm.modifyKey(true)) return true
         val press = keyPress(keyCode, event.metaState)
         // held, a key goes on moving the view, if that is what it does
@@ -376,6 +389,16 @@ class MainActivity : ComponentActivity() {
         // a pen's side button that comes as a key, let go (held to erase, the eraser goes back)
         val penButton = event.device?.let { penKeyButton(keyCode, it.sources or event.source, it.keyboardType, it.name) }
         if (penButton != null && vm.penKey(penButton, PenKeyAction.LET_GO)) return true
+        if (!typing() && resolveVolumeKey(
+                mode = vm.volumeKeyMode,
+                keyCode = keyCode,
+                onCanvas = vm.screen == Screen.CANVAS,
+                typing = false,
+                uiCoveringCanvas = vm.isUiCoveringCanvas() || vm.timeLapseReplaying,
+            ) != null
+        ) {
+            return true
+        }
         if (isAltKey(keyCode) && vm.modifyHeld && vm.modifyKey(false)) return true
         return super.onKeyUp(keyCode, event)
     }
@@ -402,6 +425,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         if (vm.hideSystemBars === barsHider) vm.hideSystemBars = null
+        if (vm.performHaptic === hapticPerformer) vm.performHaptic = null
         super.onDestroy()
     }
 

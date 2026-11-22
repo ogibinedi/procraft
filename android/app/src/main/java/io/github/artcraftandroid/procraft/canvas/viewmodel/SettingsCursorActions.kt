@@ -861,3 +861,66 @@ fun CanvasViewModel.lookAtSystemClipboard() {
     offerPaste()
 }
 
+fun CanvasViewModel.changeHapticFeedback(on: Boolean) {
+    hapticFeedback = on
+    interfacePrefs.edit().putBoolean(CanvasViewModel.HAPTIC_FEEDBACK, on).apply()
+    if (on) haptic(HapticCue.SNAP)
+}
+
+fun CanvasViewModel.changeVolumeKeyMode(mode: VolumeKeyMode) {
+    volumeKeyMode = mode
+    interfacePrefs.edit().putString(CanvasViewModel.VOLUME_KEY_MODE, mode.key).apply()
+}
+
+fun CanvasViewModel.changeCanvasViewHud(on: Boolean) {
+    canvasViewHud = on
+    interfacePrefs.edit().putBoolean(CanvasViewModel.CANVAS_VIEW_HUD, on).apply()
+}
+
+fun CanvasViewModel.changeQuickFlipButton(on: Boolean) {
+    quickFlipButton = on
+    interfacePrefs.edit().putBoolean(CanvasViewModel.QUICK_FLIP_BUTTON, on).apply()
+}
+
+/** Triggers a rate-limited, permission-free tactile cue when haptic feedback is enabled. */
+fun CanvasViewModel.haptic(cue: HapticCue) {
+    if (!hapticFeedback) return
+    if (!hapticGate.shouldFire(cue, android.os.SystemClock.uptimeMillis())) return
+    performHaptic?.invoke(hapticConstantFor(cue))
+}
+
+/** Executes a resolved hardware volume key shortcut on the active canvas. */
+fun CanvasViewModel.handleVolumeAction(action: VolumeAction, repeat: Boolean): Boolean {
+    if (repeat && !action.allowsRepeat) return true
+    when (action) {
+        VolumeAction.UNDO -> undo()
+        VolumeAction.REDO -> redo()
+        VolumeAction.BRUSH_LARGER -> {
+            val next = stepBrushSize(size, VOLUME_BRUSH_STEP)
+            if (next != size) {
+                changeSize(next)
+                haptic(HapticCue.STEP)
+            }
+            showDone("Brush Size ${(next * 100f).roundToInt()}%")
+        }
+        VolumeAction.BRUSH_SMALLER -> {
+            val next = stepBrushSize(size, -VOLUME_BRUSH_STEP)
+            if (next != size) {
+                changeSize(next)
+                haptic(HapticCue.STEP)
+            }
+            showDone("Brush Size ${(next * 100f).roundToInt()}%")
+        }
+        VolumeAction.FLIP_HORIZONTAL -> {
+            flipCanvas(horizontal = true)
+            showDone("Flipped Horizontal")
+        }
+        VolumeAction.FIT_CANVAS -> {
+            settleToFit()
+            showDone("Fit to Screen")
+        }
+    }
+    return true
+}
+
+

@@ -246,7 +246,7 @@ fun SideBar(vm: CanvasViewModel, modifier: Modifier = Modifier, right: Boolean =
                 drawPath(ring, Pc.SliderEdge)
             },
     ) {
-        BrushSlider(vm.size, vm::changeSize, Modifier.offset(x(SliderLeft, Pc.SliderWidth), SizeTrackTop).then(rememberFrost(Pc.SliderCorner, track)), panel(vm, CanvasViewModel.SliderPanel.SIZE), vm.sizeNotches, trackHeight)
+        BrushSlider(vm.size, vm::changeSize, Modifier.offset(x(SliderLeft, Pc.SliderWidth), SizeTrackTop).then(rememberFrost(Pc.SliderCorner, track)), panel(vm, CanvasViewModel.SliderPanel.SIZE), vm.sizeNotches, trackHeight, onNotchSnap = { vm.haptic(HapticCue.SNAP) })
         // the modify button: the next touch on the canvas picks a colour
         Box(
             Modifier.offset(x(5.dp, 40.dp), 191.dp - shorter).size(40.dp, 41.dp).pointerInput(Unit) {
@@ -274,7 +274,7 @@ fun SideBar(vm: CanvasViewModel, modifier: Modifier = Modifier, right: Boolean =
                 },
             )
         }
-        BrushSlider(vm.opacity, vm::changeOpacity, Modifier.offset(x(SliderLeft, Pc.SliderWidth), opacityTop).then(rememberFrost(Pc.SliderCorner, track)), panel(vm, CanvasViewModel.SliderPanel.OPACITY), vm.opacityNotches, trackHeight)
+        BrushSlider(vm.opacity, vm::changeOpacity, Modifier.offset(x(SliderLeft, Pc.SliderWidth), opacityTop).then(rememberFrost(Pc.SliderCorner, track)), panel(vm, CanvasViewModel.SliderPanel.OPACITY), vm.opacityNotches, trackHeight, onNotchSnap = { vm.haptic(HapticCue.SNAP) })
         // beside the slider it belongs to, a little above it, outside the bar
         vm.sliderPanel?.let { which ->
             val top = if (which == CanvasViewModel.SliderPanel.SIZE) SizeTrackTop else opacityTop
@@ -446,11 +446,13 @@ private fun SliderPanel(vm: CanvasViewModel, which: CanvasViewModel.SliderPanel,
  * is pulled onto it, and a tap on one goes there. On a notch, the thumb shows a blue bar.
  */
 @Composable
-fun BrushSlider(value: Float, onChange: (Float) -> Unit, modifier: Modifier = Modifier, panel: SliderPanelHooks? = null, notches: List<Float> = emptyList(), height: Dp = Pc.SliderHeight) {
+fun BrushSlider(value: Float, onChange: (Float) -> Unit, modifier: Modifier = Modifier, panel: SliderPanelHooks? = null, notches: List<Float> = emptyList(), height: Dp = Pc.SliderHeight, onNotchSnap: () -> Unit = {}) {
     val current by rememberUpdatedState(value)
     val change by rememberUpdatedState(onChange)
     val hooks by rememberUpdatedState(panel)
     val marks by rememberUpdatedState(notches)
+    val notchSnap by rememberUpdatedState(onNotchSnap)
+    val notchTracker = remember { SliderNotchTracker() }
     fun near(v: Float, reach: Float = CanvasViewModel.NOTCH_NEAR) =
         marks.filter { kotlin.math.abs(it - v) < reach }.minByOrNull { kotlin.math.abs(it - v) }
     Box(
@@ -460,6 +462,7 @@ fun BrushSlider(value: Float, onChange: (Float) -> Unit, modifier: Modifier = Mo
                 awaitEachGesture {
                     val down = awaitFirstDown()
                     down.consume()
+                    notchTracker.clear()
                     var last = down.position.y
                     var moved = false
                     var lifted = false
@@ -485,7 +488,9 @@ fun BrushSlider(value: Float, onChange: (Float) -> Unit, modifier: Modifier = Mo
                             // the farther out to the side the finger is, the finer the thumb follows
                             val across = (c.position.x - size.width / 2f).toDp().value
                             raw = (raw - dy / travel * sideSliderDragShare(across)).coerceIn(0f, 1f)
-                            change(near(raw) ?: raw)
+                            val snapped = near(raw)
+                            if (notchTracker.update(snapped)) notchSnap()
+                            change(snapped ?: raw)
                         }
                         c.consume()
                         return true
@@ -504,6 +509,7 @@ fun BrushSlider(value: Float, onChange: (Float) -> Unit, modifier: Modifier = Mo
                             is SideSliderTap.Panel -> hooks?.show()
                             is SideSliderTap.ClosePanel -> hooks?.hide()
                             is SideSliderTap.Jump -> {
+                                if (near(tap.value, reach = 1e-3f) != null) notchSnap()
                                 change(tap.value)
                                 hooks?.hide()
                             }

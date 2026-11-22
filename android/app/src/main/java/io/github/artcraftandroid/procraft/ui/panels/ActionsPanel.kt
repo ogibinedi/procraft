@@ -138,6 +138,8 @@ fun ActionsPanel(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier)
     }
     // Brush scaling's menu is open
     var scalingMenu by remember { mutableStateOf(false) }
+    // Volume button shortcut's menu is open
+    var volumeMenu by remember { mutableStateOf(false) }
     // a PDF waiting on its quality
     var pdfAsking by remember { mutableStateOf<CanvasViewModel.Export?>(null) }
     // made outside the panel, which may be closed meanwhile; cancelled or failed (that is told),
@@ -299,7 +301,13 @@ fun ActionsPanel(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier)
                 ) { vm.changeRapidUndoDelay(CanvasViewModel.RAPID_UNDO_MIN_S + it * (CanvasViewModel.RAPID_UNDO_MAX_S - CanvasViewModel.RAPID_UNDO_MIN_S)) },
                 Slide("Selection mask visibility", "%.1f%%".format(vm.selectionVisibility * 100f), vm.selectionVisibility, onChange = vm::changeSelectionVisibility),
             ),
-            listOf(Toggle("Size & Opacity sidebar", vm.showSideBar) { vm.showSideBar = it }),
+            listOf(
+                Toggle("Size & Opacity sidebar", vm.showSideBar) { vm.showSideBar = it },
+                Toggle("Haptic feedback", vm.hapticFeedback) { vm.changeHapticFeedback(it) },
+                Act("Volume buttons", value = vm.volumeKeyMode.label) { volumeMenu = true },
+                Toggle("Zoom & rotation HUD", vm.canvasViewHud) { vm.changeCanvasViewHud(it) },
+                Toggle("Quick flip button", vm.quickFlipButton) { vm.changeQuickFlipButton(it) },
+            ),
         )
         else -> listOf(
             listOf(
@@ -420,6 +428,19 @@ fun ActionsPanel(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier)
                                         scalingMenu = false
                                     },
                                     onDismiss = { scalingMenu = false },
+                                )
+                            }
+                            if (rows.any { it is Act && it.label == "Volume buttons" }) MenuPresence(volumeMenu, androidx.compose.ui.graphics.TransformOrigin(0f, 0f)) { look ->
+                                ChoiceMenu(
+                                    look,
+                                    VolumeKeyMode.entries.map { it.label },
+                                    vm.volumeKeyMode.ordinal,
+                                    offsetY = 82.dp,
+                                    onPick = { idx ->
+                                        VolumeKeyMode.entries.getOrNull(idx)?.let(vm::changeVolumeKeyMode)
+                                        volumeMenu = false
+                                    },
+                                    onDismiss = { volumeMenu = false },
                                 )
                             }
                         }

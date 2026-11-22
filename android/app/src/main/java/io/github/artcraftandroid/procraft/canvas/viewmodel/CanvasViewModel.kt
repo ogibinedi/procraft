@@ -239,6 +239,27 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
     var rapidUndoDelay by mutableStateOf(interfacePrefs.getFloat(RAPID_UNDO_DELAY, 0.65f))
         internal set
 
+    /** Tactile haptic feedback on key canvas snaps, picks, and undo/redo steps. */
+    var hapticFeedback by mutableStateOf(interfacePrefs.getBoolean(HAPTIC_FEEDBACK, true))
+        internal set
+
+    /** Hardware Volume Up / Volume Down shortcut action on the canvas. */
+    var volumeKeyMode by mutableStateOf(VolumeKeyMode.fromKey(interfacePrefs.getString(VOLUME_KEY_MODE, null)))
+        internal set
+
+    /** Auto-fading zoom % & rotation ° HUD pill when navigating the canvas. */
+    var canvasViewHud by mutableStateOf(interfacePrefs.getBoolean(CANVAS_VIEW_HUD, true))
+        internal set
+
+    /** Optional pinned bottom-corner quick Flip Horizontal button on the canvas. */
+    var quickFlipButton by mutableStateOf(interfacePrefs.getBoolean(QUICK_FLIP_BUTTON, false))
+        internal set
+
+    /** Activity-supplied permission-free haptic trigger (`decorView.performHapticFeedback`). */
+    internal var performHaptic: ((Int) -> Unit)? = null
+    internal val hapticGate = HapticGate()
+    internal val transformSnapTracker = TransformSnapTracker()
+
     /** Brush cursor: the brush's outline where the pen paints or hovers. */
     var brushCursorOn by mutableStateOf(interfacePrefs.getBoolean(BRUSH_CURSOR, true))
         internal set
@@ -2265,6 +2286,10 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
         const val HIDE_TABLET_ARROW = "hide_tablet_arrow"
         const val SHOW_TABLET_NAV_POINTER = "show_tablet_nav_pointer"
         const val GALLERY_SORT = "gallery_sort"
+        const val HAPTIC_FEEDBACK = "haptic_feedback"
+        const val VOLUME_KEY_MODE = "volume_key_mode"
+        const val CANVAS_VIEW_HUD = "canvas_view_hud"
+        const val QUICK_FLIP_BUTTON = "quick_flip_button"
         /** Frames a second an animation plays at (Animation Assist's own when it is on). */
         const val ANIMATION_FPS = 15
         /** The timeline's frame pictures' longest side, pixels; a frame's longest hold. */

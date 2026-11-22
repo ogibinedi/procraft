@@ -108,6 +108,7 @@ internal fun CanvasViewModel.endPick() {
         setRgb(it)
         // the colour it replaced is the one the colour button's hold goes back to
         colourHistory.chose(before.toUInt(), colorRgb().toUInt(), onMask)
+        haptic(HapticCue.PICK)
     }
     picking = null
 }

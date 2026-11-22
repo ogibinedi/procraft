@@ -111,7 +111,10 @@ fun CanvasViewModel.undo() {
     // recoloring, the core takes the fill under the reticle back first (after the fills queued)
     val could = canUndo
     val name = session?.let { s -> if (recoloring) pourNow { s.undo() } else s.undo() }
-    if (could || name != null) session?.stepNotice(true, name)?.let { showNotice(it) }
+    if (could || name != null) {
+        haptic(HapticCue.STEP)
+        session?.stepNotice(true, name)?.let { showNotice(it) }
+    }
     followQuickShape()
     // a model's tile chosen before comes back, with its channel's colour
     if (modelOpen) {
@@ -173,7 +176,10 @@ fun CanvasViewModel.redo() {
     val text = if (!editing) session?.textRedoLayer() else null
     // recoloring, the core steps the open fill aside and makes it again over what comes back
     val name = session?.let { s -> if (recoloring) pourNow { s.redo() } else s.redo() }
-    if (could) session?.stepNotice(false, name)?.let { showNotice(it) }
+    if (could) {
+        haptic(HapticCue.STEP)
+        session?.stepNotice(false, name)?.let { showNotice(it) }
+    }
     followQuickShape()
     if (modelOpen) followModelChannel()
     refresh()

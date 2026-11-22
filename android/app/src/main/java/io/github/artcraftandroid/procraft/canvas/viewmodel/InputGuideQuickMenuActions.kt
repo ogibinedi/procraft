@@ -888,6 +888,7 @@ fun CanvasViewModel.duplicateCurrent() {
 fun CanvasViewModel.flipCanvas(horizontal: Boolean) {
     endQuickShape()
     session?.flipCanvas(horizontal)
+    haptic(HapticCue.FLIP)
     refresh()
 }
 
