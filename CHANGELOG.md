@@ -2,6 +2,18 @@
 
 All notable changes in this Android Smartphone-focused fork (`ogibinedi/procraft`) are documented in this file.
 
+## [0.0.5-rc.3] - 2026-11-22 - Rate-Limit-Free Atom Feed Updater, HTTP 403/429 Classification & Backoff
+
+### Fixed
+- **In-App Updater Rate Limit on Shared Mobile Networks (`AppUpdater.kt`, `AppUpdateActions.kt`, `CanvasViewModel.kt`)**:
+  - Switched primary release discovery to GitHub's public Atom feed (`https://github.com/ogibinedi/procraft/releases.atom`) to avoid unauthenticated `api.github.com` 60 req/hr IP rate limits on 4G/5G CGNAT networks, deriving ABI-matched APK and `SHA256SUMS.txt` download URLs cleanly with HTML-to-plain-text release notes and automatic fallback to the REST API.
+  - Added response header reading (`x-ratelimit-remaining`, `x-ratelimit-reset`, `Retry-After`) and accurate HTTP 403/429 failure classification so generic HTTP 403 responses are no longer mislabeled as rate limits and rate-limit errors display remaining reset time (`Try again in about N minutes`).
+  - Persisted failure/rate-limit backoff timestamps (`UPDATE_NEXT_ALLOWED_MS`, `UPDATE_RATE_LIMIT_RESET_MS`) in `interfacePrefs` so failed Gallery checks do not loop on every Gallery open, and manual checks short-circuit cleanly during an active rate-limit window when reset time is known.
+- **Unit Tests (`AppUpdaterTest.kt`)**:
+  - Added 4 new test methods covering HTTP 403/429 classification, remaining-minute calculation, backoff window enforcement, Atom XML parsing (including BOM/whitespace hardening and HTML entity decoding), and Atom-first with REST API fallback (46 suites / 195 tests total).
+
+---
+
 ## [0.0.5-rc.2] - 2026-11-22 - GitHub Releases In-App Updater & Consistent Layer Trash Icon
 
 ### Added
