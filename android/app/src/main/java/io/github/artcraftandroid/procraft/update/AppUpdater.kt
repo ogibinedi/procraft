@@ -1,5 +1,6 @@
 package io.github.artcraftandroid.procraft.update
 
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -7,8 +8,11 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
+import java.net.URLDecoder
 import java.security.MessageDigest
 import java.util.Locale
+import javax.xml.parsers.DocumentBuilderFactory
+import org.w3c.dom.Element
 
 /**
  * Semantic version matching ProCraft's `gradle.properties` and GitHub tag format
@@ -101,7 +105,11 @@ data class UpdateRelease(
 sealed interface UpdateCheckResult {
     data class UpdateAvailable(val release: UpdateRelease) : UpdateCheckResult
     data class UpToDate(val currentVersion: String) : UpdateCheckResult
-    data class Failure(val message: String) : UpdateCheckResult
+    data class Failure(
+        val message: String,
+        val isRateLimited: Boolean = false,
+        val retryAtMs: Long? = null,
+    ) : UpdateCheckResult
 }
 
 sealed interface ApkDownloadResult {
@@ -122,6 +130,9 @@ object AppUpdater {
     /** Minimum interval between automatic background update checks (12 hours). */
     const val AUTO_CHECK_INTERVAL_MS = 12L * 60L * 60L * 1000L
 
+    /** Fallback backoff interval after a failed update check when no reset timestamp is available (1 hour). */
+    const val FAILURE_BACKOFF_MS = 60L * 60L * 1000L
+
     private const val CONNECT_TIMEOUT_MS = 10_000
     private const val METADATA_READ_TIMEOUT_MS = 15_000
     private const val DOWNLOAD_READ_TIMEOUT_MS = 30_000
@@ -133,6 +144,9 @@ object AppUpdater {
     fun allReleasesUrl(owner: String = GITHUB_OWNER, repo: String = GITHUB_REPO): String =
         "https://api.github.com/repos/$owner/$repo/releases?per_page=15"
 
+    fun releasesAtomUrl(owner: String = GITHUB_OWNER, repo: String = GITHUB_REPO): String =
+        "https://github.com/$owner/$repo/releases.atom"
+
     fun releasesPageUrl(owner: String = GITHUB_OWNER, repo: String = GITHUB_REPO): String =
         "https://github.com/$owner/$repo/releases"
 
@@ -140,16 +154,39 @@ object AppUpdater {
     fun defaultIncludePreReleases(currentVersion: String?): Boolean =
         AppVersion.parse(currentVersion)?.isPreRelease == true
 
-    /** Rate-limits background checks to avoid unnecessary network traffic or GitHub API throttling. */
+    /** Rate-limits background checks and honors any active failure or rate-limit backoff window. */
     fun shouldAutoCheck(
         autoCheckEnabled: Boolean,
         lastCheckedAtMs: Long,
         nowMs: Long,
         minIntervalMs: Long = AUTO_CHECK_INTERVAL_MS,
+        nextAllowedAtMs: Long = 0L,
     ): Boolean {
         if (!autoCheckEnabled) return false
+        if (nextAllowedAtMs > 0L && nowMs < nextAllowedAtMs) return false
         if (lastCheckedAtMs <= 0L) return true
         return (nowMs - lastCheckedAtMs) >= minIntervalMs
+    }
+
+    /** Computes the epoch timestamp until which automatic checks should back off after [failure]. */
+    fun nextBackoffUntilMs(
+        failure: UpdateCheckResult.Failure,
+        nowMs: Long,
+        fallbackBackoffMs: Long = FAILURE_BACKOFF_MS,
+    ): Long = failure.retryAtMs?.takeIf { it > nowMs } ?: (nowMs + fallbackBackoffMs)
+
+    /** Ceiling remaining wait time in minutes (>= 1) until [resetAtMs]. */
+    fun remainingMinutes(resetAtMs: Long, nowMs: Long): Long =
+        ((resetAtMs - nowMs).coerceAtLeast(1L) + 59_999L) / 60_000L
+
+    /** Formats a user-facing GitHub rate-limit message, including wait time when reset is known. */
+    fun formatRateLimitMessage(resetAtMs: Long?, nowMs: Long): String {
+        if (resetAtMs != null && resetAtMs > nowMs) {
+            val minutes = remainingMinutes(resetAtMs, nowMs)
+            val unit = if (minutes == 1L) "minute" else "minutes"
+            return "GitHub rate limit reached. Try again in about $minutes $unit or open GitHub Releases."
+        }
+        return "GitHub rate limit reached. Try again later or open GitHub Releases."
     }
 
     /**
@@ -342,17 +379,274 @@ object AppUpdater {
         }
     }
 
-    /** Queries GitHub Releases for a version newer than [currentVersion]. Must run off the main thread. */
+    /** Cleans HTML release notes (from GitHub's Atom feed) into readable plain text. */
+    fun formatHtmlReleaseNotes(html: String): String {
+        if (html.isBlank()) return "Bug fixes, stability improvements, and updated features."
+        val withBreaks = html
+            .replace("\r\n", "\n")
+            .replace(Regex("""(?is)<(script|style)\b[^>]*>.*?</\1>"""), "")
+            .replace(Regex("""(?i)<\s*br\s*/?\s*>"""), "\n")
+            .replace(Regex("""(?i)<\s*li\b[^>]*>"""), "\n• ")
+            .replace(Regex("""(?i)</\s*(li|p|div|ul|ol|h[1-6]|tr|blockquote|pre)\s*>"""), "\n")
+            .replace(Regex("""<[^>]+>"""), "")
+        val decoded = decodeHtmlEntities(withBreaks)
+        val cleaned = decoded
+            .lineSequence()
+            .map { line -> line.trim().replace(Regex("""[ \t]{2,}"""), " ") }
+            .filterNot { it.startsWith("Full Changelog:", ignoreCase = true) }
+            .joinToString("\n")
+            .replace(Regex("""\n{3,}"""), "\n\n")
+            .trim()
+        return cleaned.ifEmpty { "Bug fixes, stability improvements, and updated features." }
+    }
+
+    private fun decodeHtmlEntities(text: String): String {
+        if (!text.contains('&')) return text
+        return Regex("""&(?:#x([0-9a-fA-F]+)|#(\d+)|([a-zA-Z]+));""").replace(text) { m ->
+            val hex = m.groupValues[1]
+            val dec = m.groupValues[2]
+            val name = m.groupValues[3]
+            when {
+                hex.isNotEmpty() -> hex.toIntOrNull(16)?.let { codePointToString(it) } ?: m.value
+                dec.isNotEmpty() -> dec.toIntOrNull()?.let { codePointToString(it) } ?: m.value
+                else -> when (name.lowercase(Locale.ROOT)) {
+                    "amp" -> "&"
+                    "lt" -> "<"
+                    "gt" -> ">"
+                    "quot" -> "\""
+                    "apos" -> "'"
+                    "nbsp" -> " "
+                    "mdash" -> "—"
+                    "ndash" -> "–"
+                    "bull" -> "•"
+                    else -> m.value
+                }
+            }
+        }
+    }
+
+    private fun codePointToString(cp: Int): String =
+        if (Character.isValidCodePoint(cp)) String(Character.toChars(cp)) else ""
+
+    /**
+     * Parses a GitHub `releases.atom` feed and returns the newest eligible release strictly
+     * greater than [currentVersion]. Pre-releases are detected from tags containing `-`
+     * (matching `.github/workflows/release.yml`), and APK/SHA256SUMS URLs are derived from the
+     * workflow's deterministic naming convention.
+     */
+    internal sealed interface AtomParseResult {
+        data class Parsed(val release: UpdateRelease?) : AtomParseResult
+        data object Invalid : AtomParseResult
+    }
+
+    internal fun parseAtomFeed(
+        xml: String,
+        currentVersion: String,
+        includePreReleases: Boolean,
+        supportedAbis: List<String>,
+        owner: String = GITHUB_OWNER,
+        repo: String = GITHUB_REPO,
+    ): AtomParseResult {
+        val installed = AppVersion.parse(currentVersion) ?: return AtomParseResult.Invalid
+        val trimmedXml = xml.removePrefix("\uFEFF").trimStart()
+        val doc = runCatching {
+            val dbf = DocumentBuilderFactory.newInstance().apply {
+                isNamespaceAware = true
+                isExpandEntityReferences = false
+                runCatching { setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }
+                runCatching { setFeature("http://xml.org/sax/features/external-general-entities", false) }
+                runCatching { setFeature("http://xml.org/sax/features/external-parameter-entities", false) }
+            }
+            dbf.newDocumentBuilder().parse(ByteArrayInputStream(trimmedXml.toByteArray(Charsets.UTF_8)))
+        }.getOrNull() ?: return AtomParseResult.Invalid
+
+        val root = doc.documentElement ?: return AtomParseResult.Invalid
+        if (!root.localName.equals("feed", ignoreCase = true) && !root.nodeName.equals("feed", ignoreCase = true)) {
+            return AtomParseResult.Invalid
+        }
+
+        val entries = root.getElementsByTagNameNS("*", "entry")
+        var best: UpdateRelease? = null
+        for (i in 0 until entries.length) {
+            val entry = entries.item(i) as? Element ?: continue
+            val linkHref = firstChildAttr(entry, "link", "href").orEmpty().trim()
+            val entryId = firstChildText(entry, "id").orEmpty().trim()
+            val tagName = extractTagFromAtomEntry(linkHref, entryId) ?: continue
+            val version = AppVersion.parse(tagName) ?: continue
+            val isPreRelease = tagName.contains('-') || version.isPreRelease
+            if (isPreRelease && !includePreReleases) continue
+            if (version <= installed) continue
+
+            val ver = tagName.removePrefix("v").removePrefix("V")
+            val downloadBase = "https://github.com/$owner/$repo/releases/download/$tagName"
+            val candidateAssets = listOf(
+                ReleaseAsset("procraft-$ver-android-arm64.apk", "$downloadBase/procraft-$ver-android-arm64.apk", 0L),
+                ReleaseAsset("procraft-$ver-android-legacy-armeabi-v7a.apk", "$downloadBase/procraft-$ver-android-legacy-armeabi-v7a.apk", 0L),
+            ).filter { validateDownloadUrl(it.downloadUrl) }
+            val apk = selectApkAsset(candidateAssets, supportedAbis)
+            val checksumUrl = "$downloadBase/SHA256SUMS.txt"
+            val checksum = if (validateDownloadUrl(checksumUrl)) ReleaseAsset("SHA256SUMS.txt", checksumUrl, 0L) else null
+
+            val htmlUrl = linkHref.takeIf { validateDownloadUrl(it) }
+                ?: "https://github.com/$owner/$repo/releases/tag/$tagName".takeIf { validateDownloadUrl(it) }
+                ?: releasesPageUrl(owner, repo)
+            val title = firstChildText(entry, "title")?.trim()?.takeIf { it.isNotEmpty() } ?: "ProCraft $tagName"
+            val rawContent = firstChildText(entry, "content").orEmpty()
+            val updated = firstChildText(entry, "updated")?.trim().orEmpty()
+
+            val candidate = UpdateRelease(
+                tagName = tagName,
+                version = version,
+                title = title,
+                notes = formatHtmlReleaseNotes(rawContent),
+                htmlUrl = htmlUrl,
+                publishedAt = updated,
+                isPreRelease = isPreRelease,
+                apkAsset = apk,
+                checksumAsset = checksum,
+            )
+            if (best == null || candidate.version > best.version) {
+                best = candidate
+            }
+        }
+        return AtomParseResult.Parsed(best)
+    }
+
+    private fun extractTagFromAtomEntry(linkHref: String, entryId: String): String? {
+        val marker = "/releases/tag/"
+        val idx = linkHref.indexOf(marker)
+        if (idx >= 0) {
+            val rawTag = linkHref.substring(idx + marker.length)
+                .substringBefore('?')
+                .substringBefore('#')
+                .trim('/')
+            if (rawTag.isNotEmpty()) {
+                return runCatching { URLDecoder.decode(rawTag, "UTF-8") }.getOrDefault(rawTag)
+            }
+        }
+        val fromId = entryId.substringAfterLast('/', "").trim()
+        return fromId.takeIf { it.isNotEmpty() }
+    }
+
+    private fun firstChildText(parent: Element, localName: String): String? {
+        val nodes = parent.getElementsByTagNameNS("*", localName)
+        return if (nodes.length > 0) nodes.item(0)?.textContent else null
+    }
+
+    private fun firstChildAttr(parent: Element, localName: String, attr: String): String? {
+        val nodes = parent.getElementsByTagNameNS("*", localName)
+        for (i in 0 until nodes.length) {
+            val el = nodes.item(i) as? Element ?: continue
+            val value = el.getAttribute(attr)
+            if (value.isNotEmpty()) return value
+        }
+        return null
+    }
+
+    /** Classifies non-200 HTTP responses from GitHub, distinguishing true rate limits from generic errors. */
+    internal fun classifyHttpFailure(
+        response: HttpStringResponse,
+        nowMs: Long = System.currentTimeMillis(),
+    ): UpdateCheckResult.Failure {
+        val isRateLimit = response.code == 429 ||
+            (response.code == 403 && (
+                response.rateLimitRemaining?.trim() == "0" ||
+                    response.body.contains("rate limit", ignoreCase = true)
+                ))
+        if (isRateLimit) {
+            val resetAtMs = parseRateLimitResetAtMs(response.rateLimitReset, response.retryAfter, nowMs)
+            return UpdateCheckResult.Failure(
+                message = formatRateLimitMessage(resetAtMs, nowMs),
+                isRateLimited = true,
+                retryAtMs = resetAtMs,
+            )
+        }
+        if (response.code == 403) {
+            return UpdateCheckResult.Failure(
+                message = "GitHub denied the update request (HTTP 403). Try again later or open GitHub Releases.",
+                isRateLimited = false,
+                retryAtMs = null,
+            )
+        }
+        return UpdateCheckResult.Failure(
+            message = "Couldn't reach GitHub (HTTP ${response.code}).",
+            isRateLimited = false,
+            retryAtMs = null,
+        )
+    }
+
+    private fun parseRateLimitResetAtMs(
+        rateLimitResetHeader: String?,
+        retryAfterHeader: String?,
+        nowMs: Long,
+    ): Long? {
+        retryAfterHeader?.trim()?.toLongOrNull()?.takeIf { it > 0L }?.let { seconds ->
+            return nowMs + seconds * 1000L
+        }
+        rateLimitResetHeader?.trim()?.toLongOrNull()?.takeIf { it > 0L }?.let { epochSeconds ->
+            val resetMs = epochSeconds * 1000L
+            if (resetMs > nowMs) return resetMs
+        }
+        return null
+    }
+
+    /**
+     * Queries GitHub Releases for a version newer than [currentVersion].
+     * Uses GitHub's public `releases.atom` feed first to avoid unauthenticated REST API
+     * rate limits on shared mobile networks, falling back to the REST API if needed.
+     * Must run off the main thread.
+     */
     fun checkForUpdates(
         currentVersion: String,
         includePreReleases: Boolean,
         supportedAbis: List<String>,
         owner: String = GITHUB_OWNER,
         repo: String = GITHUB_REPO,
+    ): UpdateCheckResult = checkForUpdatesWithTransport(
+        currentVersion = currentVersion,
+        includePreReleases = includePreReleases,
+        supportedAbis = supportedAbis,
+        owner = owner,
+        repo = repo,
+        nowMs = System.currentTimeMillis(),
+        fetch = { url, accept -> httpGetString(url, currentVersion, accept) },
+    )
+
+    internal fun checkForUpdatesWithTransport(
+        currentVersion: String,
+        includePreReleases: Boolean,
+        supportedAbis: List<String>,
+        owner: String = GITHUB_OWNER,
+        repo: String = GITHUB_REPO,
+        nowMs: Long = System.currentTimeMillis(),
+        fetch: (url: String, accept: String) -> HttpStringResponse,
     ): UpdateCheckResult {
-        val url = if (includePreReleases) allReleasesUrl(owner, repo) else latestReleaseUrl(owner, repo)
+        var atomRateLimitFailure: UpdateCheckResult.Failure? = null
+        try {
+            val atomResp = fetch(releasesAtomUrl(owner, repo), "application/atom+xml, application/xml;q=0.9")
+            when (atomResp.code) {
+                200 -> {
+                    when (val parsed = parseAtomFeed(atomResp.body, currentVersion, includePreReleases, supportedAbis, owner, repo)) {
+                        is AtomParseResult.Parsed -> {
+                            return if (parsed.release != null) UpdateCheckResult.UpdateAvailable(parsed.release)
+                            else UpdateCheckResult.UpToDate(currentVersion)
+                        }
+                        AtomParseResult.Invalid -> Unit // Fall back to REST API
+                    }
+                }
+                404 -> return UpdateCheckResult.UpToDate(currentVersion)
+                else -> {
+                    val failure = classifyHttpFailure(atomResp, nowMs)
+                    if (failure.isRateLimited) atomRateLimitFailure = failure
+                }
+            }
+        } catch (_: Throwable) {
+            // Fall through to REST API fallback
+        }
+
+        val apiUrl = if (includePreReleases) allReleasesUrl(owner, repo) else latestReleaseUrl(owner, repo)
         return try {
-            val response = httpGetString(url, currentVersion)
+            val response = fetch(apiUrl, "application/vnd.github+json")
             when (response.code) {
                 200 -> {
                     val release = parseReleasePayload(
@@ -365,13 +659,15 @@ object AppUpdater {
                     else UpdateCheckResult.UpToDate(currentVersion)
                 }
                 404 -> UpdateCheckResult.UpToDate(currentVersion)
-                403 -> UpdateCheckResult.Failure("GitHub rate limit reached. Try again later or open GitHub Releases.")
-                else -> UpdateCheckResult.Failure("Couldn't reach GitHub (HTTP ${response.code}).")
+                else -> {
+                    val apiFailure = classifyHttpFailure(response, nowMs)
+                    if (apiFailure.isRateLimited || atomRateLimitFailure == null) apiFailure else atomRateLimitFailure
+                }
             }
         } catch (_: IOException) {
-            UpdateCheckResult.Failure("Couldn't check for updates. Check your internet connection.")
+            atomRateLimitFailure ?: UpdateCheckResult.Failure("Couldn't check for updates. Check your internet connection.")
         } catch (t: Throwable) {
-            UpdateCheckResult.Failure(t.message?.takeIf { it.isNotBlank() } ?: "Update check failed.")
+            atomRateLimitFailure ?: UpdateCheckResult.Failure(t.message?.takeIf { it.isNotBlank() } ?: "Update check failed.")
         }
     }
 
@@ -410,14 +706,12 @@ object AppUpdater {
                 }.getOrNull()
             }
 
-            if (finalFile.isFile && asset.sizeBytes > 0L && finalFile.length() == asset.sizeBytes) {
-                if (expectedHash != null) {
-                    onVerifying()
-                    if (computeSha256(finalFile).equals(expectedHash, ignoreCase = true)) {
-                        return ApkDownloadResult.Success(finalFile, sha256Verified = true)
-                    }
-                    finalFile.delete()
+            if (finalFile.isFile && expectedHash != null && (asset.sizeBytes <= 0L || finalFile.length() == asset.sizeBytes)) {
+                onVerifying()
+                if (computeSha256(finalFile).equals(expectedHash, ignoreCase = true)) {
+                    return ApkDownloadResult.Success(finalFile, sha256Verified = true)
                 }
+                finalFile.delete()
             }
 
             val conn = openValidatedConnection(asset.downloadUrl, currentVersion, DOWNLOAD_READ_TIMEOUT_MS, accept = "application/octet-stream")
@@ -495,15 +789,31 @@ object AppUpdater {
         }
     }
 
-    private data class HttpStringResponse(val code: Int, val body: String)
+    internal data class HttpStringResponse(
+        val code: Int,
+        val body: String,
+        val rateLimitRemaining: String? = null,
+        val rateLimitReset: String? = null,
+        val retryAfter: String? = null,
+    )
 
-    private fun httpGetString(url: String, currentVersion: String): HttpStringResponse {
-        val conn = openValidatedConnection(url, currentVersion, METADATA_READ_TIMEOUT_MS, accept = "application/vnd.github+json")
+    private fun httpGetString(
+        url: String,
+        currentVersion: String,
+        accept: String = "application/vnd.github+json",
+    ): HttpStringResponse {
+        val conn = openValidatedConnection(url, currentVersion, METADATA_READ_TIMEOUT_MS, accept = accept)
         return try {
             val code = conn.responseCode
             val stream = if (code in 200..299) conn.inputStream else conn.errorStream
             val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
-            HttpStringResponse(code, body)
+            HttpStringResponse(
+                code = code,
+                body = body,
+                rateLimitRemaining = conn.getHeaderField("x-ratelimit-remaining"),
+                rateLimitReset = conn.getHeaderField("x-ratelimit-reset"),
+                retryAfter = conn.getHeaderField("Retry-After"),
+            )
         } finally {
             conn.disconnect()
         }
@@ -520,6 +830,7 @@ object AppUpdater {
             if (!validateDownloadUrl(current)) {
                 throw SecurityException("Blocked redirect to untrusted host.")
             }
+            val host = runCatching { URI(current).host?.lowercase(Locale.ROOT) }.getOrNull()
             val conn = (URL(current).openConnection() as HttpURLConnection).apply {
                 instanceFollowRedirects = false
                 requestMethod = "GET"
@@ -527,7 +838,9 @@ object AppUpdater {
                 this.readTimeout = readTimeoutMs
                 setRequestProperty("User-Agent", "ProCraft/$currentVersion (Android)")
                 setRequestProperty("Accept", accept)
-                setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
+                if (host == "api.github.com") {
+                    setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
+                }
             }
             val code = conn.responseCode
             if (code in 300..399) {

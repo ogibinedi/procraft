@@ -187,4 +187,269 @@ class AppUpdaterTest {
             ),
         )
     }
+
+    @Test
+    fun classifyHttpFailureDistinguishesRateLimitsFromGeneric403And429() {
+        val now = 1_700_000_000_000L
+        val resetIn15mSec = (now / 1000L) + 15L * 60L
+
+        val primaryRateLimit = AppUpdater.classifyHttpFailure(
+            AppUpdater.HttpStringResponse(
+                code = 403,
+                body = """{"message":"API rate limit exceeded"}""",
+                rateLimitRemaining = "0",
+                rateLimitReset = resetIn15mSec.toString(),
+            ),
+            nowMs = now,
+        )
+        assertTrue(primaryRateLimit.isRateLimited)
+        assertEquals(resetIn15mSec * 1000L, primaryRateLimit.retryAtMs)
+        assertEquals(
+            "GitHub rate limit reached. Try again in about 15 minutes or open GitHub Releases.",
+            primaryRateLimit.message,
+        )
+
+        val bodyOnlyRateLimit = AppUpdater.classifyHttpFailure(
+            AppUpdater.HttpStringResponse(
+                code = 403,
+                body = "You have exceeded a secondary rate limit.",
+            ),
+            nowMs = now,
+        )
+        assertTrue(bodyOnlyRateLimit.isRateLimited)
+        assertNull(bodyOnlyRateLimit.retryAtMs)
+        assertEquals("GitHub rate limit reached. Try again later or open GitHub Releases.", bodyOnlyRateLimit.message)
+
+        val generic403 = AppUpdater.classifyHttpFailure(
+            AppUpdater.HttpStringResponse(
+                code = 403,
+                body = "Forbidden by corporate proxy",
+                rateLimitRemaining = "54",
+            ),
+            nowMs = now,
+        )
+        assertFalse(generic403.isRateLimited)
+        assertNull(generic403.retryAtMs)
+        assertFalse(generic403.message.contains("rate limit", ignoreCase = true))
+        assertTrue(generic403.message.contains("403"))
+
+        val http429Minutes = AppUpdater.classifyHttpFailure(
+            AppUpdater.HttpStringResponse(
+                code = 429,
+                body = "Too Many Requests",
+                retryAfter = "90",
+            ),
+            nowMs = now,
+        )
+        assertTrue(http429Minutes.isRateLimited)
+        assertEquals(now + 90_000L, http429Minutes.retryAtMs)
+        assertEquals(
+            "GitHub rate limit reached. Try again in about 2 minutes or open GitHub Releases.",
+            http429Minutes.message,
+        )
+
+        val http429OneMinute = AppUpdater.classifyHttpFailure(
+            AppUpdater.HttpStringResponse(
+                code = 429,
+                body = "",
+                retryAfter = "25",
+            ),
+            nowMs = now,
+        )
+        assertTrue(http429OneMinute.isRateLimited)
+        assertEquals(
+            "GitHub rate limit reached. Try again in about 1 minute or open GitHub Releases.",
+            http429OneMinute.message,
+        )
+    }
+
+    @Test
+    fun backoffCalculationAndAutoCheckRespectFailureWindow() {
+        val now = 2_000_000_000_000L
+        val knownReset = now + 20L * 60L * 1000L
+        val rateLimited = UpdateCheckResult.Failure("limit", isRateLimited = true, retryAtMs = knownReset)
+        assertEquals(knownReset, AppUpdater.nextBackoffUntilMs(rateLimited, now))
+
+        val unknownFailure = UpdateCheckResult.Failure("offline", isRateLimited = false, retryAtMs = null)
+        assertEquals(now + AppUpdater.FAILURE_BACKOFF_MS, AppUpdater.nextBackoffUntilMs(unknownFailure, now))
+
+        // Auto-check stays paused until nextAllowedAtMs even if lastCheckedAtMs was never recorded.
+        assertFalse(
+            AppUpdater.shouldAutoCheck(
+                autoCheckEnabled = true,
+                lastCheckedAtMs = 0L,
+                nowMs = now,
+                nextAllowedAtMs = knownReset,
+            ),
+        )
+        assertTrue(
+            AppUpdater.shouldAutoCheck(
+                autoCheckEnabled = true,
+                lastCheckedAtMs = 0L,
+                nowMs = knownReset,
+                nextAllowedAtMs = knownReset,
+            ),
+        )
+    }
+
+    @Test
+    fun atomFeedParsingDetectsPreReleasesDerivesAssetsAndCleansHtml() {
+        val atomXml = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+              <title>Release notes from procraft</title>
+              <entry>
+                <id>tag:github.com,2008:Repository/999/v0.0.5-rc.3</id>
+                <updated>2026-11-22T14:00:00Z</updated>
+                <link rel="alternate" type="text/html" href="https://github.com/ogibinedi/procraft/releases/tag/v0.0.5-rc.3"/>
+                <title>ProCraft v0.0.5-rc.3 (Android Smartphone)</title>
+                <content type="html">&lt;h2&gt;What&#39;s Changed&lt;/h2&gt;
+                &lt;ul&gt;
+                &lt;li&gt;Atom feed updater &amp;amp; backoff&lt;/li&gt;
+                &lt;li&gt;Polished icon &amp;mdash; ready&lt;/li&gt;
+                &lt;/ul&gt;
+                &lt;p&gt;Full Changelog: https://github.com/ogibinedi/procraft/compare/v0.0.5-rc.2...v0.0.5-rc.3&lt;/p&gt;</content>
+              </entry>
+              <entry>
+                <id>tag:github.com,2008:Repository/999/v0.0.4</id>
+                <updated>2026-11-22T09:00:00Z</updated>
+                <link rel="alternate" type="text/html" href="https://github.com/ogibinedi/procraft/releases/tag/v0.0.4"/>
+                <title>ProCraft v0.0.4</title>
+                <content type="html">&lt;p&gt;Stable release&lt;/p&gt;</content>
+              </entry>
+            </feed>
+        """.trimIndent()
+
+        // Stable channel on 0.0.4 ignores v0.0.5-rc.3 (contains '-').
+        val stableParsed = AppUpdater.parseAtomFeed(
+            atomXml,
+            currentVersion = "0.0.4",
+            includePreReleases = false,
+            supportedAbis = listOf("arm64-v8a"),
+        )
+        assertTrue(stableParsed is AppUpdater.AtomParseResult.Parsed)
+        assertNull((stableParsed as AppUpdater.AtomParseResult.Parsed).release)
+
+        // Pre-release channel on 0.0.5-rc.2 picks v0.0.5-rc.3 and derives arm64 APK + SHA256SUMS.txt.
+        val rcParsed = AppUpdater.parseAtomFeed(
+            atomXml,
+            currentVersion = "0.0.5-rc.2",
+            includePreReleases = true,
+            supportedAbis = listOf("arm64-v8a", "armeabi-v7a"),
+        ) as AppUpdater.AtomParseResult.Parsed
+        val release = rcParsed.release
+        assertNotNull(release)
+        assertEquals("v0.0.5-rc.3", release!!.tagName)
+        assertTrue(release.isPreRelease)
+        assertEquals("procraft-0.0.5-rc.3-android-arm64.apk", release.apkAsset?.name)
+        assertEquals(
+            "https://github.com/ogibinedi/procraft/releases/download/v0.0.5-rc.3/procraft-0.0.5-rc.3-android-arm64.apk",
+            release.apkAsset?.downloadUrl,
+        )
+        assertEquals(
+            "https://github.com/ogibinedi/procraft/releases/download/v0.0.5-rc.3/SHA256SUMS.txt",
+            release.checksumAsset?.downloadUrl,
+        )
+        assertTrue(release.notes.contains("What's Changed"))
+        assertTrue(release.notes.contains("• Atom feed updater & backoff"))
+        assertTrue(release.notes.contains("• Polished icon — ready"))
+        assertFalse(release.notes.contains("Full Changelog:"))
+
+        // 32-bit device gets legacy-armeabi-v7a APK; pure x86_64 device gets null apkAsset cleanly.
+        val arm32 = (AppUpdater.parseAtomFeed(atomXml, "0.0.5-rc.2", true, listOf("armeabi-v7a")) as AppUpdater.AtomParseResult.Parsed).release
+        assertEquals("procraft-0.0.5-rc.3-android-legacy-armeabi-v7a.apk", arm32?.apkAsset?.name)
+        val x86 = (AppUpdater.parseAtomFeed(atomXml, "0.0.5-rc.2", true, listOf("x86_64")) as AppUpdater.AtomParseResult.Parsed).release
+        assertNull(x86?.apkAsset)
+
+        // Captive portal / HTML error page must be treated as Invalid, not UpToDate.
+        assertEquals(
+            AppUpdater.AtomParseResult.Invalid,
+            AppUpdater.parseAtomFeed("<html><body>Sign in</body></html>", "0.0.5-rc.2", true, listOf("arm64-v8a")),
+        )
+    }
+
+    @Test
+    fun checkForUpdatesUsesAtomFirstAndFallsBackToRestApi() {
+        val atomXml = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+              <entry>
+                <id>tag:github.com,2008:Repository/999/v0.0.5</id>
+                <updated>2026-11-22T15:00:00Z</updated>
+                <link rel="alternate" type="text/html" href="https://github.com/ogibinedi/procraft/releases/tag/v0.0.5"/>
+                <title>ProCraft v0.0.5</title>
+                <content type="html">&lt;p&gt;Stable launch&lt;/p&gt;</content>
+              </entry>
+            </feed>
+        """.trimIndent()
+
+        // 1. Primary path: Atom succeeds -> REST API is never called.
+        val primaryCalls = mutableListOf<String>()
+        val primaryResult = AppUpdater.checkForUpdatesWithTransport(
+            currentVersion = "0.0.5-rc.2",
+            includePreReleases = true,
+            supportedAbis = listOf("arm64-v8a"),
+        ) { url, _ ->
+            primaryCalls.add(url)
+            AppUpdater.HttpStringResponse(200, atomXml)
+        }
+        assertEquals(listOf(AppUpdater.releasesAtomUrl()), primaryCalls)
+        assertTrue(primaryResult is UpdateCheckResult.UpdateAvailable)
+        assertEquals("v0.0.5", (primaryResult as UpdateCheckResult.UpdateAvailable).release.tagName)
+
+        // 2. Fallback path: Atom returns 500 -> falls back to REST API and returns release.
+        val fallbackCalls = mutableListOf<String>()
+        val restJson = """
+            {
+              "tag_name": "v0.0.5",
+              "name": "ProCraft v0.0.5",
+              "draft": false,
+              "prerelease": false,
+              "html_url": "https://github.com/ogibinedi/procraft/releases/tag/v0.0.5",
+              "body": "- Final stable",
+              "assets": [
+                {
+                  "name": "procraft-0.0.5-android-arm64.apk",
+                  "browser_download_url": "https://github.com/ogibinedi/procraft/releases/download/v0.0.5/procraft-0.0.5-android-arm64.apk",
+                  "size": 25000000
+                }
+              ]
+            }
+        """.trimIndent()
+        val fallbackResult = AppUpdater.checkForUpdatesWithTransport(
+            currentVersion = "0.0.5-rc.2",
+            includePreReleases = false,
+            supportedAbis = listOf("arm64-v8a"),
+        ) { url, _ ->
+            fallbackCalls.add(url)
+            if (url == AppUpdater.releasesAtomUrl()) AppUpdater.HttpStringResponse(500, "Server Error")
+            else AppUpdater.HttpStringResponse(200, restJson)
+        }
+        assertEquals(listOf(AppUpdater.releasesAtomUrl(), AppUpdater.latestReleaseUrl()), fallbackCalls)
+        assertTrue(fallbackResult is UpdateCheckResult.UpdateAvailable)
+        assertEquals(25_000_000L, (fallbackResult as UpdateCheckResult.UpdateAvailable).release.apkAsset?.sizeBytes)
+
+        // 3. Both Atom and REST fail with REST rate limit -> returns structured rate-limit failure with reset time.
+        val now = 1_700_000_000_000L
+        val resetSec = (now / 1000L) + 10L * 60L
+        val rateLimitedResult = AppUpdater.checkForUpdatesWithTransport(
+            currentVersion = "0.0.5-rc.2",
+            includePreReleases = true,
+            supportedAbis = listOf("arm64-v8a"),
+            nowMs = now,
+        ) { url, _ ->
+            if (url == AppUpdater.releasesAtomUrl()) AppUpdater.HttpStringResponse(502, "Bad Gateway")
+            else AppUpdater.HttpStringResponse(
+                code = 403,
+                body = """{"message":"API rate limit exceeded"}""",
+                rateLimitRemaining = "0",
+                rateLimitReset = resetSec.toString(),
+            )
+        }
+        assertTrue(rateLimitedResult is UpdateCheckResult.Failure)
+        val failure = rateLimitedResult as UpdateCheckResult.Failure
+        assertTrue(failure.isRateLimited)
+        assertEquals(resetSec * 1000L, failure.retryAtMs)
+        assertTrue(failure.message.contains("about 10 minutes"))
+    }
 }

@@ -74,7 +74,8 @@ fun CanvasViewModel.maybeAutoCheckForUpdates() {
     }
     val now = System.currentTimeMillis()
     val lastChecked = interfacePrefs.getLong(CanvasViewModel.UPDATE_LAST_CHECK_MS, 0L)
-    if (!AppUpdater.shouldAutoCheck(updateAutoCheck, lastChecked, now)) return
+    val nextAllowed = interfacePrefs.getLong(CanvasViewModel.UPDATE_NEXT_ALLOWED_MS, 0L)
+    if (!AppUpdater.shouldAutoCheck(updateAutoCheck, lastChecked, now, nextAllowedAtMs = nextAllowed)) return
     checkForUpdates(manual = false)
 }
 
@@ -84,6 +85,14 @@ fun CanvasViewModel.checkForUpdates(manual: Boolean = true) {
         updateState is UpdateUiState.Downloading ||
         updateState is UpdateUiState.Verifying
     ) {
+        return
+    }
+    val now = System.currentTimeMillis()
+    val rateLimitResetAt = interfacePrefs.getLong(CanvasViewModel.UPDATE_RATE_LIMIT_RESET_MS, 0L)
+    if (rateLimitResetAt > now) {
+        if (manual) {
+            updateState = UpdateUiState.Error(AppUpdater.formatRateLimitMessage(rateLimitResetAt, now))
+        }
         return
     }
     val installed = appVersion().ifBlank { "0.0.0" }
@@ -103,17 +112,35 @@ fun CanvasViewModel.checkForUpdates(manual: Boolean = true) {
         val checkedAt = System.currentTimeMillis()
         when (result) {
             is UpdateCheckResult.UpdateAvailable -> {
-                interfacePrefs.edit().putLong(CanvasViewModel.UPDATE_LAST_CHECK_MS, checkedAt).apply()
+                interfacePrefs.edit()
+                    .putLong(CanvasViewModel.UPDATE_LAST_CHECK_MS, checkedAt)
+                    .remove(CanvasViewModel.UPDATE_NEXT_ALLOWED_MS)
+                    .remove(CanvasViewModel.UPDATE_RATE_LIMIT_RESET_MS)
+                    .apply()
                 updateState = UpdateUiState.Available(result.release)
             }
             is UpdateCheckResult.UpToDate -> {
-                interfacePrefs.edit().putLong(CanvasViewModel.UPDATE_LAST_CHECK_MS, checkedAt).apply()
+                interfacePrefs.edit()
+                    .putLong(CanvasViewModel.UPDATE_LAST_CHECK_MS, checkedAt)
+                    .remove(CanvasViewModel.UPDATE_NEXT_ALLOWED_MS)
+                    .remove(CanvasViewModel.UPDATE_RATE_LIMIT_RESET_MS)
+                    .apply()
                 if (manual || updateState !is UpdateUiState.Available) {
                     updateState = UpdateUiState.UpToDate(result.currentVersion, checkedAt)
                 }
             }
             is UpdateCheckResult.Failure -> {
                 AppLog.e("update", "update check failed: ${result.message}")
+                val nextAllowedAt = AppUpdater.nextBackoffUntilMs(result, checkedAt)
+                interfacePrefs.edit().apply {
+                    putLong(CanvasViewModel.UPDATE_NEXT_ALLOWED_MS, nextAllowedAt)
+                    val resetAt = result.retryAtMs
+                    if (result.isRateLimited && resetAt != null && resetAt > checkedAt) {
+                        putLong(CanvasViewModel.UPDATE_RATE_LIMIT_RESET_MS, resetAt)
+                    } else {
+                        remove(CanvasViewModel.UPDATE_RATE_LIMIT_RESET_MS)
+                    }
+                }.apply()
                 if (manual) {
                     updateState = UpdateUiState.Error(result.message)
                 }

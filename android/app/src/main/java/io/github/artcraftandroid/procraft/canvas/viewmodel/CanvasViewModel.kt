@@ -2331,6 +2331,8 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
         const val UPDATE_AUTO_CHECK = "update_auto_check"
         const val UPDATE_INCLUDE_PRE = "update_include_prerelease"
         const val UPDATE_LAST_CHECK_MS = "update_last_check_ms"
+        const val UPDATE_NEXT_ALLOWED_MS = "update_next_allowed_ms"
+        const val UPDATE_RATE_LIMIT_RESET_MS = "update_rate_limit_reset_ms"
         const val UPDATE_DISMISSED_TAG = "update_dismissed_tag"
         /** Frames a second an animation plays at (Animation Assist's own when it is on). */
         const val ANIMATION_FPS = 15
