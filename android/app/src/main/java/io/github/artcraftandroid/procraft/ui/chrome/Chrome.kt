@@ -304,28 +304,39 @@ fun SideBar(vm: CanvasViewModel, modifier: Modifier = Modifier, right: Boolean =
 }
 
 /**
- * Compact edge handle shown on smartphone screens when the side bar is collapsed: maintains a
- * 44.dp x 56.dp touch target while only occupying a 22.dp frosted tab visually.
+ * Compact edge dock shown on smartphone screens when the side bar is collapsed: keeps 1-tap
+ * Expand, Undo, and Redo within thumb reach (each >= 44.dp touch target) while leaving the
+ * drawing canvas wide open.
  */
 @Composable
-fun SideBarCollapsedHandle(right: Boolean, modifier: Modifier = Modifier, onExpand: () -> Unit) {
+fun SideBarCollapsedHandle(
+    right: Boolean,
+    modifier: Modifier = Modifier,
+    canUndo: Boolean = false,
+    canRedo: Boolean = false,
+    onUndo: () -> Unit = {},
+    onRedo: () -> Unit = {},
+    onExpand: () -> Unit,
+) {
     val tabShape = if (right) {
-        RoundedCornerShape(topStart = 14.dp, bottomStart = 14.dp)
+        RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)
     } else {
-        RoundedCornerShape(topEnd = 14.dp, bottomEnd = 14.dp)
+        RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)
     }
-    Box(
+    androidx.compose.foundation.layout.Column(
         modifier
-            .size(44.dp, 64.dp)
-            .tap(onClick = onExpand),
-        contentAlignment = if (right) Alignment.CenterEnd else Alignment.CenterStart,
+            .size(44.dp, 136.dp)
+            .clip(tabShape)
+            .background(Pc.SideBar)
+            .border(0.5.dp, Pc.GlassMenuEdge, tabShape)
+            .padding(vertical = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceEvenly,
     ) {
         Box(
             Modifier
-                .size(22.dp, 56.dp)
-                .clip(tabShape)
-                .background(Pc.SideBar)
-                .border(0.5.dp, Pc.GlassMenuEdge, tabShape),
+                .size(44.dp, 44.dp)
+                .tap(onClick = onExpand),
             contentAlignment = Alignment.Center,
         ) {
             Box(
@@ -335,6 +346,8 @@ fun SideBarCollapsedHandle(right: Boolean, modifier: Modifier = Modifier, onExpa
                     .background(Pc.SideGlyph),
             )
         }
+        SideButton(PcIcons.Undo, "Undo", canUndo, Modifier.size(44.dp, 44.dp), onClick = onUndo)
+        SideButton(PcIcons.Redo, "Redo", canRedo, Modifier.size(44.dp, 44.dp), onClick = onRedo)
     }
 }
 

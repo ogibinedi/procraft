@@ -217,9 +217,14 @@ private fun Screens(vm: CanvasViewModel, keptClear: Clearance) {
                     enter = Motion.sideBarIn(vm.rightHanded),
                     exit = Motion.sideBarOut(vm.rightHanded),
                 ) {
+                    DisposableEffect(Unit) { onDispose { vm.sideBarBounds = null } }
                     SideBarCollapsedHandle(
                         right = vm.rightHanded,
-                        modifier = aside.then(fade),
+                        modifier = aside.then(fade).onGloballyPositioned { vm.sideBarBounds = it.boundsInRoot().translate(-keptClear.corner) },
+                        canUndo = vm.canUndo,
+                        canRedo = vm.canRedo,
+                        onUndo = { vm.undo() },
+                        onRedo = { vm.redo() },
                         onExpand = { vm.toggleSideBarCollapsed() },
                     )
                 }

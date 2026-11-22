@@ -119,8 +119,15 @@ fun AdjustmentsPanel(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modif
                 if (filters.isNotEmpty()) MenuGroup(filters) { filter -> MenuRow(filter.name) { vm.startPluginFilter(filter) } }
                 if (actions.isNotEmpty()) MenuGroup(actions) { action -> MenuRow(action.label) { vm.runPluginAction(action.key) } }
             } else {
-                for (group in Adjustment.groups) {
-                    MenuGroup(group) { a -> MenuRow(a.label) { vm.startAdjustment(a) } }
+                val groups = Adjustment.groups
+                groups.forEachIndexed { idx, group ->
+                    if (idx == groups.lastIndex && PocketErgonomics.showRecolorInAdjustments(vm.modelOpen)) {
+                        val withRecolor = group.map { a -> a.label to { vm.startAdjustment(a) } } +
+                            ("Recolor" to { vm.toggleRecolor() })
+                        MenuGroup(withRecolor) { (label, run) -> MenuRow(label, run) }
+                    } else {
+                        MenuGroup(group) { a -> MenuRow(a.label) { vm.startAdjustment(a) } }
+                    }
                 }
                 if (filters.isNotEmpty() || actions.isNotEmpty()) {
                     MenuGroup(listOf("Plugins")) { label -> MenuRow(label) { showFilters = true } }

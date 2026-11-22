@@ -275,16 +275,23 @@ fun ColorPanel(vm: CanvasViewModel, arrowX: Dp, screenHeight: Dp, modifier: Modi
                 ColorMode.HARMONY -> Harmony(vm, c, short = short)
                 else -> Classic(c, square = if (short) (screenHeight - ShortClassicRest).coerceIn(150.dp, 344.dp) else 344.dp, m = m)
             }
-            if (short) {
-                ShortBottom(vm, c)
-            } else {
-                History(vm, c)
+            if (PocketErgonomics.showBothHistoryAndPalette(short, LocalCompactSheet.current)) {
+                History(vm, c, compact = LocalCompactSheet.current)
                 vm.palettes.getOrNull(vm.defaultPalette)?.let { p ->
-                    Box(Modifier.fillMaxWidth().height(44.dp)) {
-                        Text(p.name, color = Pc.PanelTitle, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.padding(start = 21.dp, top = 13.dp))
+                    Box(Modifier.fillMaxWidth().height(if (LocalCompactSheet.current) 34.dp else 44.dp)) {
+                        Text(
+                            p.name,
+                            color = Pc.PanelTitle,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            modifier = Modifier.padding(start = 21.dp, top = if (LocalCompactSheet.current) 9.dp else 13.dp),
+                        )
                     }
                     SwatchGrid(vm, c, vm.defaultPalette, p, Modifier.padding(horizontal = 8.dp))
                 }
+            } else {
+                ShortBottom(vm, c)
             }
         }
         ModeTabs(vm)

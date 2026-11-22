@@ -368,11 +368,17 @@ internal fun colourAlong(colours: List<Color>, t: Float): Color {
 }
 
 @Composable
-internal fun History(vm: CanvasViewModel, c: ColorPick) {
-    Box(Modifier.fillMaxWidth().height(44.dp)) {
-        Text("History", color = Pc.PanelTitle, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 21.dp, top = 13.dp))
+internal fun History(vm: CanvasViewModel, c: ColorPick, compact: Boolean = false) {
+    Box(Modifier.fillMaxWidth().height(if (compact) 34.dp else 44.dp)) {
+        Text(
+            "History",
+            color = Pc.PanelTitle,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(start = 21.dp, top = if (compact) 8.dp else 13.dp),
+        )
         Box(
-            Modifier.align(Alignment.TopEnd).padding(top = 11.dp, end = 16.dp).size(86.dp, 22.5.dp).clip(RoundedCornerShape(7.dp))
+            Modifier.align(Alignment.TopEnd).padding(top = if (compact) 6.dp else 11.dp, end = 16.dp).size(86.dp, 22.5.dp).clip(RoundedCornerShape(7.dp))
                 .background(Pc.SetCell).clickable { vm.clearHistory() },
             contentAlignment = Alignment.Center,
         ) {

@@ -78,7 +78,7 @@ internal class Heading(val label: String) : ActionRow
 internal class Slide(val label: String, val value: String, val fraction: Float, val tall: Dp = 63.dp, val onDone: () -> Unit = {}, val onChange: (Float) -> Unit) : ActionRow
 
 /** The pages the panel shows: its tabs, or a page of settings reached from one of them. */
-private enum class ActionsPage { TABS, TABLET, PRESSURE, CURSOR, PLUGINS, PEN_BUTTONS }
+private enum class ActionsPage { TABS, TABLET, PRESSURE, CURSOR, PLUGINS, PEN_BUTTONS, GESTURE_GUIDE }
 
 internal val CurveFill get() = if (Pc.light) Color(0xFFE7E7E9) else Color(0xFF262626)
 
@@ -158,7 +158,19 @@ fun ActionsPanel(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier)
     }
     fun share(jpeg: Boolean) {
         vm.viewModelScope.launch {
-            vm.exportImage(jpeg)?.let { runCatching { shareFile(context, it, if (jpeg) "image/jpeg" else "image/png") } }
+            vm.exportImage(jpeg)?.let { runCatching { shareFile(context, it, PocketErgonomics.directGalleryMime(jpeg)) } }
+        }
+    }
+    fun saveImageToGallery(jpeg: Boolean) {
+        vm.viewModelScope.launch {
+            vm.exportImage(jpeg)?.let { file ->
+                val intent = io.github.artcraftandroid.procraft.SaveToGalleryActivity.intent(
+                    context,
+                    listOf(file),
+                    PocketErgonomics.directGalleryMime(jpeg),
+                )
+                runCatching { context.startActivity(intent) }
+            }
         }
     }
     // a file a plugin makes of the artwork's layers of a kind it adds
@@ -237,6 +249,11 @@ fun ActionsPanel(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier)
             listOf(Act("Canvas information") { vm.canvasInfoOpen = true }),
         )
         2 -> listOf(
+            listOf(
+                Heading("Save to Gallery"),
+                Act("Save PNG to Gallery") { saveImageToGallery(jpeg = false) },
+                Act("Save JPEG to Gallery") { saveImageToGallery(jpeg = true) },
+            ),
             listOfNotNull(
                 Heading("Share Image"),
                 // ours first, then the same package named for the other app
@@ -315,6 +332,7 @@ fun ActionsPanel(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier)
                 Act("Licences") { dialog = "Licences" to licences(context) },
             ),
             listOf(
+                Act("Gesture guide") { page = ActionsPage.GESTURE_GUIDE },
                 Act("Keyboard shortcuts") {
                     // the system's list of them, which the app fills in (MainActivity)
                     var c = context
@@ -368,6 +386,10 @@ fun ActionsPanel(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier)
                 }
                 if (shown == ActionsPage.PEN_BUTTONS) {
                     PenButtonsPage(vm) { page = ActionsPage.TABS }
+                    return@Column
+                }
+                if (shown == ActionsPage.GESTURE_GUIDE) {
+                    GestureGuidePage { page = ActionsPage.TABS }
                     return@Column
                 }
                 Text(
