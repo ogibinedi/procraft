@@ -25,6 +25,9 @@ private const val TAP_HOLD_MS = 300L
 /** How far it may drift meanwhile and still be held (dp): farther, it is a scroll or a drag and moves. */
 private const val TAP_DRIFT_DP = 24f
 
+/** Grace period (ms) before hiding the external tablet pointer after hover exit, preventing flicker on press/lift. */
+private const val TABLET_HOVER_HIDE_MS = 180L
+
 class MainActivity : ComponentActivity() {
     private val vm: CanvasViewModel by viewModels()
 
@@ -126,6 +129,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
+        tabletPointerHandler.removeCallbacks(hideTabletPointer)
+        vm.activityTouchActive = false
+        vm.updateTabletPointer(null, pressed = false, active = vm.externalTabletActive)
         vm.appInFront(false)
         vm.saveNow()
         displays.unregisterDisplayListener(displayListener)
@@ -152,6 +158,123 @@ class MainActivity : ComponentActivity() {
     private var heldAt: android.graphics.PointF? = null
     private var heldSince = 0L
 
+    // external drawing tablet pointer tracking across the entire window (gallery, bars, panels, canvas)
+    private val tabletPointerHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var lastTabletHoverAt: androidx.compose.ui.geometry.Offset? = null
+    private val hideTabletPointer = Runnable {
+        if (!vm.activityTouchActive) {
+            lastTabletHoverAt = null
+            vm.updateTabletPointer(null, pressed = false, active = vm.externalTabletActive)
+        }
+    }
+
+    /** Records telemetry and pressure characteristics for an external drawing tablet or monitored stylus. */
+    private fun observeTabletTelemetry(e: android.view.MotionEvent, isHovering: Boolean) {
+        if (e.pointerCount <= 0 || e.device == null) return
+        val ext = isExternalDevice(e)
+        if (!vm.tabletMonitorActive && !ext) return
+        val kind = pointerKindOf(e, 0, vm.drawingTabletMode)
+        val raw = rawPressureOf(e, 0)
+        val range = pressureRangeOf(e)
+        val lifted = e.actionMasked == android.view.MotionEvent.ACTION_UP ||
+            e.actionMasked == android.view.MotionEvent.ACTION_CANCEL ||
+            e.actionMasked == android.view.MotionEvent.ACTION_HOVER_EXIT
+        if (isHovering) {
+            vm.tabletPressureTracker.recordHoverPressure(e.deviceId, raw)
+        } else if (!lifted) {
+            vm.tabletPressureTracker.recordContactPressure(e.deviceId, raw, range != null)
+        }
+        val dev = e.device
+        val name = dev?.name.orEmpty().ifBlank {
+            if (kind == io.github.artcraftandroid.procraft.core.PointerKind.STYLUS || kind == io.github.artcraftandroid.procraft.core.PointerKind.STYLUS_ERASER) {
+                "Stylus"
+            } else {
+                "Touchscreen"
+            }
+        }
+        val kindLabel = when (kind) {
+            io.github.artcraftandroid.procraft.core.PointerKind.STYLUS -> if (ext) "Drawing Tablet (Stylus)" else "Stylus"
+            io.github.artcraftandroid.procraft.core.PointerKind.STYLUS_ERASER -> "Stylus Eraser"
+            io.github.artcraftandroid.procraft.core.PointerKind.MOUSE -> "External Pointer"
+            io.github.artcraftandroid.procraft.core.PointerKind.FINGER -> "Finger"
+        }
+        val primaryDown = e.buttonState and android.view.MotionEvent.BUTTON_PRIMARY != 0
+        val deviceKey = devicePressureKeyOf(dev)
+        val learnedMax = vm.penPressureLearner.effectiveMax(deviceKey)
+        val pressure = if (lifted) {
+            0f
+        } else if (kind == io.github.artcraftandroid.procraft.core.PointerKind.STYLUS || kind == io.github.artcraftandroid.procraft.core.PointerKind.STYLUS_ERASER) {
+            calibratePenPressure(
+                rawPressure = raw,
+                axisMin = range?.start ?: 0f,
+                axisMax = range?.endInclusive ?: 1f,
+                hasPressureAxis = range != null,
+                pressureEnabled = vm.penPressureEnabled,
+                sensitivity = vm.penPressureSensitivity,
+                minFloor = vm.penPressureMin,
+                buttonPrimaryDown = primaryDown,
+                isHovering = isHovering,
+                fallbackFullWhenUnreported = ext && !vm.tabletPressureTracker.hasAnalogPressure(e.deviceId),
+                rawExceedsUnit = vm.tabletPressureTracker.usesRawRange(e.deviceId),
+                externalActiveContact = ext && !isHovering,
+                learnedMax = learnedMax,
+            )
+        } else {
+            raw.coerceIn(0f, 1f)
+        }
+        vm.recordTabletInput(name, kindLabel, pressure, range != null, tiltKnown(e), deviceKey = deviceKey)
+    }
+
+    override fun dispatchGenericMotionEvent(e: android.view.MotionEvent): Boolean {
+        if (e.pointerCount > 0 && isExternalDrawingTabletEvent(e, vm.drawingTabletMode)) {
+            val hasMouseSource = e.source and android.view.InputDevice.SOURCE_MOUSE == android.view.InputDevice.SOURCE_MOUSE
+            val at = androidx.compose.ui.geometry.Offset(e.x, e.y)
+            when (e.actionMasked) {
+                android.view.MotionEvent.ACTION_HOVER_ENTER,
+                android.view.MotionEvent.ACTION_HOVER_MOVE,
+                android.view.MotionEvent.ACTION_SCROLL,
+                -> {
+                    tabletPointerHandler.removeCallbacks(hideTabletPointer)
+                    // Reset before dispatch when position changes or UI covers canvas; AndroidComposeView skips
+                    // dispatching ACTION_HOVER_MOVE when x/y is unchanged, so preserve canvasPointerOnCanvas then.
+                    val moved = e.actionMasked != android.view.MotionEvent.ACTION_HOVER_MOVE || at != lastTabletHoverAt
+                    if (moved || vm.isUiCoveringCanvas() || vm.overBars(at)) {
+                        vm.markCanvasPointerHover(false)
+                    }
+                    lastTabletHoverAt = at
+                    vm.updateTabletPointer(
+                        at = at,
+                        pressed = e.buttonState and android.view.MotionEvent.BUTTON_PRIMARY != 0,
+                        hasSystemCursor = hasMouseSource,
+                        active = true,
+                    )
+                    observeTabletTelemetry(e, isHovering = true)
+                }
+                android.view.MotionEvent.ACTION_BUTTON_PRESS -> {
+                    tabletPointerHandler.removeCallbacks(hideTabletPointer)
+                    val pressed = e.actionButton == android.view.MotionEvent.BUTTON_PRIMARY ||
+                        e.buttonState and android.view.MotionEvent.BUTTON_PRIMARY != 0
+                    vm.updateTabletPointer(at = at, pressed = pressed, hasSystemCursor = hasMouseSource, active = true)
+                    observeTabletTelemetry(e, isHovering = !pressed)
+                }
+                android.view.MotionEvent.ACTION_BUTTON_RELEASE -> {
+                    val pressed = e.buttonState and android.view.MotionEvent.BUTTON_PRIMARY != 0
+                    vm.updateTabletPointer(at = at, pressed = pressed, hasSystemCursor = hasMouseSource, active = true)
+                    observeTabletTelemetry(e, isHovering = true)
+                }
+                android.view.MotionEvent.ACTION_HOVER_EXIT -> {
+                    vm.markCanvasPointerHover(false)
+                    if (!vm.activityTouchActive) {
+                        tabletPointerHandler.removeCallbacks(hideTabletPointer)
+                        tabletPointerHandler.postDelayed(hideTabletPointer, TABLET_HOVER_HIDE_MS)
+                    }
+                    observeTabletTelemetry(e, isHovering = true)
+                }
+            }
+        }
+        return super.dispatchGenericMotionEvent(e)
+    }
+
     /**
      * Tap assistance: for its first moments a finger's touch stays where it landed (its moves are
      * held back and its lift is put back there), so a tap that drifts still lands where it began.
@@ -159,6 +282,37 @@ class MainActivity : ComponentActivity() {
      * as they are.
      */
     override fun dispatchTouchEvent(e: android.view.MotionEvent): Boolean {
+        when (e.actionMasked) {
+            android.view.MotionEvent.ACTION_DOWN -> {
+                vm.activityTouchActive = true
+                vm.devicesWithRealTouch += e.deviceId
+            }
+            android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                vm.activityTouchActive = false
+            }
+        }
+        if (e.pointerCount > 0) {
+            if (isExternalDrawingTabletEvent(e, vm.drawingTabletMode)) {
+                tabletPointerHandler.removeCallbacks(hideTabletPointer)
+                val hasMouseSource = e.source and android.view.InputDevice.SOURCE_MOUSE == android.view.InputDevice.SOURCE_MOUSE
+                val pressed = e.actionMasked != android.view.MotionEvent.ACTION_UP &&
+                    e.actionMasked != android.view.MotionEvent.ACTION_CANCEL
+                vm.updateTabletPointer(
+                    at = androidx.compose.ui.geometry.Offset(e.x, e.y),
+                    pressed = pressed,
+                    hasSystemCursor = hasMouseSource,
+                    active = true,
+                )
+                observeTabletTelemetry(e, isHovering = false)
+            } else if (!isExternalDevice(e) && e.actionMasked == android.view.MotionEvent.ACTION_DOWN) {
+                // Switching back to built-in touchscreen or built-in stylus dismisses the external tablet pointer.
+                tabletPointerHandler.removeCallbacks(hideTabletPointer)
+                vm.updateTabletPointer(null, pressed = false, active = false)
+                observeTabletTelemetry(e, isHovering = false)
+            } else if (vm.tabletMonitorActive) {
+                observeTabletTelemetry(e, isHovering = false)
+            }
+        }
         // (a mouse or a touchpad moving the pointer is no finger, though a touchpad's says it is)
         if (!vm.tapAssistance || pointerKindOf(e, 0, vm.drawingTabletMode) != io.github.artcraftandroid.procraft.core.PointerKind.FINGER) return super.dispatchTouchEvent(e)
         when (e.actionMasked) {

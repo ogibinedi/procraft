@@ -399,14 +399,22 @@ class PenKeysTest {
     }
 
     @Test
-    fun external_drawing_tablets_of_any_brand_are_detected_by_capabilities_or_name() {
-        // Brand-agnostic hardware detection: stylus source or external pressure axis
+    fun external_drawing_tablets_of_any_brand_are_detected_by_capabilities_vendor_id_or_name() {
+        // Brand-agnostic hardware detection: stylus source or external pressure/tilt/distance axis
         assertEquals(true, isDrawingTabletDevice("Generic USB HID", InputDevice.SOURCE_MOUSE or InputDevice.SOURCE_STYLUS, hasPressureAxis = false, isExternal = true))
         assertEquals(true, isDrawingTabletDevice("Unknown Brand Pad", InputDevice.SOURCE_MOUSE, hasPressureAxis = true, isExternal = true))
+        assertEquals(true, isDrawingTabletDevice("Unknown Tilt Digitizer", InputDevice.SOURCE_TOUCHSCREEN, hasPressureAxis = false, isExternal = true, hasTiltOrDistance = true))
+        // USB Vendor ID detection for XP-Pen, Huion, UC-Logic, Wacom, Veikk, Waltop, Hanvon, Bosto, Xencelabs even with generic kernel names
+        for (vid in listOf(0x28BD, 0x256C, 0x5543, 0x056A, 0x2FEB, 0x172F, 0x0B57, 0x2179, 0x34A0)) {
+            assertEquals("VID 0x${vid.toString(16)}", true, isDrawingTabletDevice("HID ${vid.toString(16)}:0905", InputDevice.SOURCE_MOUSE, hasPressureAxis = false, isExternal = true, vendorId = vid))
+        }
         // Name fallback for kernels that expose tablets only in hid-generic mouse mode
-        for (name in listOf("XP-Pen Deco 01 V2", "UGTABLET 10 inch PenTablet", "HUION H640P", "Wacom Intuos S", "GAOMON S620", "VEIKK A15", "Parblo A610", "Xencelabs Pen Tablet")) {
+        for (name in listOf("XP-Pen Deco 01 V2", "UGTABLET 10 inch PenTablet", "HUION H640P", "Inspiroy H640P", "Wacom Intuos S", "GAOMON S620", "VEIKK A15", "Parblo A610", "Xencelabs Pen Tablet")) {
             assertEquals(name, true, isDrawingTabletDevice(name, InputDevice.SOURCE_MOUSE, hasPressureAxis = false, isExternal = true))
         }
+        // Dedicated multi-touch overlay on a pen display or external trackpad is NOT misclassified as a pen
+        assertEquals(false, isDrawingTabletDevice("Wacom Cintiq Touch", InputDevice.SOURCE_TOUCHSCREEN, hasPressureAxis = false, isExternal = true, vendorId = 0x056A))
+        assertEquals(false, isDrawingTabletDevice("Apple Magic Trackpad", InputDevice.SOURCE_MOUSE, hasPressureAxis = true, isExternal = true))
         // Regular mouse without pressure axis or tablet name is not misclassified
         assertEquals(false, isDrawingTabletDevice("Logitech G305", InputDevice.SOURCE_MOUSE, hasPressureAxis = false, isExternal = true))
         assertEquals(false, isDrawingTabletDevice("Touchscreen", InputDevice.SOURCE_TOUCHSCREEN, hasPressureAxis = true, isExternal = false))
@@ -416,19 +424,165 @@ class PenKeysTest {
     fun pen_pressure_calibration_handles_ranges_sensitivity_floor_and_fallbacks() {
         // Default 1.0x sensitivity, 0.0 floor preserves 0..1 pressure cleanly
         assertEquals(0.4f, calibratePenPressure(0.4f, 0f, 1f, hasPressureAxis = true, pressureEnabled = true, sensitivity = 1f, minFloor = 0f), 1e-5f)
-        // Normalizes non-0..1 HID ranges (e.g. 8192-level XP-Pen / Huion raw range)
+        // Normalizes genuinely unnormalized raw HID ranges (e.g. 8192-level XP-Pen / Huion raw values > 1.05)
         assertEquals(0.5f, calibratePenPressure(4095.5f, 0f, 8191f, hasPressureAxis = true, pressureEnabled = true, sensitivity = 1f, minFloor = 0f), 1e-4f)
+        // CRITICAL: Already-normalized 0..1 pressure when kernel MotionRange.max reports 8191 must NOT be divided by 8191!
+        assertEquals(0.5f, calibratePenPressure(0.5f, 0f, 8191f, hasPressureAxis = true, pressureEnabled = true, sensitivity = 1f, minFloor = 0f, rawExceedsUnit = false), 1e-5f)
+        // Once a device has emitted raw values > 1.05 (rawExceedsUnit = true), even tiny raw level 1.0 divides by 8191
+        assertEquals(1f / 8191f, calibratePenPressure(1f, 0f, 8191f, hasPressureAxis = true, pressureEnabled = true, sensitivity = 1f, minFloor = 0f, rawExceedsUnit = true), 1e-6f)
         // Applies sensitivity multiplier and minimum floor
         assertEquals(0.8f, calibratePenPressure(0.4f, 0f, 1f, hasPressureAxis = true, pressureEnabled = true, sensitivity = 2f, minFloor = 0f), 1e-5f)
         assertEquals(0.28f, calibratePenPressure(0.1f, 0f, 1f, hasPressureAxis = true, pressureEnabled = true, sensitivity = 1f, minFloor = 0.2f), 1e-5f)
         // Pressureless USB drawing tablet falls back to full pressure immediately on contact
         assertEquals(1f, calibratePenPressure(0f, 0f, 0f, hasPressureAxis = false, pressureEnabled = true, sensitivity = 1f, minFloor = 0f, buttonPrimaryDown = true), 1e-5f)
         assertEquals(0f, calibratePenPressure(0f, 0f, 0f, hasPressureAxis = false, pressureEnabled = true, sensitivity = 1f, minFloor = 0f, buttonPrimaryDown = false, isHovering = true), 1e-5f)
-        // External nib-click fallback when kernel advertises axis but never emits > 0 pressure
+        // External tablet with AXIS_PRESSURE that always reports 0 (including TouchInputMapper buttonState == 0) falls back to 1.0 immediately
         assertEquals(1f, calibratePenPressure(0f, 0f, 1f, hasPressureAxis = true, pressureEnabled = true, sensitivity = 1f, minFloor = 0f, buttonPrimaryDown = true, isHovering = false, fallbackFullWhenUnreported = true), 1e-5f)
+        assertEquals(1f, calibratePenPressure(0f, 0f, 1f, hasPressureAxis = true, pressureEnabled = true, sensitivity = 1f, minFloor = 0f, buttonPrimaryDown = false, isHovering = false, fallbackFullWhenUnreported = true, externalActiveContact = true), 1e-5f)
+        // External tablet with known analog pressure whose ACTION_DOWN frame arrives at pressure == 0 before ramping up gets >= EXTERNAL_CONTACT_MIN_PRESSURE so stroke starts immediately
+        assertEquals(EXTERNAL_CONTACT_MIN_PRESSURE, calibratePenPressure(0f, 0f, 1f, hasPressureAxis = true, pressureEnabled = true, sensitivity = 1f, minFloor = 0f, buttonPrimaryDown = false, isHovering = false, fallbackFullWhenUnreported = false, externalActiveContact = true), 1e-5f)
+        assertEquals(0.15f, calibratePenPressure(0f, 0f, 1f, hasPressureAxis = true, pressureEnabled = true, sensitivity = 1f, minFloor = 0.15f, buttonPrimaryDown = false, isHovering = false, fallbackFullWhenUnreported = false, externalActiveContact = true), 1e-5f)
+        // Built-in stylus touching at 0 pressure still returns 0 so hover-above-glass detection stays intact
+        assertEquals(0f, calibratePenPressure(0f, 0f, 1f, hasPressureAxis = true, pressureEnabled = true, sensitivity = 1f, minFloor = 0f, buttonPrimaryDown = false, isHovering = false, fallbackFullWhenUnreported = false, externalActiveContact = false), 1e-5f)
         // Pressure disabled gives uniform 1.0 while drawing and 0.0 while hovering
         assertEquals(1f, calibratePenPressure(0.2f, 0f, 1f, hasPressureAxis = true, pressureEnabled = false, sensitivity = 1f, minFloor = 0f), 1e-5f)
         assertEquals(0f, calibratePenPressure(0f, 0f, 1f, hasPressureAxis = true, pressureEnabled = false, sensitivity = 1f, minFloor = 0f, isHovering = true), 1e-5f)
+    }
+
+    @Test
+    fun tablet_pressure_tracker_distinguishes_analog_pressure_from_hover_drift_and_mouse_clicks() {
+        val tracker = TabletPressureTracker()
+        // Hover drift (e.g. XP-Pen X3 low-IAF) does NOT poison analog detection or raw range
+        tracker.recordHoverPressure(10, 0.02f)
+        assertEquals(false, tracker.hasAnalogPressure(10))
+        assertEquals(true, tracker.sawZeroHover(10))
+        // Constant 1.0f mouse click pressure does NOT mark a pressureless mouse-mode tablet as analog
+        tracker.recordContactPressure(11, 1.0f, hasPressureAxis = true)
+        tracker.recordContactPressure(11, 1.0f, hasPressureAxis = true)
+        assertEquals(false, tracker.hasAnalogPressure(11))
+        assertEquals(false, tracker.usesRawRange(11))
+        // Genuine fractional stylus pressure immediately enables analog mode without raw-range scaling
+        tracker.recordContactPressure(12, 0.35f, hasPressureAxis = true)
+        assertEquals(true, tracker.hasAnalogPressure(12))
+        assertEquals(false, tracker.usesRawRange(12))
+        // Unnormalized 8192-level HID raw value (> 1.05) activates raw range normalization and analog mode
+        tracker.recordContactPressure(13, 2048f, hasPressureAxis = true)
+        assertEquals(true, tracker.hasAnalogPressure(13))
+        assertEquals(true, tracker.usesRawRange(13))
+        // Constant 1.0 hover bug never sets sawZeroHover
+        tracker.recordHoverPressure(14, 1.0f)
+        assertEquals(false, tracker.sawZeroHover(14))
+    }
+
+    @Test
+    fun calibrate_pen_pressure_rescales_with_learned_max_before_sensitivity_and_floor() {
+        // Default learnedMax = 1f leaves existing behavior completely unchanged
+        assertEquals(0.084f, calibratePenPressure(0.084f, 0f, 1f, hasPressureAxis = true, pressureEnabled = true, sensitivity = 1f, minFloor = 0f), 1e-5f)
+        // XP-Pen 28bd:2904 observed peak 0.084 with headroom divisor 0.084 * 1.15 = 0.0966
+        val learnedMax = 0.084f * PenPressureLearner.HEADROOM
+        // Comfortable firm press (0.084) maps to ~0.87 (proportional, strong stroke without crushing nib)
+        assertEquals(0.084f / learnedMax, calibratePenPressure(0.084f, 0f, 1f, hasPressureAxis = true, pressureEnabled = true, sensitivity = 1f, minFloor = 0f, learnedMax = learnedMax), 1e-4f)
+        // Light press (0.042) maps to ~0.435
+        assertEquals(0.042f / learnedMax, calibratePenPressure(0.042f, 0f, 1f, hasPressureAxis = true, pressureEnabled = true, sensitivity = 1f, minFloor = 0f, learnedMax = learnedMax), 1e-4f)
+        // Harder press (0.12) clamps cleanly to 1.0 before sensitivity/floor
+        assertEquals(1f, calibratePenPressure(0.12f, 0f, 1f, hasPressureAxis = true, pressureEnabled = true, sensitivity = 1f, minFloor = 0.1f, learnedMax = learnedMax), 1e-5f)
+        // Sensitivity and floor apply AFTER learnedMax rescaling
+        val afterMax = (0.03f / learnedMax).coerceIn(0f, 1f)
+        val expected = 0.2f + (afterMax * 1.5f).coerceIn(0f, 1f) * 0.8f
+        assertEquals(expected, calibratePenPressure(0.03f, 0f, 1f, hasPressureAxis = true, pressureEnabled = true, sensitivity = 1.5f, minFloor = 0.2f, learnedMax = learnedMax), 1e-5f)
+    }
+
+    @Test
+    fun pen_pressure_learner_auto_gains_under_reporting_tablets_and_leaves_normal_devices_untouched() {
+        val persisted = LinkedHashMap<String, Float>()
+        val learner = PenPressureLearner(
+            loadAll = { persisted },
+            saveRef = { k, v -> persisted[k] = v },
+            clearStore = { persisted.clear() },
+        )
+        // Stable device key formatting with descriptor/name fallbacks
+        val xpPen = devicePressureKey(0x28BD, 0x2904, "desc-1", "XP-Pen")!!
+        assertEquals("28bd:2904", xpPen)
+        assertEquals("desc:abc", devicePressureKey(0, 0, "abc", "Pen"))
+        assertEquals("name:Built-in Pen", devicePressureKey(0, 0, null, "Built-in Pen"))
+        assertNull(devicePressureKey(0, 0, "", " "))
+
+        // Unseen device starts at 1.0 (untouched)
+        assertEquals(1f, learner.effectiveMax(xpPen), 1e-5f)
+        assertEquals(false, learner.isGainActive(xpPen))
+
+        // First stroke on XP-Pen 28bd:2904 peaks at 0.084 -> ref = 0.084, effectiveMax = 0.084 * 1.15
+        assertEquals(0.084f, learner.onStrokeEnd(xpPen, 0.084f)!!, 1e-5f)
+        assertEquals(true, learner.isGainActive(xpPen))
+        assertEquals(0.084f * PenPressureLearner.HEADROOM, learner.effectiveMax(xpPen), 1e-5f)
+        assertEquals(0.084f, persisted[xpPen]!!, 1e-5f)
+
+        // Higher peak raises ref immediately
+        assertEquals(0.12f, learner.onStrokeEnd(xpPen, 0.12f)!!, 1e-5f)
+        assertEquals(0.12f * PenPressureLearner.HEADROOM, learner.effectiveMax(xpPen), 1e-5f)
+
+        // Lower peak decays smoothly via ref + (peak - ref) * 0.1
+        val expectedDecayed = 0.12f + (0.06f - 0.12f) * 0.1f
+        assertEquals(expectedDecayed, learner.onStrokeEnd(xpPen, 0.06f)!!, 1e-5f)
+
+        // Tiny / zero noise strokes (< 0.005) are ignored
+        assertEquals(expectedDecayed, learner.onStrokeEnd(xpPen, 0f)!!, 1e-5f)
+        assertEquals(expectedDecayed, learner.onStrokeEnd(xpPen, 0.002f)!!, 1e-5f)
+
+        // Clamping at lower bound (MIN_REF = 0.02f)
+        val tinyKey = "1234:5678"
+        assertEquals(PenPressureLearner.MIN_REF, learner.onStrokeEnd(tinyKey, 0.008f)!!, 1e-5f)
+
+        // Normal stylus reaching >= 0.5 (e.g. Samsung S-Pen) MUST leave effectiveMax == 1.0f untouched!
+        val sPen = "0000:0001"
+        learner.onStrokeEnd(sPen, 0.85f)
+        assertEquals(false, learner.isGainActive(sPen))
+        assertEquals(1f, learner.effectiveMax(sPen), 1e-5f)
+        // Even after many light shading strokes on S-Pen, ref never decays below 0.5 -> output stays untouched
+        repeat(30) { learner.onStrokeEnd(sPen, 0.10f) }
+        assertEquals(false, learner.isGainActive(sPen))
+        assertEquals(1f, learner.effectiveMax(sPen), 1e-5f)
+        assertEquals(0.4f, calibratePenPressure(0.4f, 0f, 1f, hasPressureAxis = true, pressureEnabled = true, sensitivity = 1f, minFloor = 0f, learnedMax = learner.effectiveMax(sPen)), 1e-5f)
+
+        // Explicit Calibrate pressure overrides prior ref directly (even downward)
+        assertEquals(0.09f, learner.setCalibratedPeak(xpPen, 0.09f)!!, 1e-5f)
+        assertEquals(0.09f * PenPressureLearner.HEADROOM, learner.effectiveMax(xpPen), 1e-5f)
+
+        // Persistence round-trip reloads stored refs into a fresh instance
+        val reloaded = PenPressureLearner(loadAll = { persisted })
+        assertEquals(0.09f, reloaded.refOf(xpPen)!!, 1e-5f)
+        assertEquals(0.09f * PenPressureLearner.HEADROOM, reloaded.effectiveMax(xpPen), 1e-5f)
+
+        // Reset clears both memory and persistence
+        learner.clearAll()
+        assertNull(learner.refOf(xpPen))
+        assertEquals(1f, learner.effectiveMax(xpPen), 1e-5f)
+        assertEquals(true, persisted.isEmpty())
+    }
+
+    @Test
+    fun pointer_icon_always_shows_arrow_over_ui_and_only_hides_on_open_painting_canvas_with_visible_brush() {
+        // Over bars, panels, sheets, menus, studios, or gallery: ALWAYS standard arrow for navigation!
+        assertEquals(android.view.PointerIcon.TYPE_ARROW, resolveTabletPointerIconType(overOpenCanvas = false, hideTabletArrowCursor = true, brushCursorVisible = true))
+        assertEquals(android.view.PointerIcon.TYPE_ARROW, resolveTabletPointerIconType(overOpenCanvas = false, hideTabletArrowCursor = true, brushCursorVisible = false))
+        assertEquals(android.view.PointerIcon.TYPE_ARROW, resolveTabletPointerIconType(overOpenCanvas = false, hideTabletArrowCursor = false, brushCursorVisible = true))
+        // Over open canvas with hideTabletArrowCursor OFF: standard arrow
+        assertEquals(android.view.PointerIcon.TYPE_ARROW, resolveTabletPointerIconType(overOpenCanvas = true, hideTabletArrowCursor = false, brushCursorVisible = true))
+        // Over open painting canvas with hideTabletArrowCursor ON and brush cursor visible: TYPE_NULL (unobstructed brush)
+        assertEquals(android.view.PointerIcon.TYPE_NULL, resolveTabletPointerIconType(overOpenCanvas = true, hideTabletArrowCursor = true, brushCursorVisible = true))
+        // Over open canvas with hideTabletArrowCursor ON but brush cursor NOT visible (tiny/off/selection/transform): crosshair, never invisible!
+        assertEquals(android.view.PointerIcon.TYPE_CROSSHAIR, resolveTabletPointerIconType(overOpenCanvas = true, hideTabletArrowCursor = true, brushCursorVisible = false))
+    }
+
+    @Test
+    fun brush_cursor_stays_visible_while_painting_on_external_drawing_tablets() {
+        // Built-in stylus respects CursorShows.HOVERING (hides while painting)
+        assertEquals(false, shouldShowBrushCursor(brushCursorOn = true, hasPosition = true, hovering = false, cursorShows = CanvasViewModel.CursorShows.HOVERING, externalTabletActive = false))
+        assertEquals(true, shouldShowBrushCursor(brushCursorOn = true, hasPosition = true, hovering = true, cursorShows = CanvasViewModel.CursorShows.HOVERING, externalTabletActive = false))
+        // External screenless drawing tablet keeps brush cursor visible while painting too
+        assertEquals(true, shouldShowBrushCursor(brushCursorOn = true, hasPosition = true, hovering = false, cursorShows = CanvasViewModel.CursorShows.HOVERING, externalTabletActive = true))
+        // Turning brush cursor off hides it everywhere
+        assertEquals(false, shouldShowBrushCursor(brushCursorOn = false, hasPosition = true, hovering = true, cursorShows = CanvasViewModel.CursorShows.BOTH, externalTabletActive = true))
     }
 
     @Test

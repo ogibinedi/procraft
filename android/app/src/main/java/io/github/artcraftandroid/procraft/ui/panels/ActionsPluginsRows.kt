@@ -53,6 +53,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -548,6 +549,7 @@ internal fun Group(rows: List<ActionRow>) {
  * drawing tablets (XP-Pen, Huion, Wacom, Gaomon, Veikk, Ugee, Parblo, Xencelabs, etc.) plus
  * real-time pressure testing and calibration controls.
  */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 internal fun DrawingTabletPage(
     vm: CanvasViewModel,
@@ -567,59 +569,111 @@ internal fun DrawingTabletPage(
         Text("Drawing Tablet & Pen", color = Pc.PanelTitle, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1)
     }
     Column(Modifier.heightIn(max = 760.dp).verticalScroll(rememberScrollState()).padding(start = 12.dp, end = 12.dp, top = 16.dp, bottom = 13.dp)) {
-        // Live hardware detection & interactive pen pressure test bar
+        // Live hardware detection, pressure calibration & interactive pen pressure test bar
         var localTestPressure by remember { mutableStateOf(0f) }
+        var calibrating by remember { mutableStateOf(false) }
+        var calibrationPeak by remember { mutableStateOf(0f) }
+        var calibrationDeviceKey by remember { mutableStateOf<String?>(null) }
+        var calibrationNote by remember { mutableStateOf<String?>(null) }
         val livePressure = maxOf(vm.lastTabletPressure, localTestPressure).coerceIn(0f, 1f)
-        val deviceLabel = vm.lastTabletDeviceName.ifBlank { "Touch or press pen here to detect" }
-        val caps = buildList {
+        val deviceLabel = if (calibrating) {
+            "Press pen firmly once here, then lift"
+        } else {
+            vm.lastTabletDeviceName.ifBlank { "Hover or press pen here to detect" }
+        }
+        val learnedRef = vm.lastTabletLearnedRef
+        val caps = calibrationNote ?: buildList {
             if (vm.lastTabletKind.isNotBlank()) add(vm.lastTabletKind)
             if (vm.lastTabletHasPressureAxis) add("Pressure")
             if (vm.lastTabletHasTiltAxis) add("Tilt")
+            if (learnedRef != null && learnedRef < PenPressureLearner.ENGAGE_THRESHOLD) {
+                add("Auto-gain (${(learnedRef * 100f).roundToInt()}% peak)")
+            }
         }.joinToString(" · ").ifBlank { "Supports XP-Pen, Huion, Wacom, Gaomon, Veikk & all HID tablets" }
         Column(
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(22.dp))
                 .background(Pc.ActionsGroup)
-                .pointerInput(vm.penPressureEnabled, vm.penPressureSensitivity, vm.penPressureMin) {
-                    awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false)
-                        val p0 = calibratePenPressure(
-                            rawPressure = down.pressure,
-                            axisMin = 0f,
-                            axisMax = 1f,
-                            hasPressureAxis = true,
-                            pressureEnabled = vm.penPressureEnabled,
-                            sensitivity = vm.penPressureSensitivity,
-                            minFloor = vm.penPressureMin,
-                            buttonPrimaryDown = true,
-                        )
-                        localTestPressure = p0
-                        while (true) {
-                            val ev = awaitPointerEvent()
-                            val c = ev.changes.firstOrNull { it.id == down.id }
-                            if (c == null || !c.pressed) {
-                                localTestPressure = 0f
-                                break
+                .then(if (calibrating) Modifier.border(1.5.dp, Pc.Accent, RoundedCornerShape(22.dp)) else Modifier)
+                .pointerInteropFilter { e ->
+                    if (e.pointerCount > 0) {
+                        val action = e.actionMasked
+                        val raw = rawPressureOf(e, 0)
+                        val range = pressureRangeOf(e)
+                        val ext = isExternalDevice(e)
+                        val devKey = devicePressureKeyOf(e.device)
+                        if (action == android.view.MotionEvent.ACTION_UP || action == android.view.MotionEvent.ACTION_CANCEL) {
+                            localTestPressure = 0f
+                            if (calibrating && action == android.view.MotionEvent.ACTION_UP && calibrationPeak >= PenPressureLearner.MIN_LEARNABLE_PEAK) {
+                                val saved = vm.calibrateTabletPressure(calibrationDeviceKey ?: devKey, calibrationPeak)
+                                calibrating = false
+                                calibrationNote = if (saved != null && saved < PenPressureLearner.ENGAGE_THRESHOLD) {
+                                    "Calibrated (peak ${(saved * 100f).roundToInt()}% -> 100%)"
+                                } else {
+                                    "Calibrated (full hardware range)"
+                                }
+                                calibrationPeak = 0f
                             }
+                        } else if (action == android.view.MotionEvent.ACTION_DOWN ||
+                            action == android.view.MotionEvent.ACTION_MOVE
+                        ) {
+                            if (action == android.view.MotionEvent.ACTION_DOWN) {
+                                calibrationNote = null
+                                if (calibrating) {
+                                    calibrationPeak = 0f
+                                    calibrationDeviceKey = devKey
+                                }
+                            }
+                            vm.tabletPressureTracker.recordContactPressure(e.deviceId, raw, range != null)
+                            val kind = pointerKindOf(e, 0, vm.drawingTabletMode)
+                            val isStylusOrExt = ext || kind == io.github.artcraftandroid.procraft.core.PointerKind.STYLUS ||
+                                kind == io.github.artcraftandroid.procraft.core.PointerKind.STYLUS_ERASER
+                            if (calibrating && isStylusOrExt) {
+                                val min = range?.start ?: 0f
+                                val max = range?.endInclusive ?: 1f
+                                val hasAxis = range != null
+                                val usesRaw = vm.tabletPressureTracker.usesRawRange(e.deviceId)
+                                for (h in 0 until e.historySize) {
+                                    val hp = normalizeRawPressure(rawPressureOf(e, 0, historyIdx = h), min, max, hasAxis, rawExceedsUnit = usesRaw)
+                                    if (hp > calibrationPeak) calibrationPeak = hp
+                                }
+                                val rawNorm = normalizeRawPressure(raw, min, max, hasAxis, rawExceedsUnit = usesRaw)
+                                if (rawNorm > calibrationPeak) {
+                                    calibrationPeak = rawNorm
+                                    if (devKey != null) calibrationDeviceKey = devKey
+                                }
+                            }
+                            val learnedMax = vm.penPressureLearner.effectiveMax(devKey)
                             localTestPressure = calibratePenPressure(
-                                rawPressure = c.pressure,
-                                axisMin = 0f,
-                                axisMax = 1f,
-                                hasPressureAxis = true,
+                                rawPressure = raw,
+                                axisMin = range?.start ?: 0f,
+                                axisMax = range?.endInclusive ?: 1f,
+                                hasPressureAxis = range != null,
                                 pressureEnabled = vm.penPressureEnabled,
                                 sensitivity = vm.penPressureSensitivity,
                                 minFloor = vm.penPressureMin,
-                                buttonPrimaryDown = true,
+                                buttonPrimaryDown = e.buttonState and android.view.MotionEvent.BUTTON_PRIMARY != 0,
+                                isHovering = false,
+                                fallbackFullWhenUnreported = ext && !vm.tabletPressureTracker.hasAnalogPressure(e.deviceId),
+                                rawExceedsUnit = vm.tabletPressureTracker.usesRawRange(e.deviceId),
+                                externalActiveContact = ext,
+                                learnedMax = learnedMax,
                             )
-                            c.consume()
                         }
                     }
+                    true
                 }
                 .padding(horizontal = 16.dp, vertical = 14.dp),
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Live Pen Pressure Test", color = Pc.PanelTitle, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Text(
+                    if (calibrating) "Calibrating Pen Pressure…" else "Live Pen Pressure Test",
+                    color = if (calibrating) Pc.Accent else Pc.PanelTitle,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                )
                 Text("${(livePressure * 100f).roundToInt()}%", color = Pc.Accent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(4.dp))
@@ -635,6 +689,7 @@ internal fun DrawingTabletPage(
             listOf(
                 Toggle("Drawing tablet mode", vm.drawingTabletMode) { vm.changeDrawingTablet(tabletMode = it) },
                 Toggle("Pen pressure sensitivity", vm.penPressureEnabled) { vm.changeDrawingTablet(pressureEnabled = it) },
+                Toggle("Show navigation pointer", vm.showTabletNavPointer) { vm.changeDrawingTablet(showNavPointer = it) },
                 Toggle("Hide system arrow on canvas", vm.hideTabletArrowCursor) { vm.changeDrawingTablet(hideArrow = it) },
                 Toggle("Pan & Zoom companion bar", vm.singleTouchCompanion) { vm.changeSingleTouchCompanion(it) },
             ),
@@ -656,11 +711,27 @@ internal fun DrawingTabletPage(
             ),
         )
         Spacer(Modifier.height(16.dp))
+        val calValue = when {
+            calibrating -> "Press pad"
+            learnedRef != null && learnedRef < PenPressureLearner.ENGAGE_THRESHOLD -> "${(learnedRef * 100f).roundToInt()}%"
+            learnedRef != null -> "100%"
+            else -> "Auto"
+        }
         Group(
             listOf(
+                Act("Calibrate pressure", value = calValue) {
+                    calibrating = !calibrating
+                    calibrationPeak = 0f
+                    calibrationNote = null
+                },
                 Act("Pressure curve & stabilization") { onOpenPressure() },
                 Act("Pen buttons") { onOpenPenButtons() },
-                Act("Reset drawing tablet settings") { vm.resetDrawingTablet() },
+                Act("Reset drawing tablet settings") {
+                    calibrating = false
+                    calibrationPeak = 0f
+                    calibrationNote = null
+                    vm.resetDrawingTablet()
+                },
             ),
         )
     }

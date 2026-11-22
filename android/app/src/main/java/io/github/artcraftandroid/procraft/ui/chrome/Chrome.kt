@@ -586,25 +586,29 @@ private val ThumbShadow: List<ShadowStep> by lazy { sideThumbShadow() }
  * The brush's outline where the pen paints or hovers, in the brush's own shape (the round tip's a
  * circle): a thin dark line with a light edge, or in the colour painted with. Hovering, the brush's
  * stamp fills it in the colour, as strong as the brush paints, if its Hover fill says so.
+ *
+ * For small brushes (`r < 2f`) or external screenless drawing tablets (XP-Pen, Huion, Wacom, etc.),
+ * a minimum visible outline and a crisp center nib dot ensure the pen position is never lost.
  */
 @Composable
 fun BrushCursor(vm: CanvasViewModel) {
     LiquifyRing(vm)
     val at = vm.cursorAt ?: return
     val r = vm.cursorRadius
-    if (r < 2f) return
     val style = vm.cursorStyle
     val paint = CanvasSpace.color(vm.colorRgb())
     val shape = vm.cursorShape
     val turn = vm.cursorTurn
     val fill = vm.cursorFill.takeIf { vm.cursorHovering }
+    val showPinpoint = vm.externalTabletActive
     // as the brush would paint at its estimated pressure: as strong, and as big
     val look = vm.cursorFillLook
     val strength = hoverFillStrength(vm.opacity, look.opacity)
     val fillR = r * look.size.coerceIn(0f, 1f)
     androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+        val visibleR = r.coerceAtLeast(3.dp.toPx())
         // the stamp under the outline, turned as the stamps are
-        if (fill != null && fillR >= 1f) {
+        if (r >= 2f && fill != null && fillR >= 1f) {
             rotate(Math.toDegrees(turn.toDouble()).toFloat(), pivot = at) {
                 drawImage(
                     fill,
@@ -617,26 +621,114 @@ fun BrushCursor(vm: CanvasViewModel) {
         }
         // its loops across the brush's diameter, about where it is, turned as the stamps are
         val (sin, cos) = kotlin.math.sin(turn) to kotlin.math.cos(turn)
-        val paths = shape.map { ring ->
-            Path().apply {
-                for (i in 0 until ring.size / 2) {
-                    val (dx, dy) = ring[i * 2] to ring[i * 2 + 1]
-                    val x = at.x + (dx * cos - dy * sin) * r * 2f
-                    val y = at.y + (dx * sin + dy * cos) * r * 2f
-                    if (i == 0) moveTo(x, y) else lineTo(x, y)
+        val paths = if (r >= 2f) {
+            shape.map { ring ->
+                Path().apply {
+                    for (i in 0 until ring.size / 2) {
+                        val (dx, dy) = ring[i * 2] to ring[i * 2 + 1]
+                        val x = at.x + (dx * cos - dy * sin) * r * 2f
+                        val y = at.y + (dx * sin + dy * cos) * r * 2f
+                        if (i == 0) moveTo(x, y) else lineTo(x, y)
+                    }
+                    close()
                 }
-                close()
             }
+        } else {
+            emptyList()
         }
         fun outline(color: Color, width: Float) {
-            if (paths.isEmpty()) drawCircle(color, r, at, style = Stroke(width))
+            if (paths.isEmpty()) drawCircle(color, visibleR, at, style = Stroke(width))
             for (p in paths) drawPath(p, color, style = Stroke(width))
         }
         // (a fill at the faintest opacities is as good as none: the lines show with it)
-        when (cursorLines(style, vm.cursorOutline, filled = fill != null && strength >= CURSOR_FILL_SEEN)) {
+        when (cursorLines(style, vm.cursorOutline, filled = r >= 2f && fill != null && strength >= CURSOR_FILL_SEEN)) {
             CursorLines.NONE -> Unit
             CursorLines.CONTRAST -> { outline(Color.White, 3.dp.toPx()); outline(Color.Black, 1.dp.toPx()) }
             CursorLines.COLOUR -> { outline(Color(0x99FFFFFF), 3.dp.toPx()); outline(paint, 1.5.dp.toPx()) }
+        }
+        // Screenless external drawing tablets always show a crisp nib center dot so the exact tip stays visible
+        if (showPinpoint) {
+            drawCircle(Color.White, 2.2.dp.toPx(), at)
+            drawCircle(Color.Black, 1.2.dp.toPx(), at)
+        }
+    }
+}
+
+/**
+ * Top-level external drawing tablet pointer overlay drawn above every screen, bar, panel, sheet,
+ * studio, and dialog so UI navigation is always visible on every Android device & tablet brand
+ * (XP-Pen, Huion, Wacom, Gaomon, Veikk, Ugee, Parblo, Xencelabs, etc.) — even on ROMs that do not
+ * render a hardware pointer for `TOOL_TYPE_STYLUS` or hide the system cursor during touch.
+ */
+@Composable
+fun TabletPointerOverlay(vm: CanvasViewModel, rootWindowOffset: Offset) {
+    if (!vm.externalTabletActive || !vm.showTabletNavPointer) return
+    val windowAt = vm.tabletPointerAt ?: return
+    val at = windowAt - rootWindowOffset
+    val onOpenCanvas = vm.screen == Screen.CANVAS &&
+        vm.canvasPointerOnCanvas &&
+        !vm.isUiCoveringCanvas() &&
+        !vm.overBars(at)
+    val brushCursorActive = onOpenCanvas &&
+        vm.adjustment == null &&
+        !vm.selecting &&
+        !vm.transforming &&
+        vm.brushCursorOn &&
+        vm.cursorAt != null
+    // When BrushCursor is already rendering on the open painting canvas, let it own the pointer cleanly
+    if (brushCursorActive) return
+    val pressed = vm.tabletPointerPressed
+    val hasSystemMouseCursor = vm.tabletPointerHasSystemCursor
+    val accent = Pc.Accent
+    androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+        if (onOpenCanvas) {
+            // Non-painting canvas tool (Selection, Transform, Liquify, Adjustments, Eyedropper)
+            val arm = 6.dp.toPx()
+            val gap = 2.5.dp.toPx()
+            if (!hasSystemMouseCursor) {
+                for ((w, c) in listOf(3.dp.toPx() to Color.White, 1.2.dp.toPx() to Color.Black)) {
+                    drawLine(c, at - Offset(arm, 0f), at - Offset(gap, 0f), w, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                    drawLine(c, at + Offset(gap, 0f), at + Offset(arm, 0f), w, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                    drawLine(c, at - Offset(0f, arm), at - Offset(0f, gap), w, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                    drawLine(c, at + Offset(0f, gap), at + Offset(0f, arm), w, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                }
+            }
+            drawCircle(Color.White, (if (pressed) 3.dp else 2.4.dp).toPx(), at)
+            drawCircle(if (pressed) accent else Color.Black, (if (pressed) 1.8.dp else 1.3.dp).toPx(), at)
+        } else if (!hasSystemMouseCursor) {
+            // UI / Navigation pointer when Android does not draw a system mouse arrow (stylus-only source)
+            val s = if (pressed) 0.92f else 1f
+            val u = 1.dp.toPx() * s
+            val arrow = Path().apply {
+                moveTo(at.x, at.y)
+                lineTo(at.x, at.y + 18f * u)
+                lineTo(at.x + 4.4f * u, at.y + 13.8f * u)
+                lineTo(at.x + 7.8f * u, at.y + 20.5f * u)
+                lineTo(at.x + 10.6f * u, at.y + 19.1f * u)
+                lineTo(at.x + 7.2f * u, at.y + 12.6f * u)
+                lineTo(at.x + 13.2f * u, at.y + 12.6f * u)
+                close()
+            }
+            if (pressed) {
+                drawCircle(accent.copy(alpha = 0.28f), 10.dp.toPx(), at)
+            }
+            drawPath(
+                arrow,
+                Color.White,
+                style = Stroke(width = 3.dp.toPx(), join = androidx.compose.ui.graphics.StrokeJoin.Round),
+            )
+            drawPath(arrow, Color(0xFF141416))
+        } else {
+            // UI / Navigation hotspot halo for SOURCE_MOUSE tablets: frames the OS arrow tip cleanly,
+            // and guarantees navigation stays visible even on ROMs that auto-hide the OS arrow for styluses
+            val ringR = (if (pressed) 4.5.dp else 5.5.dp).toPx()
+            if (pressed) {
+                drawCircle(accent.copy(alpha = 0.25f), 9.dp.toPx(), at)
+            }
+            drawCircle(Color.White, ringR, at, style = Stroke(2.6.dp.toPx()))
+            drawCircle(if (pressed) accent else Color.Black, ringR, at, style = Stroke(1.1.dp.toPx()))
+            drawCircle(Color.White, 2.dp.toPx(), at)
+            drawCircle(if (pressed) accent else Color.Black, 1.1.dp.toPx(), at)
         }
     }
 }

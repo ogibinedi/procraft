@@ -59,14 +59,21 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
 
     /**
      * External USB/Bluetooth drawing tablets (XP-Pen, Huion, Wacom, Gaomon, Veikk, etc.) on some
-     * Android kernels send pen contact as `ACTION_BUTTON_PRESS(BUTTON_PRIMARY)` + `ACTION_HOVER_MOVE`
-     * instead of `ACTION_DOWN`/`ACTION_MOVE`. This bridges those events into a real canvas stroke.
+     * hover-only Android kernels send pen contact as `ACTION_BUTTON_PRESS(BUTTON_PRIMARY)` +
+     * `ACTION_HOVER_MOVE` instead of `ACTION_DOWN`/`ACTION_MOVE`. This bridges those events into
+     * a real canvas stroke without interfering with normal touch-delivering tablets or Compose UI.
      */
     private var tabletSyntheticStroke = false
     private var tabletSyntheticPointerId = -1
+    private var pendingSyntheticPress = false
 
-    /** Devices that have ever reported a positive hardware pressure value in this session. */
-    private val deviceEverGavePressure = HashSet<Int>()
+    /** Defers hiding the brush cursor briefly on hover-exit / lift for external tablets to eliminate flicker. */
+    private val deferredCursorClear = Runnable {
+        if (!realTouchActive && !tabletSyntheticStroke) {
+            vm.showCursor(null)
+            vm.showLiquifyRing(null)
+        }
+    }
 
     private val pickSide get() = (CanvasViewModel.PICK_WINDOW_DP * vm.density).toInt() or 1
 
@@ -187,9 +194,9 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
     /** When the last pointer landed on the canvas (event time, ms). */
     private var landedAt = 0L
 
-    /** Whether pointer [i] of [e] is a finger's contact [PALM_MM] or more across. */
+    /** Whether pointer [i] of [e] is a finger's contact [PALM_MM] or more across. External devices are never a resting palm. */
     private fun palmSized(e: MotionEvent, i: Int): Boolean {
-        if (kindOf(e, i) != PointerKind.FINGER) return false
+        if (isExternalDevice(e) || kindOf(e, i) != PointerKind.FINGER) return false
         val dpi = resources.displayMetrics.xdpi.takeIf { it > 0f } ?: return false
         return e.getTouchMajor(i) / dpi * 25.4f >= PALM_MM
     }
@@ -216,27 +223,39 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
                         penStrokes.began(e.deviceId)
                         summedPointer = e.getPointerId(i)
                         sumPressures(e, i)
+                        beginStrokePeak(e, i)
                     }
                     s.touchDown(e.getPointerId(i).toULong(), kind, samples(e, i))
                 }
             }
             MotionEvent.ACTION_MOVE -> {
                 if (penStrokes.summing) e.findPointerIndex(summedPointer).takeIf { it >= 0 }?.let { sumPressures(e, it) }
+                if (peakPointerId >= 0) e.findPointerIndex(peakPointerId).takeIf { it >= 0 }?.let { sampleStrokePeak(e, it) }
                 val grown =(0 until e.pointerCount).filter { i -> e.getPointerId(i) !in palms && palmSized(e, i) }
                 val back = grown.flatMap { i -> palms += e.getPointerId(i); s.touchCancelOne(e.getPointerId(i).toULong()) }
                 back + s.touchMoves((0 until e.pointerCount).filter { i -> e.getPointerId(i) !in palms }.map { i -> TouchMove(e.getPointerId(i).toULong(), samples(e, i)) })
             }
             MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_UP -> {
                 val i = e.actionIndex
-                if (penStrokes.summing && e.getPointerId(i) == summedPointer) {
+                val pid = e.getPointerId(i)
+                val cancelled = e.flags and MotionEvent.FLAG_CANCELED != 0
+                if (penStrokes.summing && pid == summedPointer) {
                     sumPressures(e, i)
                     penStrokes.lifted()?.let { AppLog.i(TAG, it) }
                 }
+                if (pid == peakPointerId) {
+                    if (cancelled) {
+                        cancelStrokePeak()
+                    } else {
+                        sampleStrokePeak(e, i)
+                        finishStrokePeak()
+                    }
+                }
                 when {
-                    palms.remove(e.getPointerId(i)) -> emptyList()
+                    palms.remove(pid) -> emptyList()
                     // the system took the pointer back (a palm): what it did is undone, not ended
-                    e.flags and MotionEvent.FLAG_CANCELED != 0 -> s.touchCancelOne(e.getPointerId(i).toULong())
-                    else -> s.touchUp(e.getPointerId(i).toULong(), samples(e, i))
+                    cancelled -> s.touchCancelOne(pid.toULong())
+                    else -> s.touchUp(pid.toULong(), samples(e, i))
                 }
             }
             MotionEvent.ACTION_CANCEL -> {
@@ -244,6 +263,7 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
                 val fingers = (0 until e.pointerCount).count { kindOf(e, it) == PointerKind.FINGER }
                 if (systemTookFingers(fingers, e.eventTime - landedAt, hasWindowFocus())) vm.systemTookFingers()
                 penStrokes.lifted()?.let { AppLog.i(TAG, "$it (called off by the system)") }
+                cancelStrokePeak()
                 palms.clear()
                 s.touchCancel()
             }
@@ -278,13 +298,23 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
             TouchCommand.ViewMoved -> vm.refreshView()
             TouchCommand.ViewSettles -> vm.followView()
             is TouchCommand.Cursor -> {
+                removeCallbacks(deferredCursorClear)
+                if (vm.externalTabletActive && !vm.isUiCoveringCanvas() && !vm.overBars(Offset(c.x, c.y))) {
+                    vm.markCanvasPointerHover(true)
+                }
                 vm.showCursor(Offset(c.x, c.y))
                 // cloning, the source follows the brush
                 if (vm.adjustment == Adjustment.CLONE) vm.followClonePuck()
             }
             TouchCommand.CursorGone -> {
-                vm.showCursor(null)
                 vm.transformHeld = null
+                if (vm.externalTabletActive && vm.canvasPointerOnCanvas && !vm.isUiCoveringCanvas()) {
+                    removeCallbacks(deferredCursorClear)
+                    postDelayed(deferredCursorClear, CURSOR_HIDE_DELAY_MS)
+                } else {
+                    removeCallbacks(deferredCursorClear)
+                    vm.showCursor(null)
+                }
             }
             // a pen touching at no pressure before it presses (some begin their touches above the glass; one
             // not known to give a pressure waits a moment for one, then paints at full pressure): as it hovering there
@@ -398,9 +428,15 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
         if (penButton(e)) return true
         predictor.record(e)
         if (e.actionMasked == MotionEvent.ACTION_DOWN) {
+            removeCallbacks(deferredCursorClear)
+            vm.devicesWithRealTouch += e.deviceId
+            pendingSyntheticPress = false
             // Hand off cleanly if an external tablet synthetic stroke was open
             if (tabletSyntheticStroke) endSyntheticTabletStroke(s, e, cancel = true)
             realTouchActive = true
+            if (isExternalDrawingTabletEvent(e, vm.drawingTabletMode)) {
+                vm.markCanvasPointerHover(!vm.isUiCoveringCanvas() && !vm.overBars(Offset(e.x, e.y)))
+            }
             // a mouse's other buttons do nothing on the canvas: only its primary button paints
             skipping = kindOf(e, 0) == PointerKind.MOUSE && !mousePressPaints(e.buttonState)
             if (!skipping) skipping = !prepareStrokeSession(e, s)
@@ -516,6 +552,9 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
     }
 
     override fun onDetachedFromWindow() {
+        removeCallbacks(deferredCursorClear)
+        removeCallbacks(touchTick)
+        removeCallbacks(predictionOver)
         if (vm.penKeyHeard === penKeyHeard) vm.penKeyHeard = null
         if (vm.canvasTouch === passedTouch) vm.canvasTouch = null
         super.onDetachedFromWindow()
@@ -537,6 +576,7 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
             penStrokes.began(e.deviceId)
             summedPointer = pointerId
             sumPressures(e, 0)
+            beginStrokePeak(e, 0)
         }
         try {
             obey(s.touchDown(pointerId.toULong(), kind, samples(e, 0, isHovering = false)))
@@ -544,6 +584,7 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
         } catch (fault: io.github.artcraftandroid.procraft.core.InternalException) {
             AppLog.e("touch", "a tablet stroke start failed in the core", fault)
             tabletSyntheticStroke = false
+            cancelStrokePeak()
             runCatching { s.touchCancel() }
         }
     }
@@ -551,6 +592,7 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
     private fun moveSyntheticTabletStroke(s: CanvasSession, e: MotionEvent) {
         val i = e.findPointerIndex(tabletSyntheticPointerId).takeIf { it >= 0 } ?: 0
         if (penStrokes.summing) sumPressures(e, i)
+        if (peakPointerId == tabletSyntheticPointerId) sampleStrokePeak(e, i)
         try {
             val out = s.touchMoves(listOf(TouchMove(tabletSyntheticPointerId.toULong(), samples(e, i, isHovering = false))))
             obey(out)
@@ -558,6 +600,7 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
         } catch (fault: io.github.artcraftandroid.procraft.core.InternalException) {
             AppLog.e("touch", "a tablet stroke move failed in the core", fault)
             tabletSyntheticStroke = false
+            cancelStrokePeak()
             runCatching { s.touchCancel() }
         }
     }
@@ -571,6 +614,14 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
         if (penStrokes.summing && pointerId == summedPointer) {
             sumPressures(e, i)
             penStrokes.lifted()?.let { AppLog.i(TAG, it) }
+        }
+        if (pointerId == peakPointerId) {
+            if (cancel) {
+                cancelStrokePeak()
+            } else {
+                sampleStrokePeak(e, i)
+                finishStrokePeak()
+            }
         }
         try {
             val out = if (cancel) s.touchCancelOne(pointerId.toULong()) else s.touchUp(pointerId.toULong(), samples(e, i, isHovering = false))
@@ -586,51 +637,83 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
         if (penButton(e)) return true
         val s = session
         if (s != null) {
+            val at = Offset(e.x, e.y)
+            val overUi = vm.isUiCoveringCanvas() || vm.overBars(at)
             when (e.actionMasked) {
-                // External drawing tablet scroll wheel / dial zooms smoothly around the cursor
+                // External drawing tablet scroll wheel / dial zooms smoothly around the cursor only over open canvas
                 MotionEvent.ACTION_SCROLL -> {
-                    val vScroll = e.getAxisValue(MotionEvent.AXIS_VSCROLL)
-                    if (vScroll != 0f) {
-                        val factor = 1.12f.pow(vScroll).coerceIn(0.5f, 2f)
-                        s.viewGesture(e.x, e.y, 0f, 0f, factor, 0f)
-                        vm.refreshView()
-                        return true
+                    if (!overUi) {
+                        val vScroll = e.getAxisValue(MotionEvent.AXIS_VSCROLL)
+                        if (vScroll != 0f) {
+                            val factor = 1.12f.pow(vScroll).coerceIn(0.5f, 2f)
+                            s.viewGesture(e.x, e.y, 0f, 0f, factor, 0f)
+                            vm.refreshView()
+                            return true
+                        }
                     }
                 }
-                // External drawing tablets that emit primary nib click via generic button events
+                // Hover-only kernels that never emit ACTION_DOWN: defer starting until hover-move or release
+                // so normal ACTION_DOWN tablets and Compose UI button clicks are never disrupted.
                 MotionEvent.ACTION_BUTTON_PRESS -> {
                     val kind = kindOf(e, 0)
-                    if (!realTouchActive && !tabletSyntheticStroke && isPenKind(kind) &&
+                    if (!overUi && !realTouchActive && !vm.activityTouchActive && !tabletSyntheticStroke &&
+                        e.deviceId !in vm.devicesWithRealTouch && isPenKind(kind) &&
                         (e.actionButton == MotionEvent.BUTTON_PRIMARY || e.buttonState and MotionEvent.BUTTON_PRIMARY != 0)
                     ) {
-                        beginSyntheticTabletStroke(s, e, kind)
-                        return true
+                        pendingSyntheticPress = true
                     }
                 }
                 MotionEvent.ACTION_BUTTON_RELEASE -> {
                     if (tabletSyntheticStroke &&
                         (e.actionButton == MotionEvent.BUTTON_PRIMARY || e.buttonState and MotionEvent.BUTTON_PRIMARY == 0)
                     ) {
+                        pendingSyntheticPress = false
                         endSyntheticTabletStroke(s, e, cancel = false)
                         return true
                     }
+                    if (pendingSyntheticPress && !overUi && !realTouchActive && !vm.activityTouchActive &&
+                        e.deviceId !in vm.devicesWithRealTouch
+                    ) {
+                        pendingSyntheticPress = false
+                        val kind = kindOf(e, 0)
+                        if (isPenKind(kind)) {
+                            beginSyntheticTabletStroke(s, e, kind)
+                            endSyntheticTabletStroke(s, e, cancel = false)
+                            return true
+                        }
+                    }
+                    pendingSyntheticPress = false
                 }
             }
         }
         return super.onGenericMotionEvent(e)
     }
 
-    /** Replaces the Android mouse arrow pointer on the canvas with a precision crosshair or hidden icon when the brush cursor is visible. */
+    /**
+     * Resolves the Android pointer icon cleanly by context:
+     * - Over bars, panels, sheets, menus, studios, floating windows, or dialogs: ALWAYS standard arrow (`TYPE_ARROW`)
+     *   so UI navigation is never blind.
+     * - Over the open painting canvas with `hideTabletArrowCursor` on and the brush cursor visibly shown: `TYPE_NULL`
+     *   so the brush outline + pinpoint dot is unobstructed.
+     * - Over the open canvas in non-painting tools (or when brush cursor is off): `TYPE_CROSSHAIR` or `TYPE_ARROW`.
+     */
     override fun onResolvePointerIcon(event: MotionEvent, pointerIndex: Int): PointerIcon? {
-        if (vm.hideTabletArrowCursor) {
-            val kind = kindOf(event, pointerIndex)
-            if (isPenKind(kind) || kind == PointerKind.MOUSE) {
-                val brushHoverShown = vm.brushCursorOn && vm.cursorShows != CanvasViewModel.CursorShows.PAINTING && painting()
-                val iconType = if (brushHoverShown) PointerIcon.TYPE_NULL else PointerIcon.TYPE_CROSSHAIR
-                return PointerIcon.getSystemIcon(context, iconType)
-            }
+        val kind = kindOf(event, pointerIndex)
+        if (!isPenKind(kind) && kind != PointerKind.MOUSE) {
+            return super.onResolvePointerIcon(event, pointerIndex)
         }
-        return super.onResolvePointerIcon(event, pointerIndex)
+        val at = Offset(event.getX(pointerIndex), event.getY(pointerIndex))
+        val overOpenCanvas = vm.screen == Screen.CANVAS &&
+            !vm.isUiCoveringCanvas() &&
+            !vm.overBars(at) &&
+            vm.canvasPointerOnCanvas
+        val brushCursorVisible = painting() && vm.brushCursorOn && vm.cursorAt != null
+        val iconType = resolveTabletPointerIconType(
+            overOpenCanvas = overOpenCanvas,
+            hideTabletArrowCursor = vm.hideTabletArrowCursor,
+            brushCursorVisible = brushCursorVisible,
+        )
+        return PointerIcon.getSystemIcon(context, iconType)
     }
 
     /** The pen or the mouse hovering over the canvas shows the brush cursor where it would paint. */
@@ -646,16 +729,37 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
         tellPointer(e, 0, "hovering")
         if (penButton(e)) return true
         val kind = kindOf(e, 0)
-        val rawP = rawPressure(e, 0)
-        if (rawP > 0f) deviceEverGavePressure += e.deviceId
+        val at = Offset(e.x, e.y)
+        val rawP = rawPressureOf(e, 0)
+        vm.tabletPressureTracker.recordHoverPressure(e.deviceId, rawP)
         reportTelemetry(e, 0, kind, isHovering = true)
 
-        // Bridge external drawing tablets that stay in ACTION_HOVER_MOVE while primary nib button or pressure is active
+        val overUi = vm.isUiCoveringCanvas() || vm.overBars(at)
+        if (overUi) {
+            vm.markCanvasPointerHover(false)
+            pendingSyntheticPress = false
+            val s = session
+            if (tabletSyntheticStroke && s != null) endSyntheticTabletStroke(s, e, cancel = false)
+            removeCallbacks(deferredCursorClear)
+            vm.showCursor(null)
+            vm.showLiquifyRing(null)
+            return false
+        }
+
+        if (e.actionMasked != MotionEvent.ACTION_HOVER_EXIT) {
+            vm.markCanvasPointerHover(true)
+            removeCallbacks(deferredCursorClear)
+        }
+
+        // Bridge hover-only Android kernels (that never deliver ACTION_DOWN) into a real canvas stroke
         val s = session
-        if (s != null && !realTouchActive && isPenKind(kind)) {
+        if (s != null && !realTouchActive && !vm.activityTouchActive &&
+            e.deviceId !in vm.devicesWithRealTouch && isPenKind(kind)
+        ) {
             val nibPressed = (e.buttonState and MotionEvent.BUTTON_PRIMARY != 0) ||
-                (isExternalDevice(e) && pressureRangeOf(e) != null && rawP > 0f)
+                (isExternalDevice(e) && pressureRangeOf(e) != null && rawP > HOVER_PRESSURE_STROKE_THRESHOLD && vm.tabletPressureTracker.sawZeroHover(e.deviceId))
             if (e.actionMasked == MotionEvent.ACTION_HOVER_MOVE && nibPressed) {
+                pendingSyntheticPress = false
                 if (!tabletSyntheticStroke) beginSyntheticTabletStroke(s, e, kind) else moveSyntheticTabletStroke(s, e)
                 return true
             }
@@ -670,13 +774,22 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
             MotionEvent.ACTION_HOVER_ENTER, MotionEvent.ACTION_HOVER_MOVE -> {
                 // (told each time: a session opened meanwhile knows it too); a hand already down is set aside
                 session?.setTouchPenHovering(true)?.let(::obey)
-                hovered(Offset(e.x, e.y))
+                hovered(at)
             }
             MotionEvent.ACTION_HOVER_EXIT -> {
                 session?.setTouchPenHovering(false)?.let(::obey)
                 penHovering = false
-                vm.showCursor(null)
-                vm.showLiquifyRing(null)
+                vm.markCanvasPointerHover(false)
+                if (vm.externalTabletActive) {
+                    if (!realTouchActive && !tabletSyntheticStroke) {
+                        removeCallbacks(deferredCursorClear)
+                        postDelayed(deferredCursorClear, CURSOR_HIDE_DELAY_MS)
+                    }
+                } else {
+                    removeCallbacks(deferredCursorClear)
+                    vm.showCursor(null)
+                    vm.showLiquifyRing(null)
+                }
             }
         }
         return true
@@ -689,23 +802,42 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
      */
     private fun mouseHover(e: MotionEvent): Boolean {
         val at = Offset(e.x, e.y)
-        val gone = e.actionMasked == MotionEvent.ACTION_HOVER_EXIT || vm.overBars(at)
-        if (gone || !painting()) vm.showCursor(null) else vm.showCursor(at, hovering = true)
-        if (vm.adjustment == Adjustment.LIQUIFY) vm.showLiquifyRing(at.takeUnless { gone })
+        val gone = e.actionMasked == MotionEvent.ACTION_HOVER_EXIT || vm.overBars(at) || vm.isUiCoveringCanvas()
+        if (gone) {
+            vm.markCanvasPointerHover(false)
+            if (vm.externalTabletActive && e.actionMasked == MotionEvent.ACTION_HOVER_EXIT && !realTouchActive) {
+                removeCallbacks(deferredCursorClear)
+                postDelayed(deferredCursorClear, CURSOR_HIDE_DELAY_MS)
+            } else {
+                removeCallbacks(deferredCursorClear)
+                vm.showCursor(null)
+                vm.showLiquifyRing(null)
+            }
+        } else {
+            removeCallbacks(deferredCursorClear)
+            if (painting()) vm.showCursor(at, hovering = true) else vm.showCursor(null)
+            if (vm.adjustment == Adjustment.LIQUIFY) vm.showLiquifyRing(at)
+        }
         return true
     }
 
     /** The pen is held over the canvas at [at]: hovering, or touching at no pressure before it presses. */
     private fun hovered(at: Offset) {
+        removeCallbacks(deferredCursorClear)
         // a spray can's sound (a plugin's) rattles shaken above the canvas
         if (vm.strokeSoundOn) session?.soundHover(at.x, at.y)
         penHovering = true
         // not over the bars, where the gaps between their buttons come here and the
         // buttons don't: it came and went as the pen crossed them
-        val overBars = vm.overBars(at)
-        if (overBars) vm.showCursor(null) else if (painting()) vm.showCursor(at, hovering = true)
+        val overUi = vm.overBars(at) || vm.isUiCoveringCanvas()
+        if (overUi) {
+            vm.markCanvasPointerHover(false)
+            vm.showCursor(null)
+        } else if (painting()) {
+            vm.showCursor(at, hovering = true)
+        }
         // and Liquify's ring where the pen hovers
-        if (vm.adjustment == Adjustment.LIQUIFY) vm.showLiquifyRing(at.takeUnless { overBars })
+        if (vm.adjustment == Adjustment.LIQUIFY) vm.showLiquifyRing(at.takeUnless { overUi })
     }
 
     /** Whether a pen on the canvas now would paint (no tool of another kind open). */
@@ -720,7 +852,7 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
         val p = predictor.predict() ?: return
         try {
             val i = p.findPointerIndex(strokePointer)
-            if (i >= 0) s.strokePredict(samples(p, i))
+            if (i >= 0) s.strokePredict(samples(p, i, predicted = true))
         } finally {
             p.recycle()
         }
@@ -729,20 +861,24 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
 
     private fun kindOf(e: MotionEvent, index: Int): PointerKind = pointerKindOf(e, index, vm.drawingTabletMode)
 
-    private fun rawPressure(e: MotionEvent, i: Int, historyIdx: Int = -1): Float {
-        val p = if (historyIdx >= 0) e.getHistoricalPressure(i, historyIdx) else e.getPressure(i)
-        if (p > 0f) return p
-        return if (historyIdx >= 0) e.getHistoricalAxisValue(MotionEvent.AXIS_PRESSURE, i, historyIdx) else e.getAxisValue(MotionEvent.AXIS_PRESSURE, i)
-    }
-
-    private fun calibratedPressure(e: MotionEvent, i: Int, historyIdx: Int = -1, isHovering: Boolean = false): Float {
-        val raw = rawPressure(e, i, historyIdx)
-        if (raw > 0f) deviceEverGavePressure += e.deviceId
+    private fun calibratedPressure(
+        e: MotionEvent,
+        i: Int,
+        historyIdx: Int = -1,
+        isHovering: Boolean = false,
+        predicted: Boolean = false,
+    ): Float {
+        val raw = rawPressureOf(e, i, historyIdx)
+        val range = pressureRangeOf(e)
+        if (!isHovering && !predicted) {
+            vm.tabletPressureTracker.recordContactPressure(e.deviceId, raw, range != null)
+        }
         val kind = kindOf(e, i)
         if (!isPenKind(kind)) return raw
-        val range = pressureRangeOf(e)
+        val ext = isExternalDevice(e)
         val primaryDown = e.buttonState and MotionEvent.BUTTON_PRIMARY != 0
-        val extFallback = isExternalDevice(e) && e.deviceId !in deviceEverGavePressure
+        val extFallback = ext && !vm.tabletPressureTracker.hasAnalogPressure(e.deviceId)
+        val learnedMax = vm.penPressureLearner.effectiveMax(devicePressureKeyOf(e.device))
         return calibratePenPressure(
             rawPressure = raw,
             axisMin = range?.start ?: 0f,
@@ -754,6 +890,9 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
             buttonPrimaryDown = primaryDown,
             isHovering = isHovering,
             fallbackFullWhenUnreported = extFallback,
+            rawExceedsUnit = vm.tabletPressureTracker.usesRawRange(e.deviceId),
+            externalActiveContact = ext && !isHovering,
+            learnedMax = learnedMax,
         )
     }
 
@@ -766,8 +905,8 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
             PointerKind.MOUSE -> "External Pointer"
             PointerKind.FINGER -> "Finger"
         }
-        val p = calibratedPressure(e, i, isHovering = isHovering)
-        vm.recordTabletInput(name, kindLabel, p, pressureRangeOf(e) != null, tiltKnown(e))
+        val p = calibratedPressure(e, i, isHovering = isHovering, predicted = true)
+        vm.recordTabletInput(name, kindLabel, p, pressureRangeOf(e) != null, tiltKnown(e), deviceKey = devicePressureKeyOf(e.device))
     }
 
     /** The kinds of pointer told in the log so far. */
@@ -777,10 +916,75 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
     private val penStrokes = PenStrokesTold()
     private var summedPointer = -1
 
+    /** Active pen stroke raw normalized pressure peak, fed into [CanvasViewModel.penPressureLearner] on stroke end. */
+    private var peakPointerId = -1
+    private var peakDeviceKey: String? = null
+    private var peakAxisRange: ClosedFloatingPointRange<Float>? = null
+    private var peakRawNorm = 0f
+
+    private fun beginStrokePeak(e: MotionEvent, i: Int) {
+        peakPointerId = e.getPointerId(i)
+        peakDeviceKey = devicePressureKeyOf(e.device)
+        peakAxisRange = pressureRangeOf(e)
+        peakRawNorm = 0f
+        sampleStrokePeak(e, i)
+    }
+
+    private fun sampleStrokePeak(e: MotionEvent, i: Int) {
+        val range = peakAxisRange ?: pressureRangeOf(e)
+        val hasAxis = range != null
+        val min = range?.start ?: 0f
+        val max = range?.endInclusive ?: 1f
+        val usesRaw = vm.tabletPressureTracker.usesRawRange(e.deviceId)
+        for (h in 0 until e.historySize) {
+            val raw = rawPressureOf(e, i, historyIdx = h)
+            val norm = normalizeRawPressure(raw, min, max, hasAxis, rawExceedsUnit = usesRaw)
+            if (norm > peakRawNorm) peakRawNorm = norm
+        }
+        val raw = rawPressureOf(e, i)
+        val norm = normalizeRawPressure(raw, min, max, hasAxis, rawExceedsUnit = usesRaw)
+        if (norm > peakRawNorm) peakRawNorm = norm
+    }
+
+    private fun finishStrokePeak() {
+        val key = peakDeviceKey
+        val axis = peakAxisRange
+        val peak = peakRawNorm
+        peakPointerId = -1
+        peakDeviceKey = null
+        peakAxisRange = null
+        peakRawNorm = 0f
+        val learnedRef = key?.let { vm.penPressureLearner.onStrokeEnd(it, peak) }
+        val effMax = vm.penPressureLearner.effectiveMax(key)
+        if (key != null && key == vm.lastTabletDeviceKey) {
+            vm.lastTabletLearnedRef = learnedRef
+        }
+        val axisLabel = axis?.let { "%.2f..%.2f".format(java.util.Locale.ROOT, it.start, it.endInclusive) } ?: "none"
+        val refLabel = learnedRef?.let { "%.3f".format(java.util.Locale.ROOT, it) } ?: "none"
+        AppLog.i(
+            TAG,
+            "pen stroke: device %s, axis %s, raw peak %.3f, learned ref %s (effective max %.3f)".format(
+                java.util.Locale.ROOT,
+                key ?: "unknown",
+                axisLabel,
+                peak,
+                refLabel,
+                effMax,
+            ),
+        )
+    }
+
+    private fun cancelStrokePeak() {
+        peakPointerId = -1
+        peakDeviceKey = null
+        peakAxisRange = null
+        peakRawNorm = 0f
+    }
+
     /** The pressures of pointer [i]'s samples in [e], into the first pen stroke's sum. */
     private fun sumPressures(e: MotionEvent, i: Int) {
-        for (h in 0 until e.historySize) penStrokes.sample(calibratedPressure(e, i, historyIdx = h))
-        penStrokes.sample(calibratedPressure(e, i))
+        for (h in 0 until e.historySize) penStrokes.sample(calibratedPressure(e, i, historyIdx = h, predicted = true))
+        penStrokes.sample(calibratedPressure(e, i, predicted = true))
     }
 
     /**
@@ -797,7 +1001,7 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
         val about = device?.let { "device %04x:%04x%s".format(java.util.Locale.ROOT, it.vendorId, it.productId, named) } ?: "no device"
         val axis = pressureRangeOf(e)
         val kind = kindOf(e, i)
-        AppLog.i(TAG, pointerFacts(what, about, toolType, e.source, kind, rawPressure(e, i), axis, e.buttonState, e.getTouchMajor(i)))
+        AppLog.i(TAG, pointerFacts(what, about, toolType, e.source, kind, rawPressureOf(e, i), axis, e.buttonState, e.getTouchMajor(i)))
         // every axis a pen's device says it gives (a barrel's turn has no axis of Android's own)
         if (isPenKind(kind)) {
             val axes = device?.motionRanges.orEmpty().filter { it.source and e.source != 0 }.map { MotionEvent.axisToString(it.axis) }.distinct()
@@ -806,15 +1010,15 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
     }
 
     /** The pointer's samples in this event: the batched ones since the last event, then the latest. */
-    private fun samples(e: MotionEvent, i: Int, isHovering: Boolean = false): List<PenSample> {
+    private fun samples(e: MotionEvent, i: Int, isHovering: Boolean = false, predicted: Boolean = false): List<PenSample> {
         val kind = kindOf(e, i)
-        reportTelemetry(e, i, kind, isHovering = isHovering)
+        if (!predicted) reportTelemetry(e, i, kind, isHovering = isHovering)
         val out = ArrayList<PenSample>(e.historySize + 1)
         for (h in 0 until e.historySize) {
             out += PenSample(
                 e.getHistoricalX(i, h),
                 e.getHistoricalY(i, h),
-                calibratedPressure(e, i, historyIdx = h, isHovering = isHovering),
+                calibratedPressure(e, i, historyIdx = h, isHovering = isHovering, predicted = predicted),
                 penLean(e.getHistoricalAxisValue(MotionEvent.AXIS_TILT, i, h), e.getHistoricalOrientation(i, h)),
                 e.getHistoricalOrientation(i, h),
                 e.getHistoricalEventTime(h).toDouble(),
@@ -823,7 +1027,7 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
         out += PenSample(
             e.getX(i),
             e.getY(i),
-            calibratedPressure(e, i, isHovering = isHovering),
+            calibratedPressure(e, i, isHovering = isHovering, predicted = predicted),
             penLean(e.getAxisValue(MotionEvent.AXIS_TILT, i), e.getOrientation(i)),
             e.getOrientation(i),
             e.eventTime.toDouble(),
@@ -836,6 +1040,9 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
 
         /** How long a prediction stands with no input after it, milliseconds: a few input intervals. */
         const val PREDICTION_LASTS_MS = 40L
+
+        /** Grace period (ms) before hiding the external tablet brush cursor on hover-exit / lift. */
+        const val CURSOR_HIDE_DELAY_MS = 180L
 
         /** A finger's contact this far across (mm) or more is a palm: a fingertip is 8 to 15, a flat thumb under 20. */
         const val PALM_MM = 25f

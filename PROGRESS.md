@@ -12,7 +12,8 @@ Dokumen ini mencatat progres pengembangan fork **ProCraft (`ogibinedi/procraft`)
 | **Fase 2** | Desain Ulang Navigasi & Panel Utama Smartphone (*Procreate Pocket* Bottom Sheets, Collapsible SideBar, Responsive Pickers, Brush Studio Horizontal Tabs) + Pemecahan File UI & Crate `core`/`gpu` | ✅ Selesai | `a25d5ca`, `ef874b6` |
 | **Fase 3** | Adaptasi Secondary Tools & Editors untuk Semua Ukuran Smartphone, Modularisasi Crate Rust (`stroke/`, `scene3d/`, `touch/`), dan Rilis Signed APK `v0.0.1` ke GitHub Releases (0 Kuota Artifact) | ✅ Selesai | `e28d701`..`1052f52` |
 | **Fase 4** | Rapi-Rapi & Optimasi (`v0.0.2`): Eliminasi Warning Visibilitas `procraft-gpu`, Pembersihan 1.489 Import Kotlin Tak Terpakai, Optimasi Zero-Recomposition Swipe-Down `SmartphoneBottomSheet`, & Pembaruan Dokumentasi | ✅ Selesai | `eb223f9`, `961ad12` |
-| **Fase 5** | Dukungan Universal Drawing Tablet (XP-Pen, Huion, Wacom, Gaomon, Veikk, dll.), Pengaturan Kalibrasi Tekanan Pen (*Live Pressure Test*, Sensitivitas, Minimum Pressure, Smoothing), & Tombol Swipe Layer Berbasis Ikon (`v0.0.3`) | ✅ Selesai | *(terbaru)* |
+| **Fase 5** | Dukungan Universal Drawing Tablet (XP-Pen, Huion, Wacom, Gaomon, Veikk, dll.), Pengaturan Kalibrasi Tekanan Pen (*Live Pressure Test*, Sensitivitas, Minimum Pressure, Smoothing), & Tombol Swipe Layer Berbasis Ikon (`v0.0.3`) | ✅ Selesai | `ce80c10` |
+| **Fase 6** | Perbaikan Drawing Tablet & Pointer Navigasi (`v0.0.4`): *Per-Device Auto-Gain Pressure Learner* (`PenPressureLearner`), Tombol *Calibrate Pressure*, Pointer Navigasi Top-Level (`TabletPointerOverlay`), Anti-Flicker `BrushCursor`, & Hardening Multi-Vendor (USB VID + Kapabilitas) | ✅ Selesai | *(terbaru)* |
 
 ---
 
@@ -55,3 +56,12 @@ Dokumen ini mencatat progres pengembangan fork **ProCraft (`ogibinedi/procraft`)
 - [x] Menghilangkan ratusan peringatan kompiler Rust (`private_interfaces`) pada `crates/gpu/src/canvas/` dengan menurunkan 238 item internal `pub(crate)` menjadi `pub(super)` dan menjaga hanya `Pipelines::new` serta `buffer_init` sebagai `pub(crate)`.
 - [x] Membersihkan **1.489 baris import Kotlin** yang tidak terpakai/duplikat pada 30 file hasil modularisasi, `MainActivity.kt`, dan `BottomSheetPanel.kt`.
 - [x] Menghapus file log diagnostik sementara lokal (`ci_log.txt`, `temuan.txt`), menambahkan `temuan.txt` ke `.gitignore`, serta menyinkronkan `README.md`, `CHANGELOG.md`, dan `PROGRESS.md`.
+
+### Fase 5: Dukungan Universal Drawing Tablet & Ikon Swipe Layer (`v0.0.3`)
+- [x] Menambahkan dukungan universal drawing tablet USB OTG & Bluetooth (*Drawing Tablet Mode*), jembatan *synthetic stroke* & zoom dial (`ACTION_SCROLL`), halaman pengaturan **Drawing Tablet & Pen** dengan *Live Pen Pressure Test*, serta mengubah tombol *swipe-left* layer menjadi tombol ikon ringkas (`56dp`).
+
+### Fase 6: Auto-Gain Tekanan Per-Perangkat, Pointer Navigasi, & Hardening Multi-Vendor (`v0.0.4`)
+- [x] Menambahkan `PenPressureLearner` (auto-gain per-perangkat berbasis `"vvvv:pppp"` tersimpan di `interfacePrefs`) dan parameter `learnedMax` pada `calibratePenPressure` agar tablet yang melaporkan tekanan rendah (seperti XP-Pen `28bd:2904` dengan puncak `0.084` di Android 15) langsung menghasilkan goresan proporsional tanpa merusak perangkat normal (`ref >= 0.5f`).
+- [x] Menambahkan tombol **Calibrate pressure** di halaman **Drawing Tablet & Pen**, pembaruan *Live Pen Pressure Test* berbasis `pointerInteropFilter`, logging puncak raw per-stroke (`AppLog`), serta reset nilai terkalibrasi melalui **Reset drawing tablet settings**.
+- [x] Memperbaiki `CanvasSurfaceView.onResolvePointerIcon` agar selalu menampilkan `PointerIcon.TYPE_ARROW` di atas TopBar, SideBar, Brush Library, Panel, BottomSheet, Studio, dan Dialog, serta menambahkan `TabletPointerOverlay` di level tertinggi `AppRoot` + jeda anti-flicker `180ms` + titik pusat pena pada `BrushCursor`.
+- [x] Memperkuat kompatibilitas lintas vendor (XP-Pen, Huion, Wacom, Gaomon, Veikk, Ugee, Parblo, Xencelabs, Waltop, Hanvon, Bosto) via deteksi USB Vendor ID & kapabilitas sumbu, `TabletPressureTracker` (anti-pembagian `axisMax > 1.5f` pada pressure ternormalisasi & anti-drift hover), serta 34 unit test lulus (`PenKeysTest`, total 143 unit test & `lintDebug` lulus).

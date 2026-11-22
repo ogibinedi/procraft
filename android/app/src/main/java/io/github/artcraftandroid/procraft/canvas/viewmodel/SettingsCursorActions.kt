@@ -37,6 +37,7 @@ import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.CURSO
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.CURSOR_STYLE
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.DRAWING_TABLET_MODE
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.HIDE_TABLET_ARROW
+import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.SHOW_TABLET_NAV_POINTER
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.INPUT_CURVE
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.INPUT_EXPRESSION
 import io.github.artcraftandroid.procraft.canvas.CanvasViewModel.Companion.INPUT_MOTION
@@ -167,11 +168,11 @@ fun CanvasViewModel.changeBrushScaling(onScreen: Boolean) {
 
 /**
  * Shows the brush cursor at window point [p] (or hides it), sized for the current brush and
- * zoom, as long as it shows when [hovering] (or painting).
+ * zoom, as long as it shows when [hovering] (or painting). For screenless external drawing tablets,
+ * the cursor also remains visible while painting so the artist never draws blind.
  */
 fun CanvasViewModel.showCursor(p: Offset?, hovering: Boolean = false) {
-    val wanted = if (hovering) cursorShows != CursorShows.PAINTING else cursorShows != CursorShows.HOVERING
-    if (!brushCursorOn || p == null || !wanted) {
+    if (!shouldShowBrushCursor(brushCursorOn, p != null, hovering, cursorShows, externalTabletActive)) {
         cursorAt = null
         return
     }
@@ -557,30 +558,100 @@ fun CanvasViewModel.changeDrawingTablet(
     sensitivity: Float = penPressureSensitivity,
     minPressure: Float = penPressureMin,
     hideArrow: Boolean = hideTabletArrowCursor,
+    showNavPointer: Boolean = showTabletNavPointer,
 ) {
     drawingTabletMode = tabletMode
     penPressureEnabled = pressureEnabled
     penPressureSensitivity = sensitivity.coerceIn(0.25f, 3f)
     penPressureMin = minPressure.coerceIn(0f, 0.5f)
     hideTabletArrowCursor = hideArrow
+    showTabletNavPointer = showNavPointer
     interfacePrefs.edit()
         .putBoolean(DRAWING_TABLET_MODE, drawingTabletMode)
         .putBoolean(PEN_PRESSURE_ENABLED, penPressureEnabled)
         .putFloat(PEN_PRESSURE_SENSITIVITY, penPressureSensitivity)
         .putFloat(PEN_PRESSURE_MIN, penPressureMin)
         .putBoolean(HIDE_TABLET_ARROW, hideTabletArrowCursor)
+        .putBoolean(SHOW_TABLET_NAV_POINTER, showTabletNavPointer)
         .apply()
 }
 
 fun CanvasViewModel.resetDrawingTablet() {
+    penPressureLearner.clearAll()
+    lastTabletLearnedRef = null
     changeDrawingTablet(
         tabletMode = true,
         pressureEnabled = true,
         sensitivity = 1f,
         minPressure = 0f,
         hideArrow = true,
+        showNavPointer = true,
     )
     changeInput(smoothing = 0f)
+}
+
+/** Explicitly stores a calibrated comfortable-firm press peak for [deviceKey] (or the last seen tablet). */
+fun CanvasViewModel.calibrateTabletPressure(deviceKey: String?, rawPeak: Float): Float? {
+    val key = deviceKey ?: lastTabletDeviceKey ?: return null
+    val saved = penPressureLearner.setCalibratedPeak(key, rawPeak) ?: return null
+    lastTabletDeviceKey = key
+    lastTabletLearnedRef = saved
+    return saved
+}
+
+/** Whether a modal UI overlay, panel, bottom sheet, studio, menu, or dialog currently covers the canvas. */
+fun CanvasViewModel.isUiCoveringCanvas(): Boolean =
+    screen != Screen.CANVAS ||
+        panel != Panel.NONE ||
+        studioOpen ||
+        lightingStudioOpen ||
+        canvasInfoOpen ||
+        gestureControlsOpen ||
+        guideEditing ||
+        copyPasteOpen ||
+        quickMenuAt != null ||
+        layerChoice != null ||
+        blocked != null ||
+        deletingShared != null ||
+        modelWarnings.isNotEmpty() ||
+        pluginOffer != null ||
+        wrongBuildNotice ||
+        askRasterize ||
+        cropRect != null ||
+        textInfo != null ||
+        animatedExport != null ||
+        modelAnimatedExport != null ||
+        exportShown != null ||
+        importShown != null ||
+        timeLapseReplaying ||
+        galleryZoom != null ||
+        adjustMenuAt != null ||
+        adjustModesOpen ||
+        transformPopup != TransformPopup.NONE ||
+        transformNumeric != null ||
+        selectionPopup != SelectionPopup.NONE ||
+        pluginPanel != null ||
+        fillFinishing ||
+        sliderPanel != null ||
+        animationSettingsOpen ||
+        frameOptionsOpen ||
+        padMenuOpen
+
+fun CanvasViewModel.updateTabletPointer(
+    at: Offset?,
+    pressed: Boolean = false,
+    hasSystemCursor: Boolean = tabletPointerHasSystemCursor,
+    active: Boolean = externalTabletActive,
+) {
+    externalTabletActive = active
+    tabletPointerAt = at
+    tabletPointerPressed = pressed
+    tabletPointerHasSystemCursor = hasSystemCursor
+    if (at == null) canvasPointerOnCanvas = false
+}
+
+fun CanvasViewModel.markCanvasPointerHover(onCanvas: Boolean) {
+    canvasPointerOnCanvas = onCanvas
 }
 
 fun CanvasViewModel.changeSingleTouchCompanion(on: Boolean) {
@@ -601,15 +672,25 @@ fun CanvasViewModel.recordTabletInput(
     pressure: Float,
     hasPressureAxis: Boolean,
     hasTiltAxis: Boolean,
+    deviceKey: String? = null,
 ) {
+    if (deviceKey != null && deviceKey != lastTabletDeviceKey) {
+        lastTabletDeviceKey = deviceKey
+        lastTabletLearnedRef = penPressureLearner.refOf(deviceKey)
+    }
     if (deviceName.isNotEmpty() && deviceName != lastTabletDeviceName) {
         lastTabletDeviceName = deviceName
         lastTabletKind = kindLabel
         lastTabletHasPressureAxis = hasPressureAxis
         lastTabletHasTiltAxis = hasTiltAxis
+        if (deviceKey != null) lastTabletLearnedRef = penPressureLearner.refOf(deviceKey)
     }
     if (tabletMonitorActive) {
         if (deviceName.isNotEmpty()) lastTabletDeviceName = deviceName
+        if (deviceKey != null) {
+            lastTabletDeviceKey = deviceKey
+            lastTabletLearnedRef = penPressureLearner.refOf(deviceKey)
+        }
         lastTabletKind = kindLabel
         lastTabletPressure = pressure.coerceIn(0f, 1f)
         lastTabletHasPressureAxis = hasPressureAxis

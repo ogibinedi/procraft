@@ -25,7 +25,7 @@ class PadSurfaceView(context: Context, private val vm: CanvasViewModel) : Surfac
     private var strokePointer = -1
     private var realTouchActive = false
     private var tabletSyntheticStroke = false
-    private val deviceEverGavePressure = HashSet<Int>()
+    private var pendingSyntheticPress = false
 
     init {
         // over the canvas's own surface, under the studio's controls
@@ -83,6 +83,8 @@ class PadSurfaceView(context: Context, private val vm: CanvasViewModel) : Surfac
         val pad = vm.pad ?: return true
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                vm.devicesWithRealTouch += e.deviceId
+                pendingSyntheticPress = false
                 if (tabletSyntheticStroke) {
                     tabletSyntheticStroke = false
                     pad.strokeCancel()
@@ -116,26 +118,34 @@ class PadSurfaceView(context: Context, private val vm: CanvasViewModel) : Surfac
 
     override fun onGenericMotionEvent(e: MotionEvent): Boolean {
         val pad = vm.pad
-        if (pad != null && !realTouchActive) {
+        if (pad != null && !realTouchActive && !vm.activityTouchActive && e.deviceId !in vm.devicesWithRealTouch) {
             val kind = pointerKindOf(e, 0, vm.drawingTabletMode)
             val isStylus = kind == PointerKind.STYLUS || kind == PointerKind.STYLUS_ERASER
             if (isStylus && e.actionMasked == MotionEvent.ACTION_BUTTON_PRESS &&
                 (e.actionButton == MotionEvent.BUTTON_PRIMARY || e.buttonState and MotionEvent.BUTTON_PRIMARY != 0) &&
                 !tabletSyntheticStroke
             ) {
-                tabletSyntheticStroke = true
-                vm.padMenuOpen = false
-                pad.beginOwnStroke()
-                pad.setPenTiltKnown(tiltKnown(e))
-                pad.strokeBegin(kind, samples(e, 0))
-                return true
+                pendingSyntheticPress = true
             }
-            if (tabletSyntheticStroke && e.actionMasked == MotionEvent.ACTION_BUTTON_RELEASE &&
-                (e.actionButton == MotionEvent.BUTTON_PRIMARY || e.buttonState and MotionEvent.BUTTON_PRIMARY == 0)
-            ) {
-                tabletSyntheticStroke = false
-                pad.strokeEnd(samples(e, 0))
-                return true
+            if (e.actionMasked == MotionEvent.ACTION_BUTTON_RELEASE) {
+                if (tabletSyntheticStroke &&
+                    (e.actionButton == MotionEvent.BUTTON_PRIMARY || e.buttonState and MotionEvent.BUTTON_PRIMARY == 0)
+                ) {
+                    pendingSyntheticPress = false
+                    tabletSyntheticStroke = false
+                    pad.strokeEnd(samples(e, 0))
+                    return true
+                }
+                if (pendingSyntheticPress && isStylus) {
+                    pendingSyntheticPress = false
+                    vm.padMenuOpen = false
+                    pad.beginOwnStroke()
+                    pad.setPenTiltKnown(tiltKnown(e))
+                    pad.strokeBegin(kind, samples(e, 0))
+                    pad.strokeEnd(samples(e, 0))
+                    return true
+                }
+                pendingSyntheticPress = false
             }
         }
         return super.onGenericMotionEvent(e)
@@ -143,15 +153,16 @@ class PadSurfaceView(context: Context, private val vm: CanvasViewModel) : Surfac
 
     override fun onHoverEvent(e: MotionEvent): Boolean {
         val pad = vm.pad
-        if (pad != null && !realTouchActive) {
+        val rawP = rawPressureOf(e, 0)
+        vm.tabletPressureTracker.recordHoverPressure(e.deviceId, rawP)
+        if (pad != null && !realTouchActive && !vm.activityTouchActive && e.deviceId !in vm.devicesWithRealTouch) {
             val kind = pointerKindOf(e, 0, vm.drawingTabletMode)
             val isStylus = kind == PointerKind.STYLUS || kind == PointerKind.STYLUS_ERASER
             if (isStylus) {
-                val rawP = rawPressure(e, 0)
-                if (rawP > 0f) deviceEverGavePressure += e.deviceId
                 val nibPressed = (e.buttonState and MotionEvent.BUTTON_PRIMARY != 0) ||
-                    (isExternalDevice(e) && pressureRangeOf(e) != null && rawP > 0f)
+                    (isExternalDevice(e) && pressureRangeOf(e) != null && rawP > HOVER_PRESSURE_STROKE_THRESHOLD && vm.tabletPressureTracker.sawZeroHover(e.deviceId))
                 if (e.actionMasked == MotionEvent.ACTION_HOVER_MOVE && nibPressed) {
+                    pendingSyntheticPress = false
                     if (!tabletSyntheticStroke) {
                         tabletSyntheticStroke = true
                         vm.padMenuOpen = false
@@ -174,27 +185,22 @@ class PadSurfaceView(context: Context, private val vm: CanvasViewModel) : Surfac
     }
 
     override fun onResolvePointerIcon(event: MotionEvent, pointerIndex: Int): PointerIcon? {
-        if (vm.hideTabletArrowCursor) {
-            val kind = pointerKindOf(event, pointerIndex, vm.drawingTabletMode)
-            if (kind == PointerKind.STYLUS || kind == PointerKind.STYLUS_ERASER || kind == PointerKind.MOUSE) {
-                return PointerIcon.getSystemIcon(context, PointerIcon.TYPE_CROSSHAIR)
-            }
+        val kind = pointerKindOf(event, pointerIndex, vm.drawingTabletMode)
+        if (kind == PointerKind.STYLUS || kind == PointerKind.STYLUS_ERASER || kind == PointerKind.MOUSE) {
+            val iconType = if (vm.hideTabletArrowCursor) PointerIcon.TYPE_CROSSHAIR else PointerIcon.TYPE_ARROW
+            return PointerIcon.getSystemIcon(context, iconType)
         }
         return super.onResolvePointerIcon(event, pointerIndex)
     }
 
-    private fun rawPressure(e: MotionEvent, i: Int, historyIdx: Int = -1): Float {
-        val p = if (historyIdx >= 0) e.getHistoricalPressure(i, historyIdx) else e.getPressure(i)
-        if (p > 0f) return p
-        return if (historyIdx >= 0) e.getHistoricalAxisValue(MotionEvent.AXIS_PRESSURE, i, historyIdx) else e.getAxisValue(MotionEvent.AXIS_PRESSURE, i)
-    }
-
     private fun calibratedPressure(e: MotionEvent, i: Int, historyIdx: Int = -1): Float {
-        val raw = rawPressure(e, i, historyIdx)
-        if (raw > 0f) deviceEverGavePressure += e.deviceId
+        val raw = rawPressureOf(e, i, historyIdx)
+        val range = pressureRangeOf(e)
+        vm.tabletPressureTracker.recordContactPressure(e.deviceId, raw, range != null)
         val kind = pointerKindOf(e, i, vm.drawingTabletMode)
         if (kind != PointerKind.STYLUS && kind != PointerKind.STYLUS_ERASER) return raw
-        val range = pressureRangeOf(e)
+        val ext = isExternalDevice(e)
+        val learnedMax = vm.penPressureLearner.effectiveMax(devicePressureKeyOf(e.device))
         return calibratePenPressure(
             rawPressure = raw,
             axisMin = range?.start ?: 0f,
@@ -205,7 +211,10 @@ class PadSurfaceView(context: Context, private val vm: CanvasViewModel) : Surfac
             minFloor = vm.penPressureMin,
             buttonPrimaryDown = e.buttonState and MotionEvent.BUTTON_PRIMARY != 0,
             isHovering = false,
-            fallbackFullWhenUnreported = isExternalDevice(e) && e.deviceId !in deviceEverGavePressure,
+            fallbackFullWhenUnreported = ext && !vm.tabletPressureTracker.hasAnalogPressure(e.deviceId),
+            rawExceedsUnit = vm.tabletPressureTracker.usesRawRange(e.deviceId),
+            externalActiveContact = ext,
+            learnedMax = learnedMax,
         )
     }
 

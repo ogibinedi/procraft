@@ -410,14 +410,52 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
     var penPressureMin by mutableStateOf(interfacePrefs.getFloat(PEN_PRESSURE_MIN, 0f).coerceIn(0f, 0.5f))
         internal set
 
-    /** Replaces the Android system arrow pointer over the canvas with the brush outline or a precision crosshair. */
+    /** Replaces the Android system arrow pointer over the open painting canvas with the brush outline or a precision crosshair. */
     var hideTabletArrowCursor by mutableStateOf(interfacePrefs.getBoolean(HIDE_TABLET_ARROW, true))
         internal set
+
+    /** Shows a high-contrast navigation pointer over UI, bars, panels, and gallery when using an external drawing tablet. */
+    var showTabletNavPointer by mutableStateOf(interfacePrefs.getBoolean(SHOW_TABLET_NAV_POINTER, true))
+        internal set
+
+    /** True while the user is actively interacting with an external USB/Bluetooth drawing tablet. */
+    var externalTabletActive by mutableStateOf(false)
+        internal set
+
+    /** Window coordinates of the external drawing tablet pointer across all screens (gallery, bars, panels, canvas). */
+    var tabletPointerAt by mutableStateOf<Offset?>(null)
+        internal set
+
+    /** Whether the external drawing tablet's primary nib/button is currently pressed. */
+    var tabletPointerPressed by mutableStateOf(false)
+        internal set
+
+    /** True when the external tablet's event source includes `SOURCE_MOUSE` (so Android may render an OS cursor). */
+    var tabletPointerHasSystemCursor by mutableStateOf(false)
+        internal set
+
+    /** True only when the latest pointer event reached the uncovered canvas surface outside UI bars/panels. */
+    var canvasPointerOnCanvas by mutableStateOf(false)
+        internal set
+
+    /** True while the Activity is delivering a real `ACTION_DOWN..ACTION_UP` touch sequence anywhere in the window. */
+    internal var activityTouchActive = false
+
+    /** Input device IDs that have delivered at least one real `ACTION_DOWN` (never need hover-only synthetic stroke bridging). */
+    internal val devicesWithRealTouch = HashSet<Int>()
+
+    /** Shared per-device pressure calibration tracker across canvas, brush studio pad, and pressure test card. */
+    internal val tabletPressureTracker = TabletPressureTracker()
+
+    /** Per-device auto-gain learner persisted in [interfacePrefs] for under-reporting tablets. */
+    internal val penPressureLearner = PenPressureLearner.backedBy(interfacePrefs)
 
     /** Live drawing tablet diagnostics (only updated at frame rate while the Drawing Tablet settings page is open). */
     var tabletMonitorActive by mutableStateOf(false)
         internal set
     var lastTabletDeviceName by mutableStateOf("")
+        internal set
+    var lastTabletDeviceKey by mutableStateOf<String?>(null)
         internal set
     var lastTabletKind by mutableStateOf("")
         internal set
@@ -426,6 +464,8 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
     var lastTabletHasPressureAxis by mutableStateOf(false)
         internal set
     var lastTabletHasTiltAxis by mutableStateOf(false)
+        internal set
+    var lastTabletLearnedRef by mutableStateOf<Float?>(null)
         internal set
 
     /** The actions panel's open tab, kept from one session to the next. */
@@ -2190,6 +2230,7 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
         const val PEN_PRESSURE_SENSITIVITY = "pen_pressure_sensitivity"
         const val PEN_PRESSURE_MIN = "pen_pressure_min"
         const val HIDE_TABLET_ARROW = "hide_tablet_arrow"
+        const val SHOW_TABLET_NAV_POINTER = "show_tablet_nav_pointer"
         /** Frames a second an animation plays at (Animation Assist's own when it is on). */
         const val ANIMATION_FPS = 15
         /** The timeline's frame pictures' longest side, pixels; a frame's longest hold. */

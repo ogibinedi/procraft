@@ -2,6 +2,29 @@
 
 All notable changes in this Android Smartphone-focused fork (`ogibinedi/procraft`) are documented in this file.
 
+## [0.0.4] - 2026-11-22 - Drawing Tablet Auto-Gain Pressure Calibration, Navigation Pointer & Multi-Vendor Hardening
+
+### Added
+- **Per-Device Pressure Auto-Gain Learner (`PenPressureLearner.kt`)**:
+  - Added vendor-agnostic per-device pressure peak learning keyed by USB/Bluetooth `"vvvv:pppp"` (with descriptor/name fallback) and persisted in `interfacePrefs`, rescaling under-reporting tablets (e.g., XP-Pen `28bd:2904` outputting `0.000..0.084` on Android 15 inside a 16-bit HID range) into the full brush dynamic range via `learnedMax` (`ref * 1.15f`) while leaving normal full-range styluses (`ref >= 0.5f`, such as S-Pen) completely untouched.
+  - Added per-stroke diagnostic logging (`device`, `axis`, `raw peak`, `learned ref`, `effective max`) alongside `PenStrokesTold` in `CanvasSurfaceView.kt`.
+- **One-Tap Pressure Calibration & Navigation Pointer Controls (`ActionsPluginsRows.kt`, `SettingsCursorActions.kt`, `Chrome.kt`, `AppRoot.kt`)**:
+  - Added **Calibrate pressure** action in *Actions → Prefs → Drawing Tablet & Pen* so users can press once comfortably on the test pad to calibrate peak pressure immediately; **Reset drawing tablet settings** now clears all learned per-device peaks.
+  - Added top-level `TabletPointerOverlay` across all screens (Gallery, TopBar, SideBar, Brush Library, Panels, BottomSheets, Brush Studio, Dialogs) tracked in `MainActivity` with a **Show navigation pointer** toggle, ensuring UI navigation remains clearly visible even on Android ROMs that do not draw an OS pointer for `TOOL_TYPE_STYLUS`.
+- **Unit Tests (`PenKeysTest.kt`)**:
+  - Expanded `PenKeysTest` to 34 tests covering `PenPressureLearner` update rules, `>= 0.5f` normal-device threshold & decay guard, `calibratePenPressure` with `learnedMax`, already-normalized `0..1` pressure with `axisMax > 1.5f`, `TabletPressureTracker`, USB Vendor ID detection, `resolveTabletPointerIconType`, and `shouldShowBrushCursor`.
+
+### Fixed
+- **Pointer Vanishing Over Navigation & Flickering (`CanvasSurfaceView.kt`, `PadSurfaceView.kt`, `Chrome.kt`, `MainActivity.kt`)**:
+  - Fixed `CanvasSurfaceView.onResolvePointerIcon` returning `PointerIcon.TYPE_NULL` over TopBar/SideBar gaps, Brush Library, BottomSheets, Panels, Studios, and Dialogs; it now always returns `PointerIcon.TYPE_ARROW` whenever the pointer is not over the open painting canvas with an active brush cursor.
+  - Fixed `BrushCursor` disappearing on small brushes (`r < 2f`), disappearing while painting on screenless external drawing tablets (`CursorShows.HOVERING`), and flickering during hover-to-touch / lift-to-hover transitions (deferred `180ms` hide + crisp center pinpoint nib dot).
+- **Multi-Vendor Tablet Input & Pressure Hardening (`PenKeys.kt`, `CanvasSurfaceView.kt`, `PadSurfaceView.kt`)**:
+  - Prevented `calibratePenPressure` from dividing already-normalized `0..1` pressures by raw `MotionRange.max` (e.g., `8191`) unless raw values `> 1.05` are observed, and guaranteed non-zero active external-tablet contact pressure (`>= 0.02f` or `1.0f` when unreported) even when `buttonState == 0` (`TouchInputMapper`).
+  - Added USB Vendor ID detection (`0x28BD` XP-Pen/Ugee/Xencelabs, `0x256C` Huion/Gaomon/Parblo/Artisul, `0x5543` UC-Logic, `0x056A` Wacom, `0x2FEB` Veikk, `0x172F` Waltop, `0x0B57` Hanvon, `0x2179` Bosto, `0x34A0` Xencelabs), tilt/distance capability checks, and single-pointer Android-mode `TOOL_TYPE_FINGER` promotion while excluding dedicated touch overlays/trackpads.
+  - Hardened synthetic hover-stroke bridging and `ACTION_BUTTON_PRESS`/`ACTION_SCROLL` handling so Compose UI clicks/scrolls never draw or zoom behind panels and low-IAF hover drift never triggers phantom strokes; exempted external devices from touchscreen palm rejection.
+
+---
+
 ## [0.0.3] - 2026-11-21 - Universal Drawing Tablet Support, Pen Pressure Calibration & Icon-Only Layer Actions
 
 ### Added

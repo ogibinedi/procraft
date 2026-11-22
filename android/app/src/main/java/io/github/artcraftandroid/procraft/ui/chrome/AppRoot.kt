@@ -56,9 +56,16 @@ fun AppRoot(vm: CanvasViewModel) {
     val keptClear = clearance(vm.plugins, vm.pluginList)
     val interfaceSize = fittedInterfaceSize(vm.plugins, vm.pluginList, keptClear)
     androidx.compose.runtime.SideEffect { vm.interfaceShownAt(interfaceSize) }
+    var rootOffset by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
     ProCraftTheme(interfaceSize, keptClear) {
-        // layers lifted out of the panel stay held across the gallery and into another artwork
-        HoldingLayers(vm) { Screens(vm, keptClear) }
+        Box(
+            Modifier.fillMaxSize().onGloballyPositioned { rootOffset = it.positionInWindow() },
+        ) {
+            // layers lifted out of the panel stay held across the gallery and into another artwork
+            HoldingLayers(vm) { Screens(vm, keptClear) }
+            // top-level external drawing tablet pointer over gallery, bars, panels, sheets, studios & dialogs
+            TabletPointerOverlay(vm, rootOffset)
+        }
     }
 }
 
