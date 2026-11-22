@@ -2,6 +2,21 @@
 
 All notable changes in this Android Smartphone-focused fork (`ogibinedi/procraft`) are documented in this file.
 
+## [0.0.5-rc.4] - 2026-11-22 - Icon-Only Gallery Swipe Actions & Keyboard-Safe Layer/Group Rename
+
+### Changed
+- **Gallery Swipe Actions (`GalleryDragShare.kt`)**:
+  - Replaced text labels (*Share*, *Duplicate*, *Delete*) on swiped artwork and stack action pills with compact `52×52dp` icon-only pills (`ShareOut`, `Duplicate`, `Trash`) so they fit cleanly over a single smartphone gallery card without overflowing neighboring thumbnails.
+
+### Fixed
+- **Layer & Layer Group Rename Covered by Keyboard (`BottomSheetPanel.kt`, `LayersPanel.kt`, `LayerBlendOptions.kt`, `TextUi.kt`)**:
+  - Made `SmartphoneBottomSheet` keyboard-aware via `rememberKeyboardReach()` (works on Android 8–16 even with `adjustNothing`), smoothly lifting the bottom sheet above the on-screen keyboard and clamping sheet height within the remaining viewport.
+  - Added a dedicated pinned `LayerRenameBar` directly below the `Layers` header (supporting **Rename Layer**, **Rename Group**, and **Rename Mask**) with full-width input, Save/Cancel `44dp` buttons, immediate popup focus handoff (`PopupProperties(focusable = open)`), and automatic scroll-to-item so the input field is never occluded by the keyboard or recycled during scrolling.
+- **Unit Tests (`PocketErgonomicsTest.kt`)**:
+  - Added `smartphoneBottomSheetLiftsCleanlyAboveKeyboard` test covering no-keyboard, portrait phone keyboard, and landscape phone keyboard layouts (46 suites / 196 tests total).
+
+---
+
 ## [0.0.5-rc.3] - 2026-11-22 - Rate-Limit-Free Atom Feed Updater, HTTP 403/429 Classification & Backoff
 
 ### Fixed
