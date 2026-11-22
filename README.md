@@ -25,6 +25,7 @@
 </p>
 
 <p align="center">
+  <a href="#screenshots">Screenshots</a> ·
   <a href="#about-this-fork">About This Fork</a> ·
   <a href="#smartphone-ui--architecture">Smartphone UI &amp; Architecture</a> ·
   <a href="#features">Features</a> ·
@@ -33,6 +34,44 @@
   <a href="PROGRESS.md">Progress</a> ·
   <a href="CHANGELOG.md">Changelog</a>
 </p>
+
+---
+
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center"><img src="screenshot/sc_04.png" alt="Canvas Workspace with Collapsible SideBar" width="210"><br><sub><b>Canvas &amp; Collapsible SideBar</b></sub></td>
+    <td align="center"><img src="screenshot/sc_12.png" alt="Brush Library Bottom Sheet" width="210"><br><sub><b>Brush Library</b></sub></td>
+    <td align="center"><img src="screenshot/sc_11.png" alt="Layers Bottom Sheet" width="210"><br><sub><b>Layers</b></sub></td>
+    <td align="center"><img src="screenshot/sc_10.png" alt="Color Disc Picker" width="210"><br><sub><b>Color Disc</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshot/sc_13.png" alt="Selection Toolbar" width="210"><br><sub><b>Selection Toolbar</b></sub></td>
+    <td align="center"><img src="screenshot/sc_14.png" alt="Adjustments Bottom Sheet" width="210"><br><sub><b>Adjustments</b></sub></td>
+    <td align="center"><img src="screenshot/sc_15.png" alt="Actions &amp; Drawing Tablet Preferences" width="210"><br><sub><b>Actions &amp; Prefs</b></sub></td>
+    <td align="center"><img src="screenshot/sc_01.png" alt="Smartphone Gallery Grid" width="210"><br><sub><b>Gallery</b></sub></td>
+  </tr>
+</table>
+
+<details>
+<summary><b>More UI Screenshots</b> (Gallery Options, New Canvas Presets, Classic/Harmony/Value Color Pickers &amp; Palettes)</summary>
+<br>
+<table>
+  <tr>
+    <td align="center"><img src="screenshot/sc_02.png" alt="Gallery More Options" width="210"><br><sub><b>Gallery Options</b></sub></td>
+    <td align="center"><img src="screenshot/sc_03.png" alt="New Canvas Presets" width="210"><br><sub><b>New Canvas Presets</b></sub></td>
+    <td align="center"><img src="screenshot/sc_09.png" alt="Color Classic Picker" width="210"><br><sub><b>Colors · Classic</b></sub></td>
+    <td align="center"><img src="screenshot/sc_08.png" alt="Color Harmony Wheel" width="210"><br><sub><b>Colors · Harmony</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshot/sc_07.png" alt="Color Value Sliders" width="210"><br><sub><b>Colors · Value (HSB/RGB/Hex)</b></sub></td>
+    <td align="center"><img src="screenshot/sc_05.png" alt="Color Palettes Compact View" width="210"><br><sub><b>Palettes · Compact</b></sub></td>
+    <td align="center"><img src="screenshot/sc_06.png" alt="Color Palettes Cards View" width="210"><br><sub><b>Palettes · Cards</b></sub></td>
+    <td></td>
+  </tr>
+</table>
+</details>
 
 ---
 
@@ -72,12 +111,13 @@ See [PROGRESS.md](PROGRESS.md) and [CHANGELOG.md](CHANGELOG.md) for the complete
 | Area | Status on Android Smartphone |
 |---|---|
 | **Canvas & Gestures**: adaptive top bar, collapsible sidebar (size, opacity, modify, undo, redo), full-screen mode, multi-touch gestures (pinch, rotate, quick fit, two/three-finger taps, three-finger scrub to clear) | ✅ Ready |
+| **Drawing Tablets & Styluses**: universal USB OTG & Bluetooth drawing tablet support (XP-Pen, Huion, Wacom, Gaomon, Veikk, Ugee, Parblo, Xencelabs, etc.), per-device auto-gain pressure calibration (`PenPressureLearner`), one-tap **Calibrate pressure**, live pressure test bar, and top-level navigation pointer overlay | ✅ Ready |
 | **Brush Engine & Brush Studio**: shape and grain sources, stroke path, stabilization, taper, rendering and glazes, wet mix, colour dynamics, pressure and tilt; horizontal-tab smartphone Brush Studio and responsive Source Editor | ✅ Ready |
-| **Layers**: blend modes, opacity, alpha lock, clipping masks, layer masks, groups, merge, reference layer, cross-artwork drag & drop, and off-GPU LZ4 layer parking for large artworks | ✅ Ready |
+| **Layers**: blend modes, opacity, alpha lock, clipping masks, layer masks, groups, merge, reference layer, icon-only compact swipe actions, cross-artwork drag & drop, and off-GPU LZ4 layer parking for large artworks | ✅ Ready |
 | **Colour**: responsive disc, classic, harmony, value sliders (with smart-positioned hex keypad), palettes, history, eyedropper loupe, and ColorDrop / Recolor fill | ✅ Ready |
 | **Adjustments**: HSB, colour balance, curves, gradient map, Gaussian/motion/perspective blurs, noise, sharpen, bloom, glitch, halftone, chromatic aberration, liquify, and clone | ✅ Ready |
 | **Selection & Transform**: automatic, freehand, rectangle, ellipse selection with feather; freeform, uniform, distort, and warp transform with snapping and numeric keypad | ✅ Ready |
-| **Guides, QuickShape, & Text**: shapes that snap clean, 2D/isometric/perspective/symmetry drawing guides withAssisted Drawing, and rich on-canvas text with responsive style sheet | ✅ Ready |
+| **Guides, QuickShape, & Text**: shapes that snap clean, 2D/isometric/perspective/symmetry drawing guides with Assisted Drawing, and rich on-canvas text with responsive style sheet | ✅ Ready |
 | **Animation Assist, Page Assist, & PiP Reference**: frame timeline with onion skins, animated GIF/PNG/MP4/HEVC export, and compact Picture-in-Picture Reference Window | ✅ Ready |
 | **Gallery & Time-Lapse**: 2-column smartphone grid, stacks, custom canvas presets, import/share (ProCraft, Procreate, PSD, PDF, PNG, JPEG, TIFF, GIF, MP4), and 1080p/4K time-lapse replay/export | ✅ Ready |
 | **3D Painting**: OBJ and USDZ models, texture sets, mesh painting, responsive Lighting Studio, and animated turntable export | ✅ Ready |
