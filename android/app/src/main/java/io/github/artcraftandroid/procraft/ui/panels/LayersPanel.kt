@@ -2,10 +2,25 @@ package io.github.artcraftandroid.procraft.ui
 
 import io.github.artcraftandroid.procraft.canvas.*
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.TextSelectionColors
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.scrollBy
@@ -219,10 +234,30 @@ fun LayersPanel(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier, 
                 PanelGrabber(vm, io.github.artcraftandroid.procraft.core.FloatingPanel.LAYERS)
             }
         }
+        // Pinned rename bar directly beneath the header so renaming any layer or layer group
+        // stays full-width, focus-stable, and cleanly above the soft keyboard.
+        val renamingLayer = renaming?.let { id -> vm.layers.firstOrNull { it.id == id } }
+        if (renamingLayer != null) {
+            LayerRenameBar(
+                layer = renamingLayer,
+                onCancel = { renaming = null },
+                onConfirm = { newName ->
+                    vm.rename(renamingLayer, newName)
+                    renaming = null
+                },
+            )
+        }
         // a layer added at the top of what shows comes in there, the rows under it sliding down,
         // rather than the list holding its place and leaving the new row out of sight above
         val list = rememberLazyListState()
         val ids = vm.layers.filter { !vm.hidden(it) }.map { it.id }
+        LaunchedEffect(renaming) {
+            val targetId = renaming ?: return@LaunchedEffect
+            val idx = ids.indexOf(targetId)
+            if (idx >= 0 && !vm.modelOpen) {
+                runCatching { list.animateScrollToItem(idx) }
+            }
+        }
         val lastIds = remember { arrayOfNulls<List<ULong>>(1) }
         val before = lastIds[0]
         if (before != null && ids != before) {
@@ -383,16 +418,8 @@ fun LayersPanel(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier, 
                             options = null
                         }
                     }
-                    // renamed in place
                     val name: @Composable (Color, Modifier) -> Unit = { ink, m ->
-                        if (renaming == l.id) {
-                            InlineName(l.name, ink, 17.sp, m) {
-                                vm.rename(l, it)
-                                renaming = null
-                            }
-                        } else {
-                            Text(l.name, color = ink, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = m)
-                        }
+                        Text(l.name, color = ink, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = m)
                     }
                     SwipeRow(vm, l, open = swiped == l.id, enabled = dragId == null, onOpen = { swiped = if (it) l.id else null }, onPick = { vm.pickLayer(l) }) {
                         // held over long enough to go onto it: its thumbnail (a group's line) outlined
@@ -755,6 +782,106 @@ internal fun PanelHeader(
             }
         }
         Box(Modifier.align(Alignment.TopEnd).padding(end = end)) { action() }
+    }
+}
+
+/**
+ * Pinned rename editor shown directly beneath the Layers header for layers, layer groups, and
+ * masks so the input field never hides behind the on-screen keyboard or gets recycled by scrolling.
+ */
+@Composable
+private fun LayerRenameBar(
+    layer: LayerInfo,
+    onCancel: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    BackHandler(onBack = onCancel)
+    val label = when (layer.kind) {
+        LayerType.GROUP -> "Rename Group"
+        LayerType.MASK -> "Rename Mask"
+        else -> "Rename Layer"
+    }
+    var value by remember(layer.id) { mutableStateOf(TextFieldValue(layer.name, TextRange(0, layer.name.length))) }
+    val focus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    fun submit() {
+        keyboard?.hide()
+        onConfirm(value.text.trim().ifEmpty { layer.name })
+    }
+    fun cancel() {
+        keyboard?.hide()
+        onCancel()
+    }
+    LaunchedEffect(layer.id) {
+        kotlinx.coroutines.delay(60)
+        runCatching { focus.requestFocus() }
+        keyboard?.show()
+    }
+    val selection = TextSelectionColors(handleColor = Pc.Accent, backgroundColor = Pc.Accent.copy(alpha = 0.3f))
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            label,
+            color = Pc.TextDim,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(start = 4.dp),
+        )
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Box(
+                Modifier
+                    .weight(1f)
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Pc.Row)
+                    .border(1.5.dp, Pc.Accent, RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                CompositionLocalProvider(LocalTextSelectionColors provides selection) {
+                    BasicTextField(
+                        value = value,
+                        onValueChange = { value = it },
+                        singleLine = true,
+                        textStyle = TextStyle(color = Pc.PanelTitle, fontSize = 16.sp),
+                        cursorBrush = SolidColor(Pc.Accent),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { submit() }),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(focus),
+                    )
+                }
+            }
+            Box(
+                Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Pc.Row)
+                    .clickable(onClick = ::cancel),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(PcIcons.Cross, contentDescription = "Cancel rename", tint = Pc.PanelTitle, modifier = Modifier.size(15.dp))
+            }
+            Box(
+                Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Pc.Accent)
+                    .clickable(onClick = ::submit),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(PcIcons.DoneTick, contentDescription = "Save name", tint = Color.White, modifier = Modifier.requiredSize(34.dp))
+            }
+        }
     }
 }
 

@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -263,38 +264,58 @@ internal fun galleryDrop(
         target = target,
     )
 }
-private val SwipePillWidth = 94.dp
-internal val SwipePillHeight = 56.dp
+private val SwipePillWidth = 52.dp
+internal val SwipePillHeight = 52.dp
+private val SwipePillGap = 4.dp
 private val SwipePillFill get() = if (Pc.light) Color(0xFFF5F5F5) else Color(0xDB1C1C1C)
-private val SwipePillInk get() = if (Pc.light) Color(0xFF575757) else Color(0xFFA9A9A9)
+private val SwipePillInk get() = if (Pc.light) Color(0xFF575757) else Color(0xFFE0E0E0)
 private val SwipeDeleteFill = Color(0xFFFE604D)
 
+private data class SwipeIconAction(
+    val label: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val delete: Boolean,
+    val isShare: Boolean = false,
+    val onClick: () -> Unit,
+)
+
 /**
- * An artwork's actions, Share, Duplicate and Delete, in a row over it: they grow in from the right
- * as it is swiped open ([open], 0..1, springing), and shrink back as it closes.
+ * An artwork's actions, Share, Duplicate and Delete, as icon-only pills in a row over it: they
+ * grow in from the right as it is swiped open ([open], 0..1, springing), and shrink back as it closes.
  */
 @Composable
 internal fun SwipeActions(open: Float, modifier: Modifier, onShare: (androidx.compose.ui.geometry.Rect) -> Unit, onDuplicate: () -> Unit, onDelete: () -> Unit) {
     var shareAt by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
+    val actions = listOf(
+        SwipeIconAction("Share", PcIcons.ShareOut, delete = false, isShare = true) { onShare(shareAt) },
+        SwipeIconAction("Duplicate", PcIcons.Duplicate, delete = false, onClick = onDuplicate),
+        SwipeIconAction("Delete", PcIcons.Trash, delete = true, onClick = onDelete),
+    )
     Row(
-        modifier.requiredWidth(SwipePillWidth * 3 + 6.dp).height(SwipePillHeight).graphicsLayer {
+        modifier.requiredWidth(SwipePillWidth * 3 + SwipePillGap * 2).height(SwipePillHeight).graphicsLayer {
             val k = 0.2f + 0.8f * open
             scaleX = k
             scaleY = k
             alpha = open.coerceIn(0f, 1f)
             transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 0.5f)
         },
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(SwipePillGap),
     ) {
-        for ((label, delete, action) in listOf(Triple("Share", false, { onShare(shareAt) }), Triple("Duplicate", false, onDuplicate), Triple("Delete", true, onDelete))) {
+        for (item in actions) {
             Box(
                 Modifier.size(SwipePillWidth, SwipePillHeight)
-                    .then(if (label == "Share") Modifier.onGloballyPositioned { shareAt = it.boundsInWindow() } else Modifier)
+                    .then(if (item.isShare) Modifier.onGloballyPositioned { shareAt = it.boundsInWindow() } else Modifier)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(if (delete) SwipeDeleteFill else SwipePillFill).clickable(onClick = action),
+                    .background(if (item.delete) SwipeDeleteFill else SwipePillFill)
+                    .clickable(onClick = item.onClick),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(label, color = if (delete) Color.White else SwipePillInk, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                Icon(
+                    imageVector = item.icon,
+                    contentDescription = item.label,
+                    tint = if (item.delete) Color.White else SwipePillInk,
+                    modifier = Modifier.size(22.dp),
+                )
             }
         }
     }

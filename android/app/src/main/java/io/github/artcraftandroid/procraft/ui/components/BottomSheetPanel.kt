@@ -38,6 +38,27 @@ import io.github.artcraftandroid.procraft.canvas.*
 import kotlin.math.roundToInt
 
 /**
+ * Computes `(effectiveHeightDp, bottomPaddingDp)` for [SmartphoneBottomSheet] so the sheet
+ * lifts cleanly above an active on-screen keyboard and fits within the remaining viewport.
+ */
+internal fun sheetKeyboardLayout(
+    screenHeightDp: Float,
+    targetHeightDp: Float,
+    dragUpDp: Float,
+    topBarDp: Float,
+    keyboardDp: Float,
+): Pair<Float, Float> {
+    if (keyboardDp <= 0f) {
+        val maxHeight = (screenHeightDp - topBarDp - 8f).coerceAtLeast(180f)
+        val effective = (targetHeightDp - dragUpDp).coerceIn(minOf(180f, maxHeight), maxHeight)
+        return effective to 0f
+    }
+    val maxAboveKeyboard = (screenHeightDp - keyboardDp - 8f).coerceAtLeast(136f)
+    val effective = (targetHeightDp - dragUpDp).coerceIn(minOf(180f, maxAboveKeyboard), maxAboveKeyboard)
+    return effective to keyboardDp
+}
+
+/**
  * Procreate Pocket-inspired Bottom Sheet host for smartphone screens.
  *
  * Keeps the upper portion of the canvas visible while adjusting brushes, layers, colours,
@@ -81,7 +102,16 @@ fun BoxScope.SmartphoneBottomSheet(
     val expandThresholdPx = remember(density) { with(density) { -48.dp.toPx() } }
     val maxDragUpPx = remember(density) { with(density) { -180.dp.toPx() } }
     val dragUpDp = with(density) { dragUpPx.toDp() }
-    val effectiveHeight = (targetHeight - dragUpDp).coerceIn(180.dp, screenHeight - Pc.barShown - 8.dp)
+    val keyboardDp = with(density) { rememberKeyboardReach().toDp() }
+    val (effectiveHeightVal, bottomPadVal) = sheetKeyboardLayout(
+        screenHeightDp = screenHeight.value,
+        targetHeightDp = targetHeight.value,
+        dragUpDp = dragUpDp.value,
+        topBarDp = Pc.barShown.value,
+        keyboardDp = keyboardDp.value,
+    )
+    val effectiveHeight = effectiveHeightVal.dp
+    val bottomPad = bottomPadVal.dp
     val effectiveHeightPx = with(density) { effectiveHeight.toPx() }
     val pivot = remember(density, screenWidth, screenHeight) {
         with(density) { Offset(screenWidth.toPx() / 2f, screenHeight.toPx()) }
@@ -89,6 +119,7 @@ fun BoxScope.SmartphoneBottomSheet(
 
     val sheetModifier = Modifier
         .align(Alignment.BottomCenter)
+        .padding(bottom = bottomPad)
         .width(sheetWidth)
         .heightIn(max = effectiveHeight)
         .offset { IntOffset(0, (((1f - alpha) * effectiveHeightPx) + dragDownPx).roundToInt()) }

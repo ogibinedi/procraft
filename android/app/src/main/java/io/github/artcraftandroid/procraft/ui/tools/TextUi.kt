@@ -285,7 +285,7 @@ internal fun keyboardReach(windowBottom: Int, visibleBottom: Int, windowHeight: 
  * make room for the keyboard, too narrow to see or touch, is measured instead.
  */
 @Composable
-private fun rememberKeyboardReach(): Int {
+internal fun rememberKeyboardReach(): Int {
     val ime = WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current)
     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) return ime
     val view = androidx.compose.ui.platform.LocalView.current

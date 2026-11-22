@@ -452,7 +452,7 @@ internal fun LayerOptions(open: Boolean, vm: CanvasViewModel, l: LayerInfo, rowY
         with(density) { OptionsPlace((-183).dp.roundToPx(), rowY, OptionsTop.roundToPx(), OptionsShadowRoom.roundToPx()) }
     }
     MenuPresence(open, androidx.compose.ui.graphics.TransformOrigin(1f, 0.5f)) { look ->
-        PcPopup(textScale = MATCHED_POPUP_TEXT, popupPositionProvider = place, onDismissRequest = onDone, properties = PopupProperties(focusable = true)) {
+        PcPopup(textScale = MATCHED_POPUP_TEXT, popupPositionProvider = place, onDismissRequest = onDone, properties = PopupProperties(focusable = open)) {
             // frosted over the canvas, as the library's menus are; empty (a locked group's or
             // mask's), as measured, a pill 64 tall with the frost alone, untinted
             val rows = vm.layerOptions(l)
