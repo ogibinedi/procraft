@@ -37,6 +37,10 @@ import androidx.compose.ui.unit.dp
 import io.github.artcraftandroid.procraft.canvas.*
 import kotlin.math.roundToInt
 
+/** Top center grabber hitbox for [SmartphoneBottomSheet]; kept compact so it never overlaps header buttons below y = 20.dp. */
+internal val SheetHandleWidth = 88.dp
+internal val SheetHandleHeight = 20.dp
+
 /**
  * Computes `(effectiveHeightDp, bottomPaddingDp)` for [SmartphoneBottomSheet] so the sheet
  * lifts cleanly above an active on-screen keyboard and fits within the remaining viewport.
@@ -137,12 +141,13 @@ fun BoxScope.SmartphoneBottomSheet(
         ProvidePanelLook(PanelLook(alpha, 1f, pivot)) {
             Box(sheetModifier) {
                 content(Modifier.fillMaxWidth(), effectiveHeight + Pc.BarHeight + 25.dp)
-                // Interactive 44.dp touch target drag/tap handle at the top center of the sheet
+                // Compact drag/tap handle confined strictly to the top 20.dp grabber strip so it
+                // never intercepts clicks on header action buttons (e.g. ColorPanel's Float button).
                 Box(
                     Modifier
                         .align(Alignment.TopCenter)
-                        .width(120.dp)
-                        .height(ResponsiveLayout.MinTouchTarget)
+                        .width(SheetHandleWidth)
+                        .height(SheetHandleHeight)
                         .pointerInput(shown, expanded) {
                             detectTapGestures(onTap = { expanded = !expanded })
                         }
@@ -187,7 +192,7 @@ fun BoxScope.SmartphoneBottomSheet(
                 ) {
                     Box(
                         Modifier
-                            .padding(top = 8.dp)
+                            .padding(top = 6.dp)
                             .size(40.dp, 4.5.dp)
                             .clip(CircleShape)
                             .background(Pc.Grabber),

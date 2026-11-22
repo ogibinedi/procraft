@@ -82,4 +82,11 @@ class PocketErgonomicsTest {
         assertEquals(182f, landscapeHeight, 0.01f)
         assertTrue(landscapeHeight + landscapePad <= 380f)
     }
+
+    @Test
+    fun bottomSheetGrabberStaysClearOfCompactHeaderActions() {
+        // Compact ColorPanel header actions start at y = 20.dp; grabber overlay must not overlap them.
+        assertTrue(SheetHandleHeight.value <= 20f)
+        assertTrue(SheetHandleWidth.value <= 96f)
+    }
 }

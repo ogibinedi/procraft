@@ -214,8 +214,9 @@ internal fun ColourTrack.paints(): List<Color> = colours.map { rgbColor(it.toInt
 @Composable
 fun ColorPanel(vm: CanvasViewModel, arrowX: Dp, screenHeight: Dp, modifier: Modifier = Modifier, background: Boolean = false) {
     val short = screenHeight < ShortScreen
-    // short, the disc reaches up into the header's last 7
-    val headerHeight = if (short && vm.colorMode == ColorMode.DISC) 57.dp else 64.dp
+    val compactSheet = LocalCompactSheet.current
+    // short, the disc reaches up into the header's last 7; on compact sheets keep clear of the top 20.dp sheet grabber
+    val headerHeight = if (compactSheet) 68.dp else if (short && vm.colorMode == ColorMode.DISC) 57.dp else 64.dp
     val c: ColorPick = if (background) {
         remember { HeldColor(vm.backgroundRgb()) { vm.setBackgroundRgb(it, done = false) } }
     } else {
@@ -244,29 +245,30 @@ fun ColorPanel(vm: CanvasViewModel, arrowX: Dp, screenHeight: Dp, modifier: Modi
                     }
                 }
             } else if (vm.colorMode == ColorMode.PALETTES) {
-                PanelHeader("Palettes", start = 20.dp, end = 17.dp, chevron = false) {
+                PanelHeader("Palettes", start = if (compactSheet) 16.dp else 20.dp, end = if (compactSheet) 14.dp else 17.dp, height = headerHeight, chevron = false) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        if (LocalCompactSheet.current) {
+                        if (compactSheet) {
                             FloatColorButton(vm, Modifier.padding(top = 12.dp))
                         }
                         NewPaletteButton(vm)
                     }
                 }
-            } else PanelHeader("Colors", start = 20.dp, end = 20.dp, height = headerHeight, chevron = false) {
+            } else PanelHeader("Colors", start = if (compactSheet) 16.dp else 20.dp, end = if (compactSheet) 14.dp else 20.dp, height = headerHeight, chevron = false) {
                 Row(
-                    Modifier.padding(top = if (LocalCompactSheet.current) 12.dp else 21.5.dp),
+                    Modifier.padding(top = if (compactSheet) 20.dp else 21.5.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (LocalCompactSheet.current) {
+                    if (compactSheet) {
                         FloatColorButton(vm, Modifier.padding(end = 6.dp))
                     }
                     // the colour model, 8 left of the swatches, for the pages that work in one
                     if (showsModelButton(vm.colorMode)) {
                         ColourModelButton(vm)
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(if (compactSheet) 6.dp else 8.dp))
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                        val swatch = Modifier.size(43.dp, 25.dp).clip(RoundedCornerShape(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(if (compactSheet) 5.dp else 7.dp)) {
+                        val swatchW = if (compactSheet) 34.dp else 43.dp
+                        val swatch = Modifier.size(swatchW, 25.dp).clip(RoundedCornerShape(6.dp))
                         Box(swatch.background(rgbColor(vm.colorRgb())).border(1.dp, Pc.SwatchEdge, RoundedCornerShape(6.dp)))
                         Box(swatch.background(rgbColor(vm.secondaryRgb)).clickable { vm.swapColors() })
                     }
