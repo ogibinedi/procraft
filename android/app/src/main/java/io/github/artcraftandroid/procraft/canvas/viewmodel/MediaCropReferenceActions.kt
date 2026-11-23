@@ -283,12 +283,14 @@ fun CanvasViewModel.quickShapeLast() {
     val info = session?.quickshapeLast() ?: return
     quickShape = info
     quickShapeEditing = false
+    haptic(HapticCue.SNAP)
     showDone(snappedTo(info.kind))
     refreshFlags()
 }
 
 fun CanvasViewModel.chooseQuickShape(kind: QuickShapeKind) {
     quickShape = session?.quickshapeChoose(kind) ?: quickShape
+    haptic(HapticCue.SNAP)
 }
 
 /** Keeps the snapped shape as drawn. */

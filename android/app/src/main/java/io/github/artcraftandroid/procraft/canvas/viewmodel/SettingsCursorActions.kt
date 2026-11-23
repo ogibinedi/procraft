@@ -609,6 +609,7 @@ fun CanvasViewModel.isUiCoveringCanvas(): Boolean =
         gestureControlsOpen ||
         updateSheetOpen ||
         changelogSheetOpen ||
+        insertShapeSheetOpen ||
         guideEditing ||
         copyPasteOpen ||
         quickMenuAt != null ||

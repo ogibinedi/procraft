@@ -60,6 +60,7 @@ val GESTURE_GUIDE_SECTIONS: List<GestureGuideSection> = listOf(
         title = "Drawing & Color",
         items = listOf(
             GestureGuideItem("Draw & hold still", "Snap into QuickShape (line, arc, circle, polygon)"),
+            GestureGuideItem("Hold 2nd finger (QuickShape)", "Lock perfect circle, square, equilateral triangle, or 15° angles"),
             GestureGuideItem("Drag Color Dot → hold", "ColorDrop fill; slide left/right for threshold"),
             GestureGuideItem("Hold on canvas", "Eyedropper color picker"),
             GestureGuideItem("Hold Color Dot", "Swap back to previous color"),

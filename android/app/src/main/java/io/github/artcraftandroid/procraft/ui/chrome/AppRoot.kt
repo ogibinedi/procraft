@@ -73,6 +73,11 @@ fun AppRoot(vm: CanvasViewModel) {
                 enter = androidx.compose.animation.slideInVertically(Motion.studioIn()) { it },
                 exit = androidx.compose.animation.slideOutVertically(Motion.studioOut()) { it },
             ) { ChangelogSheet { vm.closeChangelogSheet() } }
+            androidx.compose.animation.AnimatedVisibility(
+                vm.insertShapeSheetOpen,
+                enter = androidx.compose.animation.slideInVertically(Motion.studioIn()) { it },
+                exit = androidx.compose.animation.slideOutVertically(Motion.studioOut()) { it },
+            ) { InsertShapeSheet(vm) { vm.closeInsertShapeSheet() } }
             // top-level external drawing tablet pointer over gallery, bars, panels, sheets, studios & dialogs
             TabletPointerOverlay(vm, rootOffset)
         }
@@ -103,6 +108,7 @@ private fun Screens(vm: CanvasViewModel, keptClear: Clearance) {
             vm.selecting -> vm.closeSelecting()
             vm.adjustment != null -> vm.endAdjustment(true)
             vm.transforming -> vm.endTransform(true)
+            vm.quickShape != null -> vm.endQuickShape()
             vm.panel != Panel.NONE -> vm.closePanels()
             else -> vm.closeArtwork()
         }
@@ -428,11 +434,11 @@ private fun Screens(vm: CanvasViewModel, keptClear: Clearance) {
             if (vm.adjustment == Adjustment.CLONE) ClonePuck(vm)
             if (vm.adjustment == Adjustment.PERSPECTIVE_BLUR) PerspectivePuck(vm)
             if (vm.recoloring) RecolorReticle(vm)
-            QuickShapeHandles(vm)
+            QuickShapeHandles(vm, compact = useBottomSheet)
             CopyPastePanel(vm)
             QuickMenu(vm)
             LayerChoice(vm)
-            if (!vm.barsHidden) QuickShapeBar(vm, Modifier.offset(y = Pc.barShown))
+            if (!vm.barsHidden) QuickShapeBar(vm, maxWidth, Modifier.offset(y = Pc.barShown))
             if (vm.opacityLayer != null && !vm.barsHidden) LayerOpacityBar(vm, Modifier.offset(y = Pc.barShown))
             if (vm.adjustment != null && !vm.barsHidden) {
                 AdjustmentBar(vm, Modifier.offset(y = Pc.barShown))

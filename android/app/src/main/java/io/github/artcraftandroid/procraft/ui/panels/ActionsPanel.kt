@@ -227,6 +227,10 @@ fun ActionsPanel(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier)
                 Act("Insert a photo", private = "Insert a private photo", onPrivate = { photoFrom(true) }) { photoFrom(false) },
                 Act("Take a photo", private = "Take a private photo", onPrivate = { camera(true) }) { camera(false) },
                 Act("Add text") { vm.addText() },
+                Act("Insert shape") {
+                    vm.closePanels()
+                    vm.openInsertShapeSheet()
+                },
             ),
             // Paste is grey until something has been cut or copied
             listOf(

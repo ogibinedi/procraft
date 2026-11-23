@@ -299,6 +299,22 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
         changelogSheetOpen = false
     }
 
+    /** Full-screen Insert Shape sheet open over Canvas, preserving the user's last configuration. */
+    var insertShapeSheetOpen by mutableStateOf(false)
+        internal set
+    var insertShapeBusy by mutableStateOf(false)
+        internal set
+    var lastInsertShape by mutableStateOf(InsertShapeSpec())
+        internal set
+
+    fun openInsertShapeSheet() {
+        insertShapeSheetOpen = true
+    }
+
+    fun closeInsertShapeSheet() {
+        insertShapeSheetOpen = false
+    }
+
     internal var updateDownloadJob: Job? = null
 
     @Volatile
