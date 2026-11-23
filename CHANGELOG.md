@@ -2,6 +2,23 @@
 
 All notable changes in this Android Smartphone-focused fork (`ogibinedi/procraft`, maintained by **Igoy Creative Lab.**) are documented in this file.
 
+## [0.0.7-rc.2] - 2026-11-23 - Smartphone QuickShape Polish & Insert Shape Composer
+
+### Added
+- **Insert Shape Composer (`InsertShapeGeometry.kt`, `InsertShapeRenderer.kt`, `InsertShapeUi.kt`, `ActionsPanel.kt`, `AppRoot.kt`, `CanvasViewModel.kt`)**:
+  - Added **Actions → Add → Insert shape** with live checkerboard preview in the active brush color across **8 geometric shapes** (*Rectangle*, *Rounded*, *Circle*, *Triangle*, *Polygon* 5–12 sides, *Star* 4–12 points + inner depth, *Arrow*, and *Line*).
+  - Added **Outline / Fill** style toggle, proportion presets (`1:1`, `4:3`, `16:9`, `3:4`), stroke width, corner radius, opacity controls, and **Insert** or **Insert & Transform** actions creating cleanly named layers (e.g., *Hexagon*, *5-Point Star*, *Ellipse*) with straight-RGBA8 anti-aliased rendering (no double-premultiplication fringes; preserves sRGB and Display P3 color channels).
+- **Unit Tests (`QuickShapeUiTest.kt`, `InsertShapeGeometryTest.kt`)**:
+  - Added 10 unit tests covering smartphone QuickShape layout bounds/tap targets, polygon/star/triangle/arrow/line geometry, target bitmap sizing, straight-RGBA alpha packing, and shape naming (49 suites / 212 tests total, 0 failures).
+
+### Improved & Fixed
+- **Smartphone QuickShape Polish (`QuickShapeUi.kt`, `AdjustmentsEffectsUi.kt`, `AppRoot.kt`, `MediaCropReferenceActions.kt`, `PocketErgonomics.kt`)**:
+  - Extracted `QuickShapeBar` and `QuickShapeHandles` into `QuickShapeUi.kt` with responsive `>= 44dp` smartphone tap targets, an explicit **Edit / Done** button, and a horizontally scrollable choice pill that never overflows on `320dp–430dp` screens.
+  - Fixed unreadable white-on-white unselected QuickShape choice chips in **Light Mode** (all pairings verified WCAG AA).
+  - Enlarged smartphone QuickShape edit handles with a high-contrast dark halo for visibility on white and dark canvases, added Android **Back** key handling to commit/exit QuickShape, added `HapticCue.SNAP` on shape switching, and documented the 2nd-finger QuickShape lock gesture in **Gesture guide**.
+
+---
+
 ## [0.0.7-rc.1] - 2026-11-23 - Offline Expandable In-App Changelog Viewer
 
 ### Added
