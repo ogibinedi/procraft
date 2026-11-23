@@ -2,6 +2,18 @@
 
 All notable changes in this Android Smartphone-focused fork (`ogibinedi/procraft`, maintained by **Igoy Creative Lab.**) are documented in this file.
 
+## [0.0.7-rc.1] - 2026-11-23 - Offline Expandable In-App Changelog Viewer
+
+### Added
+- **In-App Changelog Viewer (`AppChangelog.kt`, `ChangelogUi.kt`, `AppRoot.kt`, `CanvasViewModel.kt`)**:
+  - Added an offline, user-friendly release history catalog covering `v0.0.1` through `v0.0.6` organized by `Added`, `Improved`, and `Fixed` categories.
+  - Added a responsive full-screen `ChangelogSheet` supporting both Dark and Light interfaces (WCAG AA verified contrast), expandable/collapsible per-version cards with `Installed` / `Latest` badges, an **Expand all / Collapse all** toggle, and a **View Full Changelog on GitHub** browser link.
+  - Added **Changelog** entry points in **Gallery → About ProCraft** (`GalleryPreviewNewCanvas.kt`, `GalleryScreen.kt`) and **Canvas → Actions → Help** (`ActionsPanel.kt`), and guarded canvas volume shortcuts while `ChangelogSheet` or `AppUpdateSheet` is open (`SettingsCursorActions.kt`).
+- **Unit Tests (`AppChangelogTest.kt`)**:
+  - Added 5 unit tests verifying descending SemVer ordering (`0.0.1`–`0.0.6`), category/item integrity, pre-release installed-badge handling, GitHub URLs, and stable `gradle.properties` sync (47 suites / 202 tests total, 0 failures, clean `:app:lintDebug`).
+
+---
+
 ## [0.0.6] - 2026-11-23 - Smartphone Floating Color Button Fix Across All Picker Tabs
 
 ### Fixed
