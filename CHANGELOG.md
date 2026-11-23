@@ -2,6 +2,17 @@
 
 All notable changes in this Android Smartphone-focused fork (`ogibinedi/procraft`, maintained by **Igoy Creative Lab.**) are documented in this file.
 
+## [0.0.6] - 2026-11-23 - Smartphone Floating Color Button Fix Across All Picker Tabs
+
+### Fixed
+- **Floating Color Button Unresponsive on Disc / Classic / Harmony / Value Tabs (`BottomSheetPanel.kt`, `ColorPanel.kt`)**:
+  - Confined the `SmartphoneBottomSheet` top drag-handle hitbox strictly to the top `88×20dp` grabber strip (`SheetHandleWidth` / `SheetHandleHeight`) so it no longer intercepts taps on centered header action buttons.
+  - Positioned compact smartphone `ColorPanel` header controls cleanly below `y = 20dp` with compact `34dp` color swatches so the **Float** button works reliably across all 5 tabs (**Disc**, **Classic**, **Harmony**, **Value**, and **Palettes**) even on narrow `320dp` screens.
+- **Unit Tests (`PocketErgonomicsTest.kt`)**:
+  - Added `bottomSheetGrabberStaysClearOfCompactHeaderActions` regression test (46 suites / 197 tests total, 0 failures, clean `:app:lintRelease`).
+
+---
+
 ## [0.0.5] - 2026-11-22 - Procreate Pocket Expansion, In-App Updater & Smartphone Polish (Stable Release)
 
 Promotes all `v0.0.5-rc.1` through `v0.0.5-rc.4` milestones from `development` into `main`, plus About attribution for **Igoy Creative Lab.** alongside upstream **ArtCraft Team & contributors** (MIT / Apache-2.0).
