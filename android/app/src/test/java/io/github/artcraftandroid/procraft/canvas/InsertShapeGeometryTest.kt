@@ -2,6 +2,7 @@ package io.github.artcraftandroid.procraft.canvas
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.hypot
@@ -67,38 +68,106 @@ class InsertShapeGeometryTest {
     }
 
     @Test
-    fun alphaMaskToStraightRgbaAvoidsDoublePremultiplication() {
-        val mask = byteArrayOf(0, 128.toByte(), 255.toByte())
-        val rgba = InsertShapeGeometry.alphaMaskToStraightRgba(mask, rgb = 0xE84F51, opacity = 0.5f)
-        assertEquals(12, rgba.size)
-        // Pixel 0: transparent -> zeroed RGB and A
-        assertEquals(0, rgba[0].toInt() and 0xFF)
-        assertEquals(0, rgba[3].toInt() and 0xFF)
-        // Pixel 1: anti-aliased edge -> preserves exact straight RGB while scaling alpha
-        assertEquals(0xE8, rgba[4].toInt() and 0xFF)
-        assertEquals(0x4F, rgba[5].toInt() and 0xFF)
-        assertEquals(0x51, rgba[6].toInt() and 0xFF)
-        assertEquals(64, rgba[7].toInt() and 0xFF)
-        // Pixel 2: solid coverage at 50% opacity -> alpha ~128, exact RGB
-        assertEquals(0xE8, rgba[8].toInt() and 0xFF)
-        assertEquals(0x4F, rgba[9].toInt() and 0xFF)
-        assertEquals(0x51, rgba[10].toInt() and 0xFF)
-        assertEquals(128, rgba[11].toInt() and 0xFF)
+    fun strokeLogSliderSteppingAndInputSupportDecimalZeroPointOneToLarge() {
+        assertEquals(0.1f, InsertShapeGeometry.sliderToStrokePx(0f), 0.001f)
+        assertEquals(500f, InsertShapeGeometry.sliderToStrokePx(1f), 0.001f)
+        assertEquals(0f, InsertShapeGeometry.strokePxToSlider(0.1f), 0.001f)
+        assertEquals(1f, InsertShapeGeometry.strokePxToSlider(500f), 0.001f)
+
+        // Sub-pixel range gets generous slider travel (>= 20% of track for 0.1..1.0 px)
+        assertTrue(InsertShapeGeometry.strokePxToSlider(1f) >= 0.25f)
+
+        // Fine adaptive stepping across decimal and large ranges
+        assertEquals(0.2f, InsertShapeGeometry.stepStrokePx(0.1f, increase = true), 0.001f)
+        assertEquals(0.9f, InsertShapeGeometry.stepStrokePx(1.0f, increase = false), 0.001f)
+        assertEquals(1.5f, InsertShapeGeometry.stepStrokePx(1.0f, increase = true), 0.001f)
+        assertEquals(6.0f, InsertShapeGeometry.stepStrokePx(5.0f, increase = true), 0.001f)
+        assertEquals(25.0f, InsertShapeGeometry.stepStrokePx(20.0f, increase = true), 0.001f)
+        assertEquals(110.0f, InsertShapeGeometry.stepStrokePx(100.0f, increase = true), 0.001f)
+        assertEquals(0.1f, InsertShapeGeometry.stepStrokePx(0.1f, increase = false), 0.001f)
+
+        // Parsing supports both dot and Indonesian comma decimals plus clamping
+        assertEquals(0.1f, InsertShapeGeometry.parseStrokeInput("0.1")!!, 0.001f)
+        assertEquals(0.5f, InsertShapeGeometry.parseStrokeInput("0,5")!!, 0.001f)
+        assertEquals(0.1f, InsertShapeGeometry.parseStrokeInput("0.01")!!, 0.001f)
+        assertEquals(500f, InsertShapeGeometry.parseStrokeInput("999")!!, 0.001f)
+        assertNull(InsertShapeGeometry.parseStrokeInput("abc"))
+
+        assertEquals("0.1", InsertShapeGeometry.formatStrokePx(0.1f))
+        assertEquals("1.5", InsertShapeGeometry.formatStrokePx(1.5f))
+        assertEquals("24", InsertShapeGeometry.formatStrokePx(24f))
     }
 
     @Test
-    fun specNamingAndLineConstraintsWorkCorrectly() {
-        val lineSpec = InsertShapeSpec(kind = InsertShapeKind.LINE, style = InsertShapeStyle.FILL)
-        assertEquals(InsertShapeStyle.OUTLINE, lineSpec.effectiveStyle)
-        assertFalse(lineSpec.supportsStyle)
-        assertFalse(lineSpec.supportsAspect)
+    fun compositeFillAndStrokeProducesExactTwoColorStraightRgba() {
+        // 3 pixels: [0]=empty, [1]=fill only, [2]=50% yellow stroke over 100% blue fill
+        val fillMask = byteArrayOf(0, 255.toByte(), 255.toByte())
+        val strokeMask = byteArrayOf(0, 0, 128.toByte())
+        val rgba = InsertShapeGeometry.compositeFillAndStrokeToStraightRgba(
+            fillMask = fillMask,
+            fillRgb = 0x0000FF,
+            fillOpacity = 1f,
+            strokeMask = strokeMask,
+            strokeRgb = 0xFFFF00,
+            strokeOpacity = 1f,
+            globalOpacity = 1f,
+        )
+        assertEquals(12, rgba.size)
+        // Pixel 0: transparent
+        assertEquals(0, rgba[3].toInt() and 0xFF)
+        // Pixel 1: exact blue fill
+        assertEquals(0, rgba[4].toInt() and 0xFF)
+        assertEquals(0, rgba[5].toInt() and 0xFF)
+        assertEquals(255, rgba[6].toInt() and 0xFF)
+        assertEquals(255, rgba[7].toInt() and 0xFF)
+        // Pixel 2: ~50% yellow over 100% blue -> opaque blend (R~128, G~128, B~127, A=255)
+        assertEquals(128, rgba[8].toInt() and 0xFF)
+        assertEquals(128, rgba[9].toInt() and 0xFF)
+        assertEquals(127, rgba[10].toInt() and 0xFF)
+        assertEquals(255, rgba[11].toInt() and 0xFF)
 
-        assertEquals("Square", InsertShapeSpec(kind = InsertShapeKind.RECTANGLE, aspect = InsertShapeAspect.SQUARE).layerName)
-        assertEquals("Rectangle", InsertShapeSpec(kind = InsertShapeKind.RECTANGLE, aspect = InsertShapeAspect.LANDSCAPE_4_3).layerName)
-        assertEquals("Circle", InsertShapeSpec(kind = InsertShapeKind.CIRCLE, aspect = InsertShapeAspect.SQUARE).layerName)
-        assertEquals("Ellipse", InsertShapeSpec(kind = InsertShapeKind.CIRCLE, aspect = InsertShapeAspect.WIDE_16_9).layerName)
-        assertEquals("Hexagon", InsertShapeSpec(kind = InsertShapeKind.POLYGON, polygonSides = 6).layerName)
-        assertEquals("Octagon", InsertShapeSpec(kind = InsertShapeKind.POLYGON, polygonSides = 8).layerName)
-        assertEquals("5-Point Star", InsertShapeSpec(kind = InsertShapeKind.STAR, starPoints = 5).layerName)
+        // Sub-pixel 0.1 px stroke alone keeps exact RGB even at low alpha coverage
+        val hairline = InsertShapeGeometry.compositeFillAndStrokeToStraightRgba(
+            fillMask = null,
+            fillRgb = 0,
+            fillOpacity = 0f,
+            strokeMask = byteArrayOf(26),
+            strokeRgb = 0xE84F51,
+            strokeOpacity = 1f,
+            globalOpacity = 1f,
+        )
+        assertEquals(0xE8, hairline[0].toInt() and 0xFF)
+        assertEquals(0x4F, hairline[1].toInt() and 0xFF)
+        assertEquals(0x51, hairline[2].toInt() and 0xFF)
+        assertEquals(26, hairline[3].toInt() and 0xFF)
+    }
+
+    @Test
+    fun fillAndStrokeTogglesPreventBlankShapeAndAutoContrastWorks() {
+        val strokeOnly = InsertShapeSpec(fillEnabled = true, strokeEnabled = false).withFillToggled(false)
+        assertFalse(strokeOnly.effectiveFillEnabled)
+        assertTrue(strokeOnly.effectiveStrokeEnabled)
+
+        val fillOnly = InsertShapeSpec(fillEnabled = false, strokeEnabled = true).withStrokeToggled(false)
+        assertTrue(fillOnly.effectiveFillEnabled)
+        assertFalse(fillOnly.effectiveStrokeEnabled)
+
+        val line = InsertShapeSpec(kind = InsertShapeKind.LINE, fillEnabled = true, strokeEnabled = false)
+        assertFalse(line.effectiveFillEnabled)
+        assertTrue(line.effectiveStrokeEnabled)
+        assertFalse(line.supportsFill)
+
+        // Auto-contrasting stroke: dark fill -> white stroke; light fill -> near-black stroke
+        assertEquals(0xFFFFFF, InsertShapeGeometry.contrastingStrokeRgb(0x101010))
+        assertEquals(0x141414, InsertShapeGeometry.contrastingStrokeRgb(0xF5F5F5))
+
+        val swapped = InsertShapeSpec(fillRgb = 0xFF0000, strokeRgb = 0x00FF00).withSwappedColors(0x000000)
+        assertEquals(0x00FF00, swapped.resolvedFillRgb(0x000000))
+        assertEquals(0xFF0000, swapped.resolvedStrokeRgb(0x000000))
+
+        assertEquals(0xFF5500, InsertShapeGeometry.parseHexRgb("#FF5500"))
+        assertEquals(0xFF5500, InsertShapeGeometry.parseHexRgb("F50"))
+        assertEquals("#0A1B2C", InsertShapeGeometry.formatHexRgb(0x0A1B2C))
+        assertNull(InsertShapeGeometry.parseHexRgb("ZZZZZZ"))
     }
 }

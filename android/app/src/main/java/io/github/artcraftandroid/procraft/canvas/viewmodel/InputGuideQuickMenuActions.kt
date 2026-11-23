@@ -282,6 +282,7 @@ internal fun CanvasViewModel.start(s: CanvasSession, dir: File, brushesLoaded: B
     applyColor()
     readSliders()
     refresh()
+    loadShapeLayers(dir)
     brushSets = s.brushLibrary()
     readLibraries()
     currentBrush = s.currentBrush()

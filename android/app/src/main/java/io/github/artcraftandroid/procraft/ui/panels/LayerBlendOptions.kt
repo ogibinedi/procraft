@@ -470,6 +470,7 @@ internal fun LayerOptions(open: Boolean, vm: CanvasViewModel, l: LayerInfo, rowY
             ) {
             Column(Modifier.width(194.dp).heightIn(min = 64.dp).clip(RoundedCornerShape(24.dp)).then(rememberFrost(24.dp)).background(tint).padding(vertical = 7.dp)) {
                 // the core's rows: each closes the menu, a switch's too (it shows ticked next time)
+                val editableShape = vm.isEditableShapeLayer(l.id)
                 for (r in rows) {
                     val act: () -> Unit = when (r.option) {
                         LayerOption.RENAME -> onRename
@@ -494,6 +495,10 @@ internal fun LayerOptions(open: Boolean, vm: CanvasViewModel, l: LayerInfo, rowY
                         LayerOption.MERGE_MASK -> { { vm.mergeMask(l) } }
                     }
                     Option(r.label, checked = r.switchOn, enabled = r.enabled, onClick = { act(); onDone() })
+                    if (editableShape && r.option == LayerOption.RENAME) {
+                        Option("Edit Shape", enabled = !l.locked, onClick = { onDone(); vm.openEditShape(l) })
+                        Option("Rasterize Shape", enabled = !l.locked, onClick = { vm.rasterizeShapeLayer(l); onDone() })
+                    }
                 }
                 for (action in actions) {
                     Option(action.label, onClick = { onDone(); vm.runPluginAction(action.key) })

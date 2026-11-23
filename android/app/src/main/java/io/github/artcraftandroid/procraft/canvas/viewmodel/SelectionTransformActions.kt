@@ -561,12 +561,37 @@ fun CanvasViewModel.toggleTransform() {
     transformPopup = TransformPopup.NONE
     refreshView()
     transforming = true
+    val currentId = layers.firstOrNull { it.current }?.id
+    val shapeRec = currentId?.let { shapeLayers[it] }
+    val snap = transformBox?.let { TransformSnapshot.fromBox(it.corners, it.width, it.height, it.angle) }
+    transformStartShape = if (currentId != null && shapeRec != null && snap != null) {
+        Triple(currentId, shapeRec, snap)
+    } else {
+        null
+    }
 }
 
 /** Ends transform: [commit] keeps the change as one undo step, otherwise the layer goes back. */
 fun CanvasViewModel.endTransform(commit: Boolean) {
     if (!transforming) return
+    val tracked = transformStartShape
+    val endBox = transformBox
+    val kind = transformKind
+    transformStartShape = null
     session?.transformEnd(commit)
+    if (commit && tracked != null) {
+        val (layerId, record, startSnap) = tracked
+        if (kind == TransformKind.DISTORT || kind == TransformKind.WARP) {
+            removeShapeLayerMeta(listOf(layerId))
+        } else {
+            val endSnap = endBox?.let { TransformSnapshot.fromBox(it.corners, it.width, it.height, it.angle) }
+            if (endSnap != null && layerId in shapeLayers) {
+                val updated = ShapePlacement.applyTransformDelta(record.placement, startSnap, endSnap)
+                shapeLayers = shapeLayers + (layerId to record.copy(placement = updated))
+                persistShapeLayers()
+            }
+        }
+    }
     transforming = false
     transformBox = null
     transformPopup = TransformPopup.NONE

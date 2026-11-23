@@ -470,7 +470,7 @@ fun LayersPanel(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier, 
                         bottomStart = if (index == shown.size - 1) ListCorner else 0.dp,
                         bottomEnd = if (index == shown.size - 1) ListCorner else 0.dp,
                     )
-                    layerItem(index, l, shape, 0.dp, null)
+                    layerItem(index, l, shape, 0.dp, if (vm.isEditableShapeLayer(l.id)) "Shape" else null)
                 }
             } else {
                 // on a model: each texture set headed by its name, its meshes under it; the open

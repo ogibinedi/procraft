@@ -915,6 +915,10 @@ fun CanvasViewModel.closeArtwork() {
     strokeSound.follow(null, false)
     s.detachProjection()
     val dir = artworkDir
+    val shapesToSave = shapeLayers
+    shapeLayers = emptyMap()
+    transformStartShape = null
+    closeInsertShapeSheet()
     // the gallery zooms out of the artwork's cell, the canvas fading away over it; the cell as
     // it will show, turned as the canvas is left
     val turns = s.shownTurns().toInt()
@@ -947,7 +951,10 @@ fun CanvasViewModel.closeArtwork() {
             withContext(Dispatchers.IO) {
                 // after the autosave's save under way, if one is
                 s.stopAutosave()
-                dir?.let { told(runCatching { s.save(it.path) }.map { true }) }
+                dir?.let {
+                    EditableShapeStore.save(it, shapesToSave)
+                    told(runCatching { s.save(it.path) }.map { true })
+                }
                 // its memory free at once, not when the object is collected
                 s.releaseCanvas()
                 // the frames it recorded made into one more video, their pictures then gone, as

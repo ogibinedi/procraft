@@ -396,7 +396,19 @@ fun CanvasViewModel.toggleLocked(l: LayerInfo) {
     if (done) showDone(said)
 }
 
-fun CanvasViewModel.duplicate(l: LayerInfo) = layerChange { if (it.duplicateLayer(l.id) == null) message = noRoom() }
+fun CanvasViewModel.duplicate(l: LayerInfo) {
+    var created: ULong? = null
+    layerChange {
+        created = it.duplicateLayer(l.id)
+        if (created == null) message = noRoom()
+    }
+    val newId = created
+    val existing = shapeLayers[l.id]
+    if (newId != null && existing != null) {
+        shapeLayers = shapeLayers + (newId to existing)
+        persistShapeLayers()
+    }
+}
 
 fun CanvasViewModel.delete(l: LayerInfo) {
     if (l.locked) {
@@ -404,9 +416,13 @@ fun CanvasViewModel.delete(l: LayerInfo) {
         return
     }
     layerChange { it.deleteLayer(l.id) }
+    removeShapeLayerMeta(listOf(l.id))
 }
 
-fun CanvasViewModel.mergeDown(l: LayerInfo) = layerChange { it.mergeDown(l.id) }
+fun CanvasViewModel.mergeDown(l: LayerInfo) {
+    layerChange { it.mergeDown(l.id) }
+    pruneShapeLayers()
+}
 
 fun CanvasViewModel.mergeMask(l: LayerInfo) = layerChange { it.mergeMask(l.id) }
 
@@ -453,9 +469,12 @@ fun CanvasViewModel.clearCurrentLayer() {
     }
 }
 
-fun CanvasViewModel.clear(l: LayerInfo) = layerChange {
-    it.selectLayer(l.id)
-    it.clearLayer()
+fun CanvasViewModel.clear(l: LayerInfo) {
+    layerChange {
+        it.selectLayer(l.id)
+        it.clearLayer()
+    }
+    removeShapeLayerMeta(listOf(l.id))
 }
 
 fun CanvasViewModel.rename(l: LayerInfo, name: String) = layerChange(thumbs = false) { it.renameLayer(l.id, name) }

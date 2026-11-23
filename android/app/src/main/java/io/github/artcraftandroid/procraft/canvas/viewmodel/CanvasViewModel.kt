@@ -299,20 +299,31 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
         changelogSheetOpen = false
     }
 
-    /** Full-screen Insert Shape sheet open over Canvas, preserving the user's last configuration. */
+    /** Full-screen Insert/Edit Shape sheet open over Canvas, plus persisted editable shape layers. */
     var insertShapeSheetOpen by mutableStateOf(false)
         internal set
     var insertShapeBusy by mutableStateOf(false)
         internal set
     var lastInsertShape by mutableStateOf(InsertShapeSpec())
         internal set
+    var editingShapeLayerId by mutableStateOf<ULong?>(null)
+        internal set
+    var editingShapeRecord by mutableStateOf<EditableShapeRecord?>(null)
+        internal set
+    var shapeLayers by mutableStateOf<Map<ULong, EditableShapeRecord>>(emptyMap())
+        internal set
+    internal var transformStartShape: Triple<ULong, EditableShapeRecord, TransformSnapshot>? = null
 
     fun openInsertShapeSheet() {
+        editingShapeLayerId = null
+        editingShapeRecord = null
         insertShapeSheetOpen = true
     }
 
     fun closeInsertShapeSheet() {
         insertShapeSheetOpen = false
+        editingShapeLayerId = null
+        editingShapeRecord = null
     }
 
     internal var updateDownloadJob: Job? = null
