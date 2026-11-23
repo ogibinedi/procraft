@@ -346,6 +346,10 @@ fun ActionsPanel(vm: CanvasViewModel, arrowX: Dp, modifier: Modifier = Modifier)
                         append("Based on ProCraft by ArtCraft Team & contributors (MIT / Apache-2.0)")
                     }
                 },
+                Act("Changelog", value = "v${versionName(context)}") {
+                    vm.closePanels()
+                    vm.openChangelogSheet()
+                },
                 Act("Check for Updates", value = vm.activeUpdateRelease()?.tagName) {
                     vm.closePanels()
                     vm.openUpdateSheet()

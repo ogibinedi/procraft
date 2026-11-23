@@ -68,6 +68,11 @@ fun AppRoot(vm: CanvasViewModel) {
                 enter = androidx.compose.animation.slideInVertically(Motion.studioIn()) { it },
                 exit = androidx.compose.animation.slideOutVertically(Motion.studioOut()) { it },
             ) { AppUpdateSheet(vm) { vm.closeUpdateSheet() } }
+            androidx.compose.animation.AnimatedVisibility(
+                vm.changelogSheetOpen,
+                enter = androidx.compose.animation.slideInVertically(Motion.studioIn()) { it },
+                exit = androidx.compose.animation.slideOutVertically(Motion.studioOut()) { it },
+            ) { ChangelogSheet { vm.closeChangelogSheet() } }
             // top-level external drawing tablet pointer over gallery, bars, panels, sheets, studios & dialogs
             TabletPointerOverlay(vm, rootOffset)
         }

@@ -164,7 +164,7 @@ fun GalleryScreen(vm: CanvasViewModel) {
     val photo = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let(vm::newFromPicture)
     }
-    if (vm.openStack != null && !selecting && !vm.trashOpen && !vm.backupOpen && !vm.updateSheetOpen) BackHandler { vm.showStack(null) }
+    if (vm.openStack != null && !selecting && !vm.trashOpen && !vm.backupOpen && !vm.updateSheetOpen && !vm.changelogSheetOpen) BackHandler { vm.showStack(null) }
     LaunchedEffect(Unit) { vm.maybeAutoCheckForUpdates() }
     val dragAllowed = io.github.artcraftandroid.procraft.gallery.canDragReorderGallery(vm.galleryQuery, vm.gallerySort)
     // the band kept clear of the status bar and camera in the gallery's own colour
@@ -837,6 +837,9 @@ fun GalleryScreen(vm: CanvasViewModel) {
                 onCheckUpdates = {
                     about = false
                     vm.openUpdateSheet()
+                },
+                onChangelog = {
+                    vm.openChangelogSheet()
                 },
             ) { about = false }
         }

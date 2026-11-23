@@ -287,6 +287,18 @@ class CanvasViewModel(internal val app: Application) : AndroidViewModel(app) {
     var updateSheetOpen by mutableStateOf(false)
         internal set
 
+    /** Full-screen Changelog sheet open over Gallery or Canvas. */
+    var changelogSheetOpen by mutableStateOf(false)
+        internal set
+
+    fun openChangelogSheet() {
+        changelogSheetOpen = true
+    }
+
+    fun closeChangelogSheet() {
+        changelogSheetOpen = false
+    }
+
     internal var updateDownloadJob: Job? = null
 
     @Volatile

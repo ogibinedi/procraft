@@ -607,6 +607,8 @@ fun CanvasViewModel.isUiCoveringCanvas(): Boolean =
         lightingStudioOpen ||
         canvasInfoOpen ||
         gestureControlsOpen ||
+        updateSheetOpen ||
+        changelogSheetOpen ||
         guideEditing ||
         copyPasteOpen ||
         quickMenuAt != null ||

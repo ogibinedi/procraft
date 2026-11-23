@@ -540,6 +540,7 @@ internal fun AboutApp(
     onRecover: () -> Unit,
     onBackup: () -> Unit = {},
     onCheckUpdates: () -> Unit = {},
+    onChangelog: () -> Unit = {},
     onClose: () -> Unit,
 ) {
     BackHandler(onBack = onClose)
@@ -608,6 +609,14 @@ internal fun AboutApp(
                 contentAlignment = Alignment.Center,
             ) {
                 Text("Check for Updates", color = AboutButtonInk, fontSize = 15.sp, maxLines = 1)
+            }
+            Spacer(Modifier.height(10.dp))
+            Box(
+                Modifier.size(220.dp, 44.dp).clip(RoundedCornerShape(10.dp))
+                    .background(AboutButtonFill).clickable(onClick = onChangelog),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("Changelog", color = AboutButtonInk, fontSize = 15.sp, maxLines = 1)
             }
         }
         Box(
