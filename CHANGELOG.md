@@ -2,6 +2,22 @@
 
 All notable changes in this Android Smartphone-focused fork (`ogibinedi/procraft`, maintained by **Igoy Creative Lab.**) are documented in this file.
 
+## [0.0.7-rc.3] - 2026-11-23 - Independent Fill/Stroke (0.1–500 px) & Editable Shape Layers
+
+### Added
+- **Independent Fill & Stroke Controls + Decimal `0.1–500 px` Stroke Width (`InsertShapeGeometry.kt`, `InsertShapeRenderer.kt`, `InsertShapeUi.kt`)**:
+  - Replaced single-style mode with independent **Fill** and **Stroke** toggles and separate color pickers (active brush match, canvas color history, 10 presets, HSV sliders, `#RRGGBB` hex input, and 1-tap **Swap colors**) so shapes can use Fill only, Stroke only, or two-color Fill & Stroke simultaneously.
+  - Added exact **Stroke size** control from **`0.1 px` to `500 px`** via a logarithmic slider, adaptive `−` / `+` precision steppers (`0.1 px` steps below `1 px`), and direct decimal keyboard input (supporting `.` and `,`, keyboard-safe via `rememberKeyboardReach()`).
+  - Upgraded shape rasterization to straight-alpha Porter-Duff `SRC_OVER` compositing of independent Fill and Stroke alpha masks for fringe-free `0.1 px` hairlines and sRGB / Display P3 channel fidelity.
+- **Editable Shape Layers (`EditableShapeStore.kt`, `InsertShapeRenderer.kt`, `LayersPanel.kt`, `LayerBlendOptions.kt`, `SelectionTransformActions.kt`, `AnimationLayerActions.kt`)**:
+  - Persisted shape specs and canvas-space placement (`centerX`, `centerY`, `width`, `height`, `rotationDegrees`) per artwork in `<artworkDir>/shapes.json` (included automatically in `.procraft-backup` and artwork duplication).
+  - Added a **`Shape`** subtitle badge in `LayersPanel` plus **`Edit Shape`** and **`Rasterize Shape`** options in the layer options menu, allowing Fill, Stroke, decimal size, corner radius, polygon sides, star points, opacity, and rotation to be re-edited sharply in place while preserving layer order, blend mode, opacity, clipping, alpha lock, reference, visibility, and custom layer names.
+  - Added Transform delta tracking (`TransformSnapshot` / `ShapePlacement.applyTransformDelta`) so moving, scaling, or rotating an Editable Shape Layer via ProCraft's native Transform tool keeps its placement synced for future edits (and automatically rasterizes metadata if distorted/warped).
+- **Unit Tests (`InsertShapeGeometryTest.kt`, `EditableShapeStoreTest.kt`)**:
+  - Expanded shape test coverage to 10 tests across both suites verifying logarithmic `0.1–500 px` stroke scaling, decimal dot/comma parsing, two-color straight-RGBA compositing, JSON sidecar persistence, Transform delta math, and rotated bounds (50 suites / 216 tests total, 0 failures).
+
+---
+
 ## [0.0.7-rc.2] - 2026-11-23 - Smartphone QuickShape Polish & Insert Shape Composer
 
 ### Added
