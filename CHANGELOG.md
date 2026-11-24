@@ -2,6 +2,21 @@
 
 All notable changes in this Android Smartphone-focused fork (`ogibinedi/procraft`, maintained by **Igoy Creative Lab.**) are documented in this file.
 
+## [0.0.7] - 2026-11-24 - In-App Changelog, Smartphone QuickShape Polish & Editable Shape Layers (Stable Release)
+
+Promotes all `v0.0.7-rc.1` through `v0.0.7-rc.3` milestones from `development` into `main`, plus the bundled `v0.0.7` stable entry in the offline in-app Changelog viewer.
+
+### Highlights
+- **Offline In-App Changelog Viewer (`AppChangelog.kt`, `ChangelogUi.kt`)**: Expandable per-version release history (`v0.0.1`–`v0.0.7`) accessible from **Gallery → About ProCraft** and **Canvas → Actions → Help**, supporting Dark/Light themes (WCAG AA contrast), **Expand all / Collapse all**, and a direct GitHub `CHANGELOG.md` link.
+- **Smartphone QuickShape Polish (`QuickShapeUi.kt`, `AppRoot.kt`, `PocketErgonomics.kt`)**: Responsive `>= 44dp` QuickShape bar with an explicit **Edit / Done** pill, horizontally scrollable choice strip that never clips on `320dp–430dp` screens, fixed Light Mode unselected chip contrast, enlarged high-contrast edit handles with dark halos, Android Back commit support, snap haptics, and 2nd-finger QuickShape lock documentation in **Gesture guide**.
+- **Insert Shape Composer & Editable Shape Layers (`InsertShapeGeometry.kt`, `InsertShapeRenderer.kt`, `EditableShapeStore.kt`, `InsertShapeUi.kt`, `LayersPanel.kt`, `LayerBlendOptions.kt`)**:
+  - 8 geometric shapes (*Rectangle*, *Rounded*, *Circle*, *Triangle*, *Polygon* 5–12 sides, *Star* 4–12 points + inner depth, *Arrow*, *Line*) via **Actions → Add → Insert shape** with live checkerboard preview.
+  - Independent **Fill** and **Stroke** toggles and color pickers (*Use Brush Color*, color history, 10 presets, HSV sliders, `#RRGGBB` input, and **Swap colors**), decimal **Stroke size `0.1–500 px`** (log slider, adaptive steppers, and direct decimal entry), and straight-RGBA8 Porter-Duff compositing.
+  - Persistent per-artwork `<artworkDir>/shapes.json` metadata with **`Shape`** layer subtitle, **`Edit Shape`** and **`Rasterize Shape`** options in Layers, and automatic **Transform** move/scale/rotate sync.
+- **Verification**: 50 unit test suites / 216 unit tests passing with 0 failures.
+
+---
+
 ## [0.0.7-rc.3] - 2026-11-23 - Independent Fill/Stroke (0.1–500 px) & Editable Shape Layers
 
 ### Added

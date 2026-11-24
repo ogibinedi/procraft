@@ -13,9 +13,9 @@ class AppChangelogTest {
     @Test
     fun catalogCoversInitialToLatestInDescendingSemVerOrder() {
         val releases = AppChangelog.releases
-        assertTrue("Expected at least 6 releases (v0.0.1 to v0.0.6)", releases.size >= 6)
+        assertTrue("Expected at least 7 releases (v0.0.1 to v0.0.7)", releases.size >= 7)
         assertEquals("0.0.1", releases.last().version)
-        assertEquals("0.0.6", releases.first().version)
+        assertEquals("0.0.7", releases.first().version)
 
         val seenVersions = mutableSetOf<String>()
         var previous: AppVersion? = null
@@ -67,16 +67,16 @@ class AppChangelogTest {
             AppChangelog.defaultExpandedVersions(installedVersion = "0.0.4"),
         )
         assertEquals(
-            setOf("0.0.6"),
-            AppChangelog.defaultExpandedVersions(installedVersion = "0.0.7-rc.1"),
+            setOf("0.0.7"),
+            AppChangelog.defaultExpandedVersions(installedVersion = "0.0.8-rc.1"),
         )
         assertEquals(
-            setOf("0.0.6"),
+            setOf("0.0.7"),
             AppChangelog.defaultExpandedVersions(installedVersion = ""),
         )
         assertEquals(
             emptySet<String>(),
-            AppChangelog.defaultExpandedVersions(items = emptyList(), installedVersion = "0.0.6"),
+            AppChangelog.defaultExpandedVersions(items = emptyList(), installedVersion = "0.0.7"),
         )
     }
 

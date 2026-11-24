@@ -31,6 +31,34 @@ data class ChangelogRelease(
 object AppChangelog {
     val releases: List<ChangelogRelease> = listOf(
         ChangelogRelease(
+            version = "0.0.7",
+            date = "Nov 24, 2026",
+            title = "In-App Changelog, QuickShape Polish & Editable Shape Layers",
+            sections = listOf(
+                ChangelogSection(
+                    ChangelogCategory.ADDED,
+                    listOf(
+                        "Offline expandable Changelog viewer (v0.0.1 to v0.0.7) accessible from Gallery About ProCraft and Canvas Actions -> Help.",
+                        "Insert Shape composer (Actions -> Add -> Insert shape) with live preview for 8 shapes: Rectangle, Rounded, Circle, Triangle, Polygon (5 to 12 sides), Star (4 to 12 points), Arrow, and Line.",
+                        "Independent Fill and Stroke toggles and color pickers (active brush match, color history, presets, HSV sliders, Hex input, and Swap colors) plus decimal stroke size from 0.1 px to 500 px.",
+                        "Editable Shape Layers with a Shape label in Layers, Edit Shape and Rasterize Shape options, persistent per-artwork metadata, and Transform position/size/rotation sync.",
+                    ),
+                ),
+                ChangelogSection(
+                    ChangelogCategory.IMPROVED,
+                    listOf(
+                        "Made QuickShape controls responsive for narrow smartphones (320dp to 430dp) with 44dp touch targets, an explicit Edit / Done pill, larger high-contrast edit handles, Android Back commit support, and 2nd-finger lock notes in the Gesture guide.",
+                    ),
+                ),
+                ChangelogSection(
+                    ChangelogCategory.FIXED,
+                    listOf(
+                        "Fixed unreadable white-on-white unselected QuickShape choice chips in Light Mode.",
+                    ),
+                ),
+            ),
+        ),
+        ChangelogRelease(
             version = "0.0.6",
             date = "Nov 23, 2026",
             title = "Floating Color Button Fix",
